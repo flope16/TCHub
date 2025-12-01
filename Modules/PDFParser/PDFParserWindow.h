@@ -1,20 +1,43 @@
 #pragma once
-#include <windows.h>
-#include <string>
 
-// Fen�tre de dialogue du module PDF Parser (Win32)
-class PDFParserWindow
+#include <QDialog>
+#include <QComboBox>
+#include <QLineEdit>
+#include <QPushButton>
+#include <QLabel>
+#include <QTextEdit>
+#include <QProgressBar>
+#include <QGroupBox>
+
+class PDFParserWindow : public QDialog
 {
+    Q_OBJECT
+
 public:
-    // Proc�dure de la bo�te de dialogue
-    static INT_PTR CALLBACK DialogProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam);
+    explicit PDFParserWindow(QWidget *parent = nullptr);
+    ~PDFParserWindow();
+
+private slots:
+    void onBrowseClicked();
+    void onParseClicked();
+    void onSupplierChanged(int index);
 
 private:
-    // M�thodes internes
-    static void OnInitDialog(HWND hDlg);
-    static void OnBrowseFile(HWND hDlg);
-    static void OnParsePdf(HWND hDlg);
-    static void UpdateStatus(HWND hDlg, const std::wstring& message);
-    static std::wstring GetSelectedFilePath(HWND hDlg);
-    static std::string GetSelectedSupplier(HWND hDlg);
+    void setupUi();
+    void applyModernStyle();
+    void updateStatus(const QString &message, bool isError = false);
+    void parsePdfFile();
+
+    // Widgets
+    QComboBox *supplierCombo;
+    QLineEdit *filePathEdit;
+    QPushButton *browseButton;
+    QPushButton *parseButton;
+    QPushButton *closeButton;
+    QTextEdit *statusText;
+    QProgressBar *progressBar;
+    QLabel *supplierLabel;
+    QLabel *fileLabel;
+    QGroupBox *configGroup;
+    QGroupBox *resultGroup;
 };
