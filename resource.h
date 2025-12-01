@@ -1,5 +1,8 @@
 #pragma once
 
+// Constante Windows standard
+#define IDC_STATIC -1
+
 // Fen�tre principale TC Hub
 #define IDD_MAIN_DIALOG        100
 #define IDC_BTN_PDFPARSER      101
