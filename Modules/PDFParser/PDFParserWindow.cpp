@@ -65,10 +65,11 @@ void PDFParserWindow::setupUi()
     QHBoxLayout *supplierLayout = new QHBoxLayout();
     supplierLabel = new QLabel("Fournisseur :", this);
     supplierLabel->setFixedWidth(100);
-    supplierLabel->setStyleSheet("QLabel { font-weight: bold; color: #2c3e50; }");
+    supplierLabel->setStyleSheet("QLabel { font-weight: bold; color: #2c3e50; background: transparent; padding: 5px; }");
 
     supplierCombo = new QComboBox(this);
     supplierCombo->setMinimumHeight(30);
+    supplierCombo->setFixedWidth(200);
 
     // Remplir avec les fournisseurs disponibles
     auto suppliers = ParserFactory::getSupportedSuppliers();
@@ -90,11 +91,11 @@ void PDFParserWindow::setupUi()
     QHBoxLayout *fileLayout = new QHBoxLayout();
     fileLabel = new QLabel("Fichier PDF :", this);
     fileLabel->setFixedWidth(100);
-    fileLabel->setStyleSheet("QLabel { font-weight: bold; color: #2c3e50; }");
+    fileLabel->setStyleSheet("QLabel { font-weight: bold; color: #2c3e50; background: transparent; padding: 5px; }");
 
     filePathEdit = new QLineEdit(this);
     filePathEdit->setPlaceholderText("Sélectionnez un fichier PDF...");
-    filePathEdit->setReadOnly(true);
+    filePathEdit->setReadOnly(false);  // Permettre de voir le texte
     filePathEdit->setMinimumHeight(30);
 
     browseButton = new QPushButton("Parcourir...", this);
@@ -398,8 +399,25 @@ void PDFParserWindow::parsePdfFile()
 
     if (lines.empty())
     {
-        QMessageBox::warning(this, "Avertissement", "Aucune ligne de produit n'a été trouvée dans le PDF");
-        updateStatus("⚠️ Aucune donnée extraite du PDF", true);
+        QString helpMessage = "Aucune ligne de produit n'a été trouvée dans le PDF.\n\n"
+                             "Solutions:\n"
+                             "1. Créez un fichier .txt avec le même nom que votre PDF\n"
+                             "   (copiez le texte du PDF dedans)\n\n"
+                             "2. Ou installez pdftotext:\n"
+                             "   - Téléchargez Poppler for Windows\n"
+                             "   - Ajoutez-le à votre PATH\n\n"
+                             "3. Vérifiez que le format du PDF correspond à Lindab\n"
+                             "   (doit contenir des lignes avec 'PCE')";
+
+        QMessageBox msgBox(this);
+        msgBox.setIcon(QMessageBox::Information);
+        msgBox.setWindowTitle("Aide - Extraction PDF");
+        msgBox.setText("Aucune donnée extraite");
+        msgBox.setInformativeText(helpMessage);
+        msgBox.setStandardButtons(QMessageBox::Ok);
+        msgBox.exec();
+
+        updateStatus("⚠️ Aucune donnée extraite - Voir les instructions ci-dessus", true);
         parseButton->setEnabled(true);
         browseButton->setEnabled(true);
         progressBar->setVisible(false);
