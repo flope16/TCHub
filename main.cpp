@@ -1,23 +1,18 @@
-#include "TCHub.h"
-#include <windows.h>
+#include "MainWindow.h"
+#include <QApplication>
 
-// Point d'entrée de l'application Windows
-int WINAPI wWinMain(
-    _In_ HINSTANCE hInstance,
-    _In_opt_ HINSTANCE hPrevInstance,
-    _In_ LPWSTR lpCmdLine,
-    _In_ int nShowCmd)
+int main(int argc, char *argv[])
 {
-    // Stocker l'instance pour l'utiliser dans les dialogues
-    TCHubApp::hInst = hInstance;
+    QApplication app(argc, argv);
 
-    // Lancer la fenêtre principale
-    DialogBox(
-        hInstance,
-        MAKEINTRESOURCE(IDD_MAIN_DIALOG),
-        nullptr,
-        TCHubApp::MainDlgProc
-    );
+    // Configuration de l'application
+    app.setApplicationName("TC Hub");
+    app.setOrganizationName("TC");
+    app.setApplicationVersion("1.0.0");
 
-    return 0;
+    // Créer et afficher la fenêtre principale
+    MainWindow mainWindow;
+    mainWindow.show();
+
+    return app.exec();
 }

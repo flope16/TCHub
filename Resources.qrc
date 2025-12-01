@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/">
+        <file>Resources/TCHub_logo.png</file>
+    </qresource>
+</RCC>
