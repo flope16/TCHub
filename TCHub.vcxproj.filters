@@ -1,0 +1,72 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Fichiers sources">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Fichiers d%27en-tête">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Fichiers de ressources">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Modules">
+      <UniqueIdentifier>{2a7e87f3-ba5c-48fc-a296-a6c27df37d04}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules\PDFParser">
+      <UniqueIdentifier>{4b3a388c-12d3-4051-bcc5-5d0574acf984}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules\DPGFMaker">
+      <UniqueIdentifier>{5e9a1a29-a92c-4135-9582-842a11fff791}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules\ExcelCracker">
+      <UniqueIdentifier>{fbfefc33-18b3-4d9a-b749-bf459269e97b}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="TCHub.rc">
+      <Filter>Fichiers de ressources</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="small.ico">
+      <Filter>Fichiers de ressources</Filter>
+    </Image>
+    <Image Include="TCHub.ico">
+      <Filter>Fichiers de ressources</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="TCHub.cpp">
+      <Filter>Fichiers sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Modules\PDFParser\PDFParserWindow.cpp">
+      <Filter>Modules\PDFParser</Filter>
+    </ClCompile>
+    <ClCompile Include="Modules\PDFParser\LindabPdfParser.cpp">
+      <Filter>Modules\PDFParser</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="TCHub.h">
+      <Filter>Fichiers d%27en-tête</Filter>
+    </ClInclude>
+    <ClInclude Include="Modules\PDFParser\PDFParserWindow.h">
+      <Filter>Modules\PDFParser</Filter>
+    </ClInclude>
+    <ClInclude Include="Modules\PDFParser\LindabPdfParser.h">
+      <Filter>Modules\PDFParser</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Fichiers d%27en-tête</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Modules\PDFParser\PDFParserWindow.ui">
+      <Filter>Modules\PDFParser</Filter>
+    </None>
+  </ItemGroup>
+</Project>

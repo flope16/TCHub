@@ -1,0 +1,33 @@
+.vs/
+x64/
+Debug/
+Release/
+*.obj
+*.pch
+*.pdb
+*.exe
+*.ilk
+*.idb
+*.OpenCover
+*.aps
+*.cache
+*.tlog
+*.ipch
+*.user
+*.VC.db
+*.VC.opendb
+*.ncb
+*.suo
+*.log
+
+# Qt uic/moc/temp
+*.qrc.dep
+*.moc
+*.uic
+*.rcc
+*_autogen/
+
+# CMake caches (si jamais un jour tu en remets)
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake

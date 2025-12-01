@@ -1,0 +1,2 @@
+QPushButton  -> objectName: btnSelectPdf, text: "Importer un PDF"
+QListWidget  -> objectName: listWidget

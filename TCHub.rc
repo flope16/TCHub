@@ -1,0 +1,26 @@
+#include "resource.h"
+#include <windows.h>
+
+/////////////////////////////////////////////////////////////////////////////
+// Fenêtre principale TC Hub
+
+IDD_MAIN_DIALOG DIALOGEX 0, 0, 260, 120
+STYLE DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "TC Hub"
+FONT 9, "Segoe UI", 0, 0, 0x1
+BEGIN
+    PUSHBUTTON "PDF Parser", IDC_BTN_PDFPARSER, 10, 10, 100, 25
+END
+
+/////////////////////////////////////////////////////////////////////////////
+// Fenêtre PDF Parser
+
+IDD_PDFPARSER_DIALOG DIALOGEX 0, 0, 300, 200
+STYLE DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "PDF Parser"
+FONT 9, "Segoe UI", 0, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON "Fermer", IDOK, 100, 160, 100, 25
+END
+
+/////////////////////////////////////////////////////////////////////////////
