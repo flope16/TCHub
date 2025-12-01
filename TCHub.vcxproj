@@ -112,6 +112,14 @@
       <AdditionalLibraryDirectories>C:\Qt\6.10.1\msvc2022_64\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>Qt6Cored.lib;Qt6Guid.lib;Qt6Widgetsd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Cored.dll" "$(OutDir)"
+xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Guid.dll" "$(OutDir)"
+xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Widgetsd.dll" "$(OutDir)"
+if not exist "$(OutDir)platforms\" mkdir "$(OutDir)platforms\"
+xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\plugins\platforms\qwindowsd.dll" "$(OutDir)platforms\"</Command>
+      <Message>Copie des DLL Qt nécessaires...</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -130,6 +138,14 @@
       <AdditionalLibraryDirectories>C:\Qt\6.10.1\msvc2022_64\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>Qt6Core.lib;Qt6Gui.lib;Qt6Widgets.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Core.dll" "$(OutDir)"
+xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Gui.dll" "$(OutDir)"
+xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Widgets.dll" "$(OutDir)"
+if not exist "$(OutDir)platforms\" mkdir "$(OutDir)platforms\"
+xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\plugins\platforms\qwindows.dll" "$(OutDir)platforms\"</Command>
+      <Message>Copie des DLL Qt nécessaires...</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ResourceCompile Include="TCHub.rc" />
