@@ -1,0 +1,39 @@
+#include "ParserFactory.h"
+#include "LindabPdfParser.h"
+#include <algorithm>
+
+std::unique_ptr<IPdfParser> ParserFactory::createParser(Supplier supplier)
+{
+    switch (supplier)
+    {
+    case Supplier::Lindab:
+        return std::make_unique<LindabPdfParser>();
+
+    // Ajouter d'autres cas ici pour de nouveaux fournisseurs
+    // case Supplier::Atlantic:
+    //     return std::make_unique<AtlanticPdfParser>();
+
+    default:
+        return nullptr;
+    }
+}
+
+std::vector<std::string> ParserFactory::getSupportedSuppliers()
+{
+    return {
+        "Lindab"
+        // Ajouter d'autres fournisseurs ici
+    };
+}
+
+Supplier ParserFactory::supplierFromString(const std::string& name)
+{
+    std::string lowerName = name;
+    std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(), ::tolower);
+
+    if (lowerName == "lindab")
+        return Supplier::Lindab;
+
+    // Par défaut, retourner Lindab
+    return Supplier::Lindab;
+}

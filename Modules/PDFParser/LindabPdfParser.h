@@ -1,18 +1,14 @@
 #pragma once
-#include <string>
-#include <vector>
+#include "IPdfParser.h"
 
-struct PdfLine
-{
-    std::string reference;
-    std::string designation;
-    double quantite = 0.0;
-    double prixHT = 0.0;
-    double montantHT = 0.0;
-};
-
-class LindabPdfParser
+class LindabPdfParser : public IPdfParser
 {
 public:
-    std::vector<PdfLine> parse(const std::string& filePath);
+    std::vector<PdfLine> parse(const std::string& filePath) override;
+    std::string getSupplierName() const override { return "Lindab"; }
+
+private:
+    // Méthodes privées pour le parsing spécifique Lindab
+    std::string extractText(const std::string& filePath);
+    std::vector<PdfLine> parseTextContent(const std::string& text);
 };

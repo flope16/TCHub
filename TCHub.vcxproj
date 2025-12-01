@@ -137,10 +137,15 @@
     <ClCompile Include="TCHub.cpp" />
     <ClCompile Include="Modules\PDFParser\LindabPdfParser.cpp" />
     <ClCompile Include="Modules\PDFParser\PDFParserWindow.cpp" />
+    <ClCompile Include="Modules\PDFParser\ParserFactory.cpp" />
+    <ClCompile Include="Modules\PDFParser\XlsxWriter.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Modules\PDFParser\IPdfParser.h" />
     <ClInclude Include="Modules\PDFParser\LindabPdfParser.h" />
     <ClInclude Include="Modules\PDFParser\PDFParserWindow.h" />
+    <ClInclude Include="Modules\PDFParser\ParserFactory.h" />
+    <ClInclude Include="Modules\PDFParser\XlsxWriter.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="TCHub.h" />
   </ItemGroup>

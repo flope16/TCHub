@@ -4,23 +4,48 @@
 /////////////////////////////////////////////////////////////////////////////
 // Fenêtre principale TC Hub
 
-IDD_MAIN_DIALOG DIALOGEX 0, 0, 260, 120
-STYLE DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "TC Hub"
-FONT 9, "Segoe UI", 0, 0, 0x1
+IDD_MAIN_DIALOG DIALOGEX 0, 0, 360, 220
+STYLE DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU | DS_CENTER
+CAPTION "TC Hub - Centre de modules"
+FONT 10, "Segoe UI", 0, 0, 0x1
 BEGIN
-    PUSHBUTTON "PDF Parser", IDC_BTN_PDFPARSER, 10, 10, 100, 25
+    LTEXT "Bienvenue dans TC Hub", IDC_STATIC, 10, 10, 340, 20, SS_CENTER | SS_CENTERIMAGE
+    CONTROL "", IDC_STATIC, "Static", SS_ETCHEDHORZ, 10, 35, 340, 1
+
+    GROUPBOX "Modules disponibles", IDC_STATIC, 10, 45, 340, 130
+
+    ICON IDI_APPLICATION, IDC_STATIC, 25, 65, 32, 32
+    LTEXT "PDF Parser", IDC_STATIC, 65, 65, 100, 12
+    LTEXT "Convertit les fichiers PDF fournisseurs en fichiers Excel structurés", IDC_STATIC, 65, 80, 210, 20
+    PUSHBUTTON "Ouvrir", IDC_BTN_PDFPARSER, 280, 65, 55, 25
+
+    // Placeholder pour futurs modules
+    LTEXT "D'autres modules seront ajoutés ici...", IDC_STATIC, 25, 120, 310, 12, SS_CENTER
+
+    PUSHBUTTON "Quitter", IDOK, 280, 185, 70, 25
 END
 
 /////////////////////////////////////////////////////////////////////////////
 // Fenêtre PDF Parser
 
-IDD_PDFPARSER_DIALOG DIALOGEX 0, 0, 300, 200
+IDD_PDFPARSER_DIALOG DIALOGEX 0, 0, 420, 250
 STYLE DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "PDF Parser"
+CAPTION "PDF Parser - Extraction de données"
 FONT 9, "Segoe UI", 0, 0, 0x1
 BEGIN
-    DEFPUSHBUTTON "Fermer", IDOK, 100, 160, 100, 25
+    LTEXT "Fournisseur :", IDC_STATIC_SUPPLIER, 10, 15, 60, 12
+    COMBOBOX IDC_COMBO_SUPPLIER, 80, 12, 120, 100, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+
+    LTEXT "Fichier PDF :", IDC_STATIC_FILE, 10, 45, 60, 12
+    EDITTEXT IDC_EDIT_FILEPATH, 80, 42, 240, 14, ES_AUTOHSCROLL | ES_READONLY
+    PUSHBUTTON "Parcourir...", IDC_BTN_BROWSE, 325, 40, 80, 18
+
+    PUSHBUTTON "Parser le PDF", IDC_BTN_PARSE, 160, 80, 100, 30, BS_DEFPUSHBUTTON
+
+    GROUPBOX "Résultat", IDC_STATIC, 10, 120, 400, 80
+    LTEXT "Prêt à parser un fichier PDF", IDC_STATIC_STATUS, 20, 140, 380, 50
+
+    PUSHBUTTON "Fermer", IDOK, 310, 215, 100, 25
 END
 
 /////////////////////////////////////////////////////////////////////////////
