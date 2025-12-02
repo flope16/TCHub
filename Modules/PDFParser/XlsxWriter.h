@@ -36,6 +36,9 @@ private:
     // Génère le contenu sharedStrings.xml
     static std::string generateSharedStringsXml(const std::vector<PdfLine>& lines);
 
+    // Génère un fichier SpreadsheetML (fallback si ZIP échoue)
+    static std::string generateSpreadsheetML(const std::vector<PdfLine>& lines);
+
     // Échappe les caractères spéciaux XML
     static std::string escapeXml(const std::string& str);
 };

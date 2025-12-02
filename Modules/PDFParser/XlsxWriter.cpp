@@ -4,6 +4,8 @@
 #include <iomanip>
 #include <filesystem>
 #include <cstdlib>
+#include <ctime>
+#include <windows.h>
 
 std::string XlsxWriter::escapeXml(const std::string& str)
 {
@@ -155,13 +157,22 @@ bool XlsxWriter::writeToXlsx(const std::string& outputPath, const std::vector<Pd
 {
     try
     {
+        // Debug: log de démarrage
+        std::string debugMsg = "[XlsxWriter] Début de génération XLSX : " + outputPath + "\n";
+        OutputDebugStringA(debugMsg.c_str());
+
         // Créer un dossier temporaire
         std::filesystem::path tempDir = std::filesystem::temp_directory_path() / ("xlsx_" + std::to_string(std::time(nullptr)));
+
+        OutputDebugStringA(("[XlsxWriter] Dossier temporaire : " + tempDir.string() + "\n").c_str());
+
         std::filesystem::create_directories(tempDir);
         std::filesystem::create_directories(tempDir / "_rels");
         std::filesystem::create_directories(tempDir / "xl");
         std::filesystem::create_directories(tempDir / "xl" / "_rels");
         std::filesystem::create_directories(tempDir / "xl" / "worksheets");
+
+        OutputDebugStringA("[XlsxWriter] Dossiers créés\n");
 
         // Écrire tous les fichiers XML
         auto writeFile = [](const std::filesystem::path& path, const std::string& content) {
@@ -172,29 +183,183 @@ bool XlsxWriter::writeToXlsx(const std::string& outputPath, const std::vector<Pd
             return true;
         };
 
-        if (!writeFile(tempDir / "[Content_Types].xml", generateContentTypesXml())) return false;
-        if (!writeFile(tempDir / "_rels" / ".rels", generateRelsXml())) return false;
-        if (!writeFile(tempDir / "xl" / "workbook.xml", generateWorkbookXml())) return false;
-        if (!writeFile(tempDir / "xl" / "_rels" / "workbook.xml.rels", generateWorkbookRelsXml())) return false;
-        if (!writeFile(tempDir / "xl" / "styles.xml", generateStylesXml())) return false;
-        if (!writeFile(tempDir / "xl" / "sharedStrings.xml", generateSharedStringsXml(lines))) return false;
-        if (!writeFile(tempDir / "xl" / "worksheets" / "sheet1.xml", generateSheetXml(lines))) return false;
+        if (!writeFile(tempDir / "[Content_Types].xml", generateContentTypesXml()))
+        {
+            OutputDebugStringA("[XlsxWriter] ERREUR: Échec écriture [Content_Types].xml\n");
+            return false;
+        }
+        if (!writeFile(tempDir / "_rels" / ".rels", generateRelsXml()))
+        {
+            OutputDebugStringA("[XlsxWriter] ERREUR: Échec écriture _rels/.rels\n");
+            return false;
+        }
+        if (!writeFile(tempDir / "xl" / "workbook.xml", generateWorkbookXml()))
+        {
+            OutputDebugStringA("[XlsxWriter] ERREUR: Échec écriture workbook.xml\n");
+            return false;
+        }
+        if (!writeFile(tempDir / "xl" / "_rels" / "workbook.xml.rels", generateWorkbookRelsXml()))
+        {
+            OutputDebugStringA("[XlsxWriter] ERREUR: Échec écriture workbook.xml.rels\n");
+            return false;
+        }
+        if (!writeFile(tempDir / "xl" / "styles.xml", generateStylesXml()))
+        {
+            OutputDebugStringA("[XlsxWriter] ERREUR: Échec écriture styles.xml\n");
+            return false;
+        }
+        if (!writeFile(tempDir / "xl" / "sharedStrings.xml", generateSharedStringsXml(lines)))
+        {
+            OutputDebugStringA("[XlsxWriter] ERREUR: Échec écriture sharedStrings.xml\n");
+            return false;
+        }
+        if (!writeFile(tempDir / "xl" / "worksheets" / "sheet1.xml", generateSheetXml(lines)))
+        {
+            OutputDebugStringA("[XlsxWriter] ERREUR: Échec écriture sheet1.xml\n");
+            return false;
+        }
+
+        OutputDebugStringA("[XlsxWriter] Tous les fichiers XML écrits\n");
 
         // Créer le ZIP avec PowerShell (Windows uniquement)
         std::filesystem::path absOutputPath = std::filesystem::absolute(outputPath);
-        std::string powershellCmd = "powershell -Command \"Compress-Archive -Path '" +
-            tempDir.string() + "\\*' -DestinationPath '" +
-            absOutputPath.string() + "' -Force\"";
+
+        // Supprimer le fichier de sortie s'il existe déjà
+        if (std::filesystem::exists(absOutputPath))
+        {
+            OutputDebugStringA("[XlsxWriter] Suppression du fichier existant\n");
+            std::filesystem::remove(absOutputPath);
+        }
+
+        // Construire la commande PowerShell avec échappement correct
+        std::string tempDirStr = tempDir.string();
+        std::string outputPathStr = absOutputPath.string();
+
+        // Remplacer les backslashes par des forward slashes pour PowerShell
+        std::replace(tempDirStr.begin(), tempDirStr.end(), '\\', '/');
+        std::replace(outputPathStr.begin(), outputPathStr.end(), '\\', '/');
+
+        std::string powershellCmd = "powershell -NoProfile -ExecutionPolicy Bypass -Command \"Compress-Archive -Path '" +
+            tempDirStr + "/*' -DestinationPath '" +
+            outputPathStr + "' -Force\"";
+
+        OutputDebugStringA(("[XlsxWriter] Commande ZIP : " + powershellCmd + "\n").c_str());
 
         int result = system(powershellCmd.c_str());
 
-        // Nettoyer le dossier temporaire
-        std::filesystem::remove_all(tempDir);
+        OutputDebugStringA(("[XlsxWriter] Résultat ZIP : " + std::to_string(result) + "\n").c_str());
 
-        return result == 0;
+        // Vérifier si le fichier a bien été créé
+        bool success = (result == 0) && std::filesystem::exists(absOutputPath);
+
+        if (!success)
+        {
+            OutputDebugStringA("[XlsxWriter] ERREUR: Fichier ZIP non créé, utilisation du fallback SpreadsheetML\n");
+
+            // FALLBACK: Utiliser le format SpreadsheetML (Excel 2003)
+            // Ce format est plus simple et ne nécessite pas de ZIP
+            try
+            {
+                std::string xmlContent = generateSpreadsheetML(lines);
+                std::ofstream file(absOutputPath, std::ios::binary);
+                if (file.is_open())
+                {
+                    file << xmlContent;
+                    file.close();
+                    success = true;
+                    OutputDebugStringA("[XlsxWriter] Fallback SpreadsheetML réussi\n");
+                }
+                else
+                {
+                    OutputDebugStringA("[XlsxWriter] ERREUR: Impossible d'écrire le fichier de fallback\n");
+                }
+            }
+            catch (const std::exception& e)
+            {
+                OutputDebugStringA(("[XlsxWriter] ERREUR fallback: " + std::string(e.what()) + "\n").c_str());
+            }
+        }
+        else
+        {
+            OutputDebugStringA("[XlsxWriter] Fichier ZIP créé avec succès\n");
+        }
+
+        // Nettoyer le dossier temporaire
+        try
+        {
+            std::filesystem::remove_all(tempDir);
+            OutputDebugStringA("[XlsxWriter] Dossier temporaire supprimé\n");
+        }
+        catch (...)
+        {
+            OutputDebugStringA("[XlsxWriter] ATTENTION: Échec suppression dossier temporaire\n");
+        }
+
+        return success;
+    }
+    catch (const std::exception& e)
+    {
+        std::string errorMsg = "[XlsxWriter] EXCEPTION: " + std::string(e.what()) + "\n";
+        OutputDebugStringA(errorMsg.c_str());
+        return false;
     }
     catch (...)
     {
+        OutputDebugStringA("[XlsxWriter] EXCEPTION inconnue\n");
         return false;
     }
+}
+
+std::string XlsxWriter::generateSpreadsheetML(const std::vector<PdfLine>& lines)
+{
+    std::ostringstream oss;
+
+    // En-tête XML pour Excel (format SpreadsheetML / Office 2003)
+    oss << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+    oss << "<?mso-application progid=\"Excel.Sheet\"?>\n";
+    oss << "<Workbook xmlns=\"urn:schemas-microsoft-com:office:spreadsheet\"\n";
+    oss << " xmlns:ss=\"urn:schemas-microsoft-com:office:spreadsheet\">\n";
+
+    // Styles
+    oss << " <Styles>\n";
+    oss << "  <Style ss:ID=\"Header\">\n";
+    oss << "   <Font ss:Bold=\"1\"/>\n";
+    oss << "   <Interior ss:Color=\"#4472C4\" ss:Pattern=\"Solid\"/>\n";
+    oss << "   <Font ss:Color=\"#FFFFFF\"/>\n";
+    oss << "  </Style>\n";
+    oss << "  <Style ss:ID=\"Currency\">\n";
+    oss << "   <NumberFormat ss:Format=\"#,##0.00\"/>\n";
+    oss << "  </Style>\n";
+    oss << " </Styles>\n";
+
+    // Feuille de calcul
+    oss << " <Worksheet ss:Name=\"Données\">\n";
+    oss << "  <Table>\n";
+
+    // En-têtes
+    oss << "   <Row>\n";
+    oss << "    <Cell ss:StyleID=\"Header\"><Data ss:Type=\"String\">Référence</Data></Cell>\n";
+    oss << "    <Cell ss:StyleID=\"Header\"><Data ss:Type=\"String\">Désignation</Data></Cell>\n";
+    oss << "    <Cell ss:StyleID=\"Header\"><Data ss:Type=\"String\">Quantité</Data></Cell>\n";
+    oss << "    <Cell ss:StyleID=\"Header\"><Data ss:Type=\"String\">Prix HT</Data></Cell>\n";
+    oss << "   </Row>\n";
+
+    // Données
+    for (const auto& line : lines)
+    {
+        oss << "   <Row>\n";
+        oss << "    <Cell><Data ss:Type=\"String\">" << escapeXml(line.reference) << "</Data></Cell>\n";
+        oss << "    <Cell><Data ss:Type=\"String\">" << escapeXml(line.designation) << "</Data></Cell>\n";
+        oss << "    <Cell ss:StyleID=\"Currency\"><Data ss:Type=\"Number\">"
+            << std::fixed << std::setprecision(2) << line.quantite << "</Data></Cell>\n";
+        oss << "    <Cell ss:StyleID=\"Currency\"><Data ss:Type=\"Number\">"
+            << std::fixed << std::setprecision(2) << line.prixHT << "</Data></Cell>\n";
+        oss << "   </Row>\n";
+    }
+
+    oss << "  </Table>\n";
+    oss << " </Worksheet>\n";
+    oss << "</Workbook>\n";
+
+    return oss.str();
 }
