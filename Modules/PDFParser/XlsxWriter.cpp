@@ -7,6 +7,50 @@
 #include <ctime>
 #include <windows.h>
 
+// Fonction helper pour exécuter une commande sans afficher de fenêtre
+static int executeCommandSilent(const std::string& command)
+{
+    STARTUPINFOA si;
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&si, sizeof(si));
+    si.cb = sizeof(si);
+    si.dwFlags = STARTF_USESHOWWINDOW;
+    si.wShowWindow = SW_HIDE;  // Cacher la fenêtre
+    ZeroMemory(&pi, sizeof(pi));
+
+    // Créer une copie modifiable de la commande
+    std::string cmdCopy = command;
+
+    // Créer le processus
+    if (!CreateProcessA(
+        NULL,                   // Nom de l'application
+        &cmdCopy[0],           // Ligne de commande (modifiable)
+        NULL,                   // Attributs de sécurité du processus
+        NULL,                   // Attributs de sécurité du thread
+        FALSE,                  // Héritage des handles
+        CREATE_NO_WINDOW,       // Drapeaux de création (pas de fenêtre)
+        NULL,                   // Environnement
+        NULL,                   // Répertoire courant
+        &si,                    // Informations de démarrage
+        &pi))                   // Informations du processus
+    {
+        return -1;  // Échec
+    }
+
+    // Attendre que le processus se termine
+    WaitForSingleObject(pi.hProcess, INFINITE);
+
+    // Récupérer le code de sortie
+    DWORD exitCode = 0;
+    GetExitCodeProcess(pi.hProcess, &exitCode);
+
+    // Fermer les handles
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+
+    return static_cast<int>(exitCode);
+}
+
 std::string XlsxWriter::escapeXml(const std::string& str)
 {
     std::string result;
@@ -245,7 +289,8 @@ bool XlsxWriter::writeToXlsx(const std::string& outputPath, const std::vector<Pd
 
         OutputDebugStringA(("[XlsxWriter] Commande ZIP : " + powershellCmd + "\n").c_str());
 
-        int result = system(powershellCmd.c_str());
+        // Exécuter PowerShell sans afficher de fenêtre
+        int result = executeCommandSilent(powershellCmd);
 
         OutputDebugStringA(("[XlsxWriter] Résultat ZIP : " + std::to_string(result) + "\n").c_str());
 
