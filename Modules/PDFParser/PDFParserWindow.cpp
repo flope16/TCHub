@@ -462,13 +462,25 @@ void PDFParserWindow::parsePdfFile()
 
     progressBar->setValue(100);
 
+    // Vérifier quel fichier a été créé (.xlsx ou .xml en fallback)
+    QString actualOutputPath = outputPath;
+    QFileInfo xlsxFile(outputPath);
+    QFileInfo xmlFile(fileInfo.absolutePath() + "/" + fileInfo.baseName() + ".xml");
+
+    if (!xlsxFile.exists() && xmlFile.exists())
+    {
+        // Le fallback a créé un fichier .xml
+        actualOutputPath = xmlFile.absoluteFilePath();
+        updateStatus("ℹ️ Note : Format SpreadsheetML (.xml) utilisé (ZIP non disponible)");
+    }
+
     // Succès
     QString successMsg = QString("✅ Succès !\n\n%1 lignes extraites\n\nFichier généré :\n%2")
                          .arg(lines.size())
-                         .arg(outputPath);
+                         .arg(actualOutputPath);
 
     updateStatus("🎉 Parsing terminé avec succès !");
-    updateStatus("📁 Fichier : " + outputPath);
+    updateStatus("📁 Fichier : " + actualOutputPath);
 
     QMessageBox::information(this, "Succès", successMsg);
 
