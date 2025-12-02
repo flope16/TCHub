@@ -2,6 +2,8 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <vector>
+#include <windows.h>
 
 // Définir USE_POPPLER si Poppler est disponible
 // Pour l'instant, on détecte à la compilation
@@ -49,7 +51,11 @@ std::string PopplerPdfExtractor::readWithPoppler(const std::string& pdfPath)
             }
         }
 
-        return result.str();
+        std::string extracted = result.str();
+
+        // Si Poppler ne retourne rien, ce n'est pas une vraie erreur
+        // Retourner la chaîne vide pour essayer les autres méthodes
+        return extracted;
     }
     catch (...)
     {
@@ -68,17 +74,54 @@ std::string PopplerPdfExtractor::extractTextFromPdf(const std::string& pdfPath)
         return "";
     }
 
-    // Essayer avec Poppler si disponible
+    // MÉTHODE 1 : Essayer pdftotext (utilitaire en ligne de commande de Poppler)
+    // C'est souvent plus robuste que l'API C++ pour certains PDFs
+    std::string tempTxt = std::filesystem::path(pdfPath).replace_extension(".poppler_temp.txt").string();
+
+    // Essayer plusieurs emplacements pour pdftotext
+    std::vector<std::string> pdftotext_paths = {
+        "C:\\Dev\\vcpkg\\installed\\x64-windows\\tools\\poppler\\pdftotext.exe",
+        "C:\\Dev\\vcpkg\\installed\\x64-windows\\bin\\pdftotext.exe",
+        "pdftotext"  // Dans le PATH
+    };
+
+    for (const auto& pdftotext_path : pdftotext_paths)
+    {
+        std::string command = "\"" + pdftotext_path + "\" -layout \"" + pdfPath + "\" \"" + tempTxt + "\" 2>nul";
+
+        if (system(command.c_str()) == 0 && std::filesystem::exists(tempTxt))
+        {
+            std::ifstream file(tempTxt);
+            if (file.is_open())
+            {
+                std::stringstream buffer;
+                buffer << file.rdbuf();
+                std::string text = buffer.str();
+                file.close();
+                std::filesystem::remove(tempTxt);
+
+                if (!text.empty())
+                {
+                    std::string msg = "[PopplerPdfExtractor] Extraction reussie avec pdftotext (" + pdftotext_path + ")\n";
+                    OutputDebugStringA(msg.c_str());
+                    return text;
+                }
+            }
+        }
+    }
+
+    // MÉTHODE 2 : Essayer avec l'API Poppler C++
     if (isPopplerAvailable())
     {
         std::string text = readWithPoppler(pdfPath);
         if (!text.empty())
         {
+            OutputDebugStringA("[PopplerPdfExtractor] Extraction reussie avec API Poppler C++\n");
             return text;
         }
     }
 
-    // Fallback: chercher un fichier .txt correspondant
+    // MÉTHODE 3 : Fallback vers fichier .txt existant
     std::filesystem::path txtPath = std::filesystem::path(pdfPath).replace_extension(".txt");
     if (std::filesystem::exists(txtPath))
     {
@@ -87,26 +130,15 @@ std::string PopplerPdfExtractor::extractTextFromPdf(const std::string& pdfPath)
         {
             std::stringstream buffer;
             buffer << file.rdbuf();
-            return buffer.str();
+            std::string text = buffer.str();
+            if (!text.empty())
+            {
+                OutputDebugStringA("[PopplerPdfExtractor] Extraction depuis fichier .txt existant\n");
+                return text;
+            }
         }
     }
 
-    // Fallback: essayer pdftotext en ligne de commande
-    std::string tempTxt = std::filesystem::path(pdfPath).replace_extension(".temp.txt").string();
-    std::string command = "pdftotext \"" + pdfPath + "\" \"" + tempTxt + "\" 2>nul";
-
-    if (system(command.c_str()) == 0 && std::filesystem::exists(tempTxt))
-    {
-        std::ifstream file(tempTxt);
-        if (file.is_open())
-        {
-            std::stringstream buffer;
-            buffer << file.rdbuf();
-            file.close();
-            std::filesystem::remove(tempTxt);
-            return buffer.str();
-        }
-    }
-
+    OutputDebugStringA("[PopplerPdfExtractor] ECHEC: Aucune methode n'a reussi a extraire du texte\n");
     return "";
 }
