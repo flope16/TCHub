@@ -44,10 +44,28 @@ std::string PopplerPdfExtractor::readWithPoppler(const std::string& pdfPath)
             std::unique_ptr<poppler::page> page(doc->create_page(i));
             if (page)
             {
-                poppler::ustring text = page->text();
+                // Méthode 1 : Essayer d'extraire avec le layout préservé (si disponible dans la version Poppler)
+                // Note: poppler::text_layout n'est pas toujours disponible dans toutes les versions
+                // On utilise page->text() avec le rectangle de la page entière
+                poppler::rectf pageRect(0, 0, page->page_rect().width(), page->page_rect().height());
+
+                // Extraire le texte de la page entière
+                // Cette méthode peut mieux préserver l'espacement et la mise en page
+                poppler::ustring text = page->text(pageRect);
+
                 // Utiliser UTF-8 pour préserver tous les caractères Unicode (accents, espaces insécables, etc.)
                 poppler::byte_array utf8_data = text.to_utf8();
-                result << std::string(utf8_data.begin(), utf8_data.end()) << "\n";
+                std::string pageText(utf8_data.begin(), utf8_data.end());
+
+                // Si le texte extrait est vide, essayer la méthode simple
+                if (pageText.empty())
+                {
+                    text = page->text();
+                    utf8_data = text.to_utf8();
+                    pageText = std::string(utf8_data.begin(), utf8_data.end());
+                }
+
+                result << pageText << "\n";
             }
         }
 
@@ -80,9 +98,11 @@ std::string PopplerPdfExtractor::extractTextFromPdf(const std::string& pdfPath)
 
     // Essayer plusieurs emplacements pour pdftotext
     std::vector<std::string> pdftotext_paths = {
+        "pdftotext",  // Dans le PATH (si ajouté)
         "C:\\Dev\\vcpkg\\installed\\x64-windows\\tools\\poppler\\pdftotext.exe",
         "C:\\Dev\\vcpkg\\installed\\x64-windows\\bin\\pdftotext.exe",
-        "pdftotext"  // Dans le PATH
+        ".\\pdftotext.exe",  // Dans le dossier de l'exécutable TCHub
+        "C:\\poppler-utils\\pdftotext.exe"  // Emplacement alternatif
     };
 
     for (const auto& pdftotext_path : pdftotext_paths)
