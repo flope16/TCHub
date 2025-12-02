@@ -137,6 +137,7 @@ xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\lzma.dll" "$(OutDir)" 2&gt;n
 xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\bz2.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\lcms2.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\libiconv.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\iconv-2.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\libintl.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\charset.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 echo Copie des DLL terminee!
@@ -186,6 +187,7 @@ xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\lzma.dll" "$(OutDir)" 2&gt;n
 xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\bz2.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\lcms2.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\libiconv.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\iconv-2.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\libintl.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\charset.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 echo Copie des DLL terminee!
