@@ -1,4 +1,5 @@
 #include "LindabPdfParser.h"
+#include "PopplerPdfExtractor.h"
 #include <fstream>
 #include <sstream>
 #include <regex>
@@ -6,65 +7,15 @@
 #include <filesystem>
 #include <windows.h>
 
-// NOTE: Cette version utilise pdftotext (poppler) ou cherche un fichier .txt correspondant
-// Pour une intégration complète, il faudrait intégrer directement une bibliothèque PDF
+// Version avec intégration Poppler pour extraction native du texte PDF
 
 std::string LindabPdfParser::extractText(const std::string& filePath)
 {
-    std::filesystem::path pdfPath(filePath);
-    std::filesystem::path txtPath = pdfPath.parent_path() / (pdfPath.stem().string() + ".txt");
-
-    // Méthode 1: Chercher un fichier .txt déjà extrait
-    if (std::filesystem::exists(txtPath))
-    {
-        std::ifstream file(txtPath);
-        if (file.is_open())
-        {
-            std::stringstream buffer;
-            buffer << file.rdbuf();
-            return buffer.str();
-        }
-    }
-
-    // Méthode 2: Essayer d'utiliser pdftotext (si installé)
-    std::string tempTxtPath = pdfPath.parent_path().string() + "\\temp_extract.txt";
-    std::string command = "pdftotext \"" + filePath + "\" \"" + tempTxtPath + "\" 2>nul";
-
-    int result = system(command.c_str());
-
-    if (result == 0 && std::filesystem::exists(tempTxtPath))
-    {
-        std::ifstream file(tempTxtPath);
-        if (file.is_open())
-        {
-            std::stringstream buffer;
-            buffer << file.rdbuf();
-            file.close();
-
-            // Supprimer le fichier temporaire
-            std::filesystem::remove(tempTxtPath);
-
-            return buffer.str();
-        }
-    }
-
-    // Méthode 3: Lire directement (ne fonctionnera pas pour un vrai PDF, mais utile pour les tests)
-    std::ifstream file(filePath, std::ios::binary);
-    if (!file.is_open())
-        return "";
-
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    std::string content = buffer.str();
-
-    // Si le contenu commence par %PDF, c'est un vrai PDF et on ne peut pas le lire comme du texte
-    if (content.find("%PDF") == 0)
-    {
-        // Retourner un message d'erreur plutôt qu'un contenu vide
-        return "ERREUR: PDF binaire détecté. Veuillez:\n1. Installer pdftotext (poppler-utils)\n2. Ou créer un fichier .txt à côté du PDF avec le même nom";
-    }
-
-    return content;
+    // Utiliser PopplerPdfExtractor qui gère automatiquement :
+    // 1. Extraction native avec Poppler si disponible
+    // 2. Fallback vers fichier .txt
+    // 3. Fallback vers pdftotext en ligne de commande
+    return PopplerPdfExtractor::extractTextFromPdf(filePath);
 }
 
 std::vector<PdfLine> LindabPdfParser::parseTextContent(const std::string& text)
