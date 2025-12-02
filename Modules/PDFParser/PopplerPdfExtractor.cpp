@@ -6,9 +6,9 @@
 // Définir USE_POPPLER si Poppler est disponible
 // Pour l'instant, on détecte à la compilation
 #ifdef USE_POPPLER
-#include <poppler-document.h>
-#include <poppler-page.h>
-#include <poppler-page-renderer.h>
+#include <poppler/cpp/poppler-document.h>
+#include <poppler/cpp/poppler-page.h>
+#include <poppler/cpp/poppler-page-renderer.h>
 #endif
 
 bool PopplerPdfExtractor::isPopplerAvailable()
