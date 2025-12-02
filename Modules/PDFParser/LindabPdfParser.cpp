@@ -17,11 +17,27 @@ std::string LindabPdfParser::extractText(const std::string& filePath)
     // 3. Fallback vers pdftotext en ligne de commande
     std::string text = PopplerPdfExtractor::extractTextFromPdf(filePath);
 
-    // Debug: afficher les 500 premiers caractères dans la console
+    // Debug: sauvegarder le texte extrait dans un fichier pour inspection
+    try
+    {
+        std::filesystem::path pdfPathObj(filePath);
+        std::filesystem::path debugPath = pdfPathObj.parent_path() / (pdfPathObj.stem().string() + "_extracted.txt");
+        std::ofstream debugFile(debugPath);
+        if (debugFile.is_open())
+        {
+            debugFile << text;
+            debugFile.close();
+            std::string debugMsg = "Texte extrait sauvegarde dans: " + debugPath.string() + "\n";
+            OutputDebugStringA(debugMsg.c_str());
+        }
+    }
+    catch (...) {}
+
+    // Debug: afficher les 1000 premiers caractères dans la console
     OutputDebugStringA("=== DEBUG EXTRACTION PDF ===\n");
     std::string debug = "Poppler disponible: " + std::string(PopplerPdfExtractor::isPopplerAvailable() ? "OUI" : "NON") + "\n";
     debug += "Texte extrait (" + std::to_string(text.length()) + " caracteres):\n";
-    size_t previewLength = text.length() < 500 ? text.length() : 500;
+    size_t previewLength = text.length() < 1000 ? text.length() : 1000;
     debug += text.substr(0, previewLength) + "\n";
     debug += "=== FIN DEBUG ===\n";
     OutputDebugStringA(debug.c_str());
@@ -66,20 +82,20 @@ std::vector<PdfLine> LindabPdfParser::parseTextContent(const std::string& text)
             OutputDebugStringA(debugLine.c_str());
         }
 
-        // Pattern pour extraire: Référence, Qté, Prix, Montant
-        // Format: numéro_ligne référence ... qté PCE prix montant
-        std::regex fullPattern(R"(\s*(\d+)\s+(\d{6})\s+(.*?)\s+([\d,]+)\s+PCE\s+([\d,]+)\s+([\d,]+)\s*$)");
+        // Essayer d'extraire les données avec un pattern flexible
+        // Chercher: [numéro optionnel] référence (4-6 chiffres) description qté PCE prix montant
+        std::regex flexPattern(R"((?:\d+\s+)?(\d{4,6})\s+(.*?)\s+([\d,\.]+)\s+PCE\s+([\d,\.]+)\s+([\d,\.]+)\s*$)");
         std::smatch match;
 
-        if (std::regex_search(line, match, fullPattern) && match.size() >= 7)
+        if (std::regex_search(line, match, flexPattern) && match.size() >= 6)
         {
             PdfLine pdfLine;
 
-            // Référence (groupe 2)
-            pdfLine.reference = match[2].str();
+            // Référence (groupe 1)
+            pdfLine.reference = match[1].str();
 
-            // Désignation (groupe 3) - nettoyer
-            std::string rawDesig = match[3].str();
+            // Désignation (groupe 2) - nettoyer
+            std::string rawDesig = match[2].str();
 
             // Extraire juste la partie texte descriptive avant les dimensions
             std::regex desigPattern(R"((.*?)\s+\d+\s+\d+\s+\w+\s*)");
@@ -97,18 +113,18 @@ std::vector<PdfLine> LindabPdfParser::parseTextContent(const std::string& text)
             pdfLine.designation.erase(0, pdfLine.designation.find_first_not_of(" \t"));
             pdfLine.designation.erase(pdfLine.designation.find_last_not_of(" \t") + 1);
 
-            // Quantité (groupe 4)
-            std::string qteStr = match[4].str();
+            // Quantité (groupe 3)
+            std::string qteStr = match[3].str();
             std::replace(qteStr.begin(), qteStr.end(), ',', '.');
             pdfLine.quantite = std::stod(qteStr);
 
-            // Prix HT (groupe 5)
-            std::string prixStr = match[5].str();
+            // Prix HT (groupe 4)
+            std::string prixStr = match[4].str();
             std::replace(prixStr.begin(), prixStr.end(), ',', '.');
             pdfLine.prixHT = std::stod(prixStr);
 
-            // Montant HT (groupe 6)
-            std::string montantStr = match[6].str();
+            // Montant HT (groupe 5)
+            std::string montantStr = match[5].str();
             std::replace(montantStr.begin(), montantStr.end(), ',', '.');
             pdfLine.montantHT = std::stod(montantStr);
 
