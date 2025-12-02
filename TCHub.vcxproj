@@ -113,12 +113,34 @@
       <AdditionalDependencies>Qt6Cored.lib;Qt6Guid.lib;Qt6Widgetsd.lib;poppler-cpp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Cored.dll" "$(OutDir)"
+      <Command>echo Copie des DLL Qt Debug...
+xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Cored.dll" "$(OutDir)"
 xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Guid.dll" "$(OutDir)"
 xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Widgetsd.dll" "$(OutDir)"
+xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Networkd.dll" "$(OutDir)" 2&gt;nul
+xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Pdfd.dll" "$(OutDir)" 2&gt;nul
+echo Copie des plugins Qt...
 if not exist "$(OutDir)platforms\" mkdir "$(OutDir)platforms\"
-xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\plugins\platforms\qwindowsd.dll" "$(OutDir)platforms\"</Command>
-      <Message>Copie des DLL Qt nécessaires...</Message>
+xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\plugins\platforms\qwindowsd.dll" "$(OutDir)platforms\"
+if not exist "$(OutDir)imageformats\" mkdir "$(OutDir)imageformats\"
+xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\plugins\imageformats\*.dll" "$(OutDir)imageformats\" 2&gt;nul
+echo Copie des DLL Poppler et dependances...
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\poppler-cpp.dll" "$(OutDir)" 2&gt;nul
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\poppler.dll" "$(OutDir)" 2&gt;nul
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\freetype.dll" "$(OutDir)" 2&gt;nul
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\zlib1.dll" "$(OutDir)" 2&gt;nul
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\jpeg62.dll" "$(OutDir)" 2&gt;nul
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\libpng16.dll" "$(OutDir)" 2&gt;nul
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\openjp2.dll" "$(OutDir)" 2&gt;nul
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\tiff.dll" "$(OutDir)" 2&gt;nul
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\lzma.dll" "$(OutDir)" 2&gt;nul
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\bz2.dll" "$(OutDir)" 2&gt;nul
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\lcms2.dll" "$(OutDir)" 2&gt;nul
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\libiconv.dll" "$(OutDir)" 2&gt;nul
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\libintl.dll" "$(OutDir)" 2&gt;nul
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\charset.dll" "$(OutDir)" 2&gt;nul
+echo Copie des DLL terminee!</Command>
+      <Message>Copie automatique des DLL Qt et Poppler (Debug)...</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -139,12 +161,34 @@ xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\plugins\platforms\qwindowsd.dll" "$(OutDir
       <AdditionalDependencies>Qt6Core.lib;Qt6Gui.lib;Qt6Widgets.lib;poppler-cpp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Core.dll" "$(OutDir)"
+      <Command>echo Copie des DLL Qt Release...
+xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Core.dll" "$(OutDir)"
 xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Gui.dll" "$(OutDir)"
 xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Widgets.dll" "$(OutDir)"
+xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Network.dll" "$(OutDir)" 2&gt;nul
+xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Pdf.dll" "$(OutDir)" 2&gt;nul
+echo Copie des plugins Qt...
 if not exist "$(OutDir)platforms\" mkdir "$(OutDir)platforms\"
-xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\plugins\platforms\qwindows.dll" "$(OutDir)platforms\"</Command>
-      <Message>Copie des DLL Qt nécessaires...</Message>
+xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\plugins\platforms\qwindows.dll" "$(OutDir)platforms\"
+if not exist "$(OutDir)imageformats\" mkdir "$(OutDir)imageformats\"
+xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\plugins\imageformats\*.dll" "$(OutDir)imageformats\" 2&gt;nul
+echo Copie des DLL Poppler et dependances...
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\poppler-cpp.dll" "$(OutDir)" 2&gt;nul
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\poppler.dll" "$(OutDir)" 2&gt;nul
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\freetype.dll" "$(OutDir)" 2&gt;nul
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\zlib1.dll" "$(OutDir)" 2&gt;nul
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\jpeg62.dll" "$(OutDir)" 2&gt;nul
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\libpng16.dll" "$(OutDir)" 2&gt;nul
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\openjp2.dll" "$(OutDir)" 2&gt;nul
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\tiff.dll" "$(OutDir)" 2&gt;nul
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\lzma.dll" "$(OutDir)" 2&gt;nul
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\bz2.dll" "$(OutDir)" 2&gt;nul
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\lcms2.dll" "$(OutDir)" 2&gt;nul
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\libiconv.dll" "$(OutDir)" 2&gt;nul
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\libintl.dll" "$(OutDir)" 2&gt;nul
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\charset.dll" "$(OutDir)" 2&gt;nul
+echo Copie des DLL terminee!</Command>
+      <Message>Copie automatique des DLL Qt et Poppler (Release)...</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
