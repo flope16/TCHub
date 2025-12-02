@@ -45,6 +45,17 @@ std::string LindabPdfParser::extractText(const std::string& filePath)
     return text;
 }
 
+// Fonction helper pour parser un nombre au format français (virgule décimale)
+static double parseFrenchNumber(const std::string& str)
+{
+    std::string cleaned = str;
+    // Supprimer les espaces
+    cleaned.erase(std::remove(cleaned.begin(), cleaned.end(), ' '), cleaned.end());
+    // Remplacer virgule par point
+    std::replace(cleaned.begin(), cleaned.end(), ',', '.');
+    return std::stod(cleaned);
+}
+
 std::vector<PdfLine> LindabPdfParser::parseTextContent(const std::string& text)
 {
     std::vector<PdfLine> lines;
@@ -52,123 +63,162 @@ std::vector<PdfLine> LindabPdfParser::parseTextContent(const std::string& text)
     // Vérifier si c'est un message d'erreur
     if (text.find("ERREUR:") == 0)
     {
-        // Retourner une liste vide, l'erreur sera gérée par l'appelant
         return lines;
     }
 
-    // Expression régulière pour capturer les lignes de produits Lindab
-    // Format: Ligne N° Désignation Qté PCE Prix Montant
-    // Exemple: "1 224931 SR 200 3000 GALV Conduit... 10,00 PCE 18,90 188,99"
+    // Parser multi-lignes adapté à la structure réelle Lindab
+    // Format observé :
+    //   Ligne 1 : "1         224931             SR               200 3000 GALV"
+    //   Lignes suivantes : désignation multi-lignes
+    //   Ligne PCE : "10,00  PCE                                             18,90                    188,99"
+    //   Ligne fin : "Date de réception                  14/11/2025"
 
     std::istringstream stream(text);
     std::string line;
-    int pceLineCount = 0;
     int totalLineCount = 0;
+    int pceLineCount = 0;
+
+    // État du parsing
+    bool inProduct = false;
+    std::string currentRef;
+    std::string currentDesig;
+
+    // Regex pour détecter l'en-tête d'un article : "1 224931 SR 200 3000 GALV"
+    // Format : <numéro ligne> <référence (6 chiffres)> <reste>
+    std::regex headerPattern(R"(^\s*(\d+)\s+(\d{6})\b)");
+
+    // Regex pour extraire les données de la ligne PCE
+    // Format : "10,00  PCE                 18,90                    188,99"
+    std::regex pcePattern(R"((-?\d+,\d{2})\s*PCE\s+(-?\d+,\d{2})\s+(-?\d+,\d{2}))");
 
     while (std::getline(stream, line))
     {
         totalLineCount++;
 
-        // Debug: chercher les lignes qui ont PCE (indicateur de ligne de produit)
-        if (line.find("PCE") == std::string::npos)
+        // Nettoyer les espaces en début/fin
+        std::string stripped = line;
+        stripped.erase(0, stripped.find_first_not_of(" \t\r\n"));
+        stripped.erase(stripped.find_last_not_of(" \t\r\n") + 1);
+
+        if (stripped.empty())
             continue;
 
-        pceLineCount++;
-
-        // Debug: afficher les 5 premières lignes avec PCE
-        if (pceLineCount <= 5)
+        // 1. Détecter le début d'un nouvel article
+        std::smatch headerMatch;
+        if (std::regex_search(stripped, headerMatch, headerPattern))
         {
-            std::string debugLine = "Ligne avec PCE #" + std::to_string(pceLineCount) + ": " + line + "\n";
-            OutputDebugStringA(debugLine.c_str());
+            // Si on était dans un produit précédent, on le finalise (rare mais possible)
+            if (inProduct && !currentRef.empty())
+            {
+                // Produit incomplet sans ligne PCE, on l'ignore
+                OutputDebugStringA(("ATTENTION: Article " + currentRef + " sans ligne PCE\n").c_str());
+            }
+
+            // Nouveau produit
+            currentRef = headerMatch[2].str();
+            inProduct = true;
+            currentDesig.clear();
+
+            // La première ligne contient aussi le début de la désignation (après la référence)
+            size_t refPos = stripped.find(currentRef);
+            if (refPos != std::string::npos)
+            {
+                std::string remainder = stripped.substr(refPos + currentRef.length());
+                remainder.erase(0, remainder.find_first_not_of(" \t"));
+                if (!remainder.empty())
+                {
+                    currentDesig = remainder;
+                }
+            }
+
+            continue;
         }
 
-        // Essayer d'extraire les données avec un pattern flexible
-        // Chercher: [numéro optionnel] référence (4-6 chiffres) description qté PCE prix montant
-        std::regex flexPattern(R"((?:\d+\s+)?(\d{4,6})\s+(.*?)\s+([\d,\.]+)\s+PCE\s+([\d,\.]+)\s+([\d,\.]+)\s*$)");
-        std::smatch match;
-
-        if (std::regex_search(line, match, flexPattern) && match.size() >= 6)
+        // 2. Si on est dans un produit, chercher la ligne PCE
+        if (inProduct)
         {
-            PdfLine pdfLine;
-
-            // Référence (groupe 1)
-            pdfLine.reference = match[1].str();
-
-            // Désignation (groupe 2) - nettoyer
-            std::string rawDesig = match[2].str();
-
-            // Extraire juste la partie texte descriptive avant les dimensions
-            std::regex desigPattern(R"((.*?)\s+\d+\s+\d+\s+\w+\s*)");
-            std::smatch desigMatch;
-            if (std::regex_search(rawDesig, desigMatch, desigPattern))
+            // Fin de bloc produit ?
+            if (stripped.find("Date de réception") != std::string::npos ||
+                stripped.find("Date de r") != std::string::npos)
             {
-                pdfLine.designation = desigMatch[1].str();
-            }
-            else
-            {
-                pdfLine.designation = rawDesig;
+                // Fin du bloc produit (sans ligne PCE trouvée avant)
+                inProduct = false;
+                currentRef.clear();
+                currentDesig.clear();
+                continue;
             }
 
-            // Nettoyer les espaces
-            pdfLine.designation.erase(0, pdfLine.designation.find_first_not_of(" \t"));
-            pdfLine.designation.erase(pdfLine.designation.find_last_not_of(" \t") + 1);
-
-            // Quantité (groupe 3)
-            std::string qteStr = match[3].str();
-            std::replace(qteStr.begin(), qteStr.end(), ',', '.');
-            pdfLine.quantite = std::stod(qteStr);
-
-            // Prix HT (groupe 4)
-            std::string prixStr = match[4].str();
-            std::replace(prixStr.begin(), prixStr.end(), ',', '.');
-            pdfLine.prixHT = std::stod(prixStr);
-
-            // Montant HT (groupe 5)
-            std::string montantStr = match[5].str();
-            std::replace(montantStr.begin(), montantStr.end(), ',', '.');
-            pdfLine.montantHT = std::stod(montantStr);
-
-            // Ajouter si valide
-            if (!pdfLine.reference.empty() && pdfLine.quantite > 0)
+            // Ligne PCE ?
+            std::smatch pceMatch;
+            if (std::regex_search(stripped, pceMatch, pcePattern))
             {
-                lines.push_back(pdfLine);
+                pceLineCount++;
+
+                // Debug: afficher les 5 premières lignes avec PCE
+                if (pceLineCount <= 5)
+                {
+                    std::string debugLine = "Ligne avec PCE #" + std::to_string(pceLineCount) + ": " + stripped + "\n";
+                    OutputDebugStringA(debugLine.c_str());
+                }
+
+                try
+                {
+                    double quantite = parseFrenchNumber(pceMatch[1].str());
+                    double prixHT = parseFrenchNumber(pceMatch[2].str());
+                    double montantHT = parseFrenchNumber(pceMatch[3].str());
+
+                    // Ignorer les lignes avec quantité négative ou nulle (remises)
+                    if (quantite > 0)
+                    {
+                        PdfLine pdfLine;
+                        pdfLine.reference = currentRef;
+                        pdfLine.designation = currentDesig;
+                        pdfLine.quantite = quantite;
+                        pdfLine.prixHT = prixHT;
+                        pdfLine.montantHT = montantHT;
+
+                        // Nettoyer la désignation
+                        pdfLine.designation.erase(0, pdfLine.designation.find_first_not_of(" \t"));
+                        pdfLine.designation.erase(pdfLine.designation.find_last_not_of(" \t") + 1);
+
+                        if (!pdfLine.reference.empty())
+                        {
+                            lines.push_back(pdfLine);
+                        }
+                    }
+                    else
+                    {
+                        OutputDebugStringA(("Ignoré: Article " + currentRef + " avec quantité négative/nulle\n").c_str());
+                    }
+                }
+                catch (const std::exception& e)
+                {
+                    OutputDebugStringA(("ERREUR parsing PCE: " + std::string(e.what()) + "\n").c_str());
+                }
+
+                // Reset après avoir trouvé la ligne PCE
+                inProduct = false;
+                currentRef.clear();
+                currentDesig.clear();
+                continue;
             }
-        }
-        else
-        {
-            // Essayer un pattern simplifié pour les lignes problématiques
-            std::regex simplePattern(R"((\d{6})\s+.+\s+([\d,]+)\s+PCE\s+([\d,]+)\s+([\d,]+))");
-            std::smatch simpleMatch;
 
-            if (std::regex_search(line, simpleMatch, simplePattern) && simpleMatch.size() >= 5)
+            // Sinon, c'est une ligne de désignation à accumuler
+            if (!stripped.empty())
             {
-                PdfLine pdfLine;
-                pdfLine.reference = simpleMatch[1].str();
-                pdfLine.designation = "Article " + pdfLine.reference;
-
-                std::string qteStr = simpleMatch[2].str();
-                std::replace(qteStr.begin(), qteStr.end(), ',', '.');
-                pdfLine.quantite = std::stod(qteStr);
-
-                std::string prixStr = simpleMatch[3].str();
-                std::replace(prixStr.begin(), prixStr.end(), ',', '.');
-                pdfLine.prixHT = std::stod(prixStr);
-
-                std::string montantStr = simpleMatch[4].str();
-                std::replace(montantStr.begin(), montantStr.end(), ',', '.');
-                pdfLine.montantHT = std::stod(montantStr);
-
-                lines.push_back(pdfLine);
+                if (!currentDesig.empty())
+                    currentDesig += " ";
+                currentDesig += stripped;
             }
         }
     }
 
     // Debug final
-    std::string debugSummary = "=== RESUME PARSING ===\n";
-    debugSummary += "Lignes totales: " + std::to_string(totalLineCount) + "\n";
-    debugSummary += "Lignes avec PCE: " + std::to_string(pceLineCount) + "\n";
-    debugSummary += "Produits extraits: " + std::to_string(lines.size()) + "\n";
-    debugSummary += "===================\n";
+    std::string debugSummary = "=== RESUME PARSING LINDAB ===\n";
+    debugSummary += "Lignes totales texte : " + std::to_string(totalLineCount) + "\n";
+    debugSummary += "Lignes avec PCE : " + std::to_string(pceLineCount) + "\n";
+    debugSummary += "Produits extraits : " + std::to_string(lines.size()) + "\n";
+    debugSummary += "==============================\n";
     OutputDebugStringA(debugSummary.c_str());
 
     return lines;
