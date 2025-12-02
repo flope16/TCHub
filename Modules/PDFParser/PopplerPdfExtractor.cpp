@@ -43,7 +43,9 @@ std::string PopplerPdfExtractor::readWithPoppler(const std::string& pdfPath)
             if (page)
             {
                 poppler::ustring text = page->text();
-                result << text.to_latin1() << "\n";
+                // Utiliser UTF-8 pour préserver tous les caractères Unicode (accents, espaces insécables, etc.)
+                poppler::byte_array utf8_data = text.to_utf8();
+                result << std::string(utf8_data.begin(), utf8_data.end()) << "\n";
             }
         }
 
