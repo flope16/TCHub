@@ -212,6 +212,7 @@ void PDFParserWindow::applyModernStyle()
 
         QComboBox {
             background-color: white;
+            color: #2c3e50;
             border: 1px solid #bdc3c7;
             border-radius: 4px;
             padding: 5px;
@@ -235,8 +236,16 @@ void PDFParserWindow::applyModernStyle()
             margin-right: 10px;
         }
 
+        QComboBox QAbstractItemView {
+            background-color: white;
+            color: #2c3e50;
+            selection-background-color: #3498db;
+            selection-color: white;
+        }
+
         QLineEdit {
             background-color: white;
+            color: #2c3e50;
             border: 1px solid #bdc3c7;
             border-radius: 4px;
             padding: 5px 10px;
@@ -245,6 +254,14 @@ void PDFParserWindow::applyModernStyle()
 
         QLineEdit:focus {
             border: 1px solid #3498db;
+        }
+
+        QMessageBox {
+            background-color: white;
+        }
+
+        QMessageBox QLabel {
+            color: #2c3e50;
         }
 
         QPushButton {

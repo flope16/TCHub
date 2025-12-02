@@ -100,17 +100,17 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_WINDOWS;QT_WIDGETS_LIB;QT_GUI_LIB;QT_CORE_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_WINDOWS;QT_WIDGETS_LIB;QT_GUI_LIB;QT_CORE_LIB;USE_POPPLER;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>C:\Qt\6.10.1\msvc2022_64\include;C:\Qt\6.10.1\msvc2022_64\include\QtWidgets;C:\Qt\6.10.1\msvc2022_64\include\QtGui;C:\Qt\6.10.1\msvc2022_64\include\QtCore;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Qt\6.10.1\msvc2022_64\include;C:\Qt\6.10.1\msvc2022_64\include\QtWidgets;C:\Qt\6.10.1\msvc2022_64\include\QtGui;C:\Qt\6.10.1\msvc2022_64\include\QtCore;C:\Dev\vcpkg\installed\x64-windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\Qt\6.10.1\msvc2022_64\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Qt6Cored.lib;Qt6Guid.lib;Qt6Widgetsd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Qt\6.10.1\msvc2022_64\lib;C:\Dev\vcpkg\installed\x64-windows\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Qt6Cored.lib;Qt6Guid.lib;Qt6Widgetsd.lib;poppler-cpp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Cored.dll" "$(OutDir)"
@@ -127,16 +127,16 @@ xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\plugins\platforms\qwindowsd.dll" "$(OutDir
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_WINDOWS;QT_WIDGETS_LIB;QT_GUI_LIB;QT_CORE_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_WINDOWS;QT_WIDGETS_LIB;QT_GUI_LIB;QT_CORE_LIB;USE_POPPLER;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>C:\Qt\6.10.1\msvc2022_64\include;C:\Qt\6.10.1\msvc2022_64\include\QtWidgets;C:\Qt\6.10.1\msvc2022_64\include\QtGui;C:\Qt\6.10.1\msvc2022_64\include\QtCore;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Qt\6.10.1\msvc2022_64\include;C:\Qt\6.10.1\msvc2022_64\include\QtWidgets;C:\Qt\6.10.1\msvc2022_64\include\QtGui;C:\Qt\6.10.1\msvc2022_64\include\QtCore;C:\Dev\vcpkg\installed\x64-windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\Qt\6.10.1\msvc2022_64\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Qt6Core.lib;Qt6Gui.lib;Qt6Widgets.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Qt\6.10.1\msvc2022_64\lib;C:\Dev\vcpkg\installed\x64-windows\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Qt6Core.lib;Qt6Gui.lib;Qt6Widgets.lib;poppler-cpp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Core.dll" "$(OutDir)"
@@ -160,6 +160,7 @@ xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\plugins\platforms\qwindows.dll" "$(OutDir)
     <ClCompile Include="Modules\PDFParser\LindabPdfParser.cpp" />
     <ClCompile Include="Modules\PDFParser\PDFParserWindow.cpp" />
     <ClCompile Include="Modules\PDFParser\ParserFactory.cpp" />
+    <ClCompile Include="Modules\PDFParser\PopplerPdfExtractor.cpp" />
     <ClCompile Include="Modules\PDFParser\XlsxWriter.cpp" />
     <ClCompile Include="GeneratedFiles\Debug\moc_MainWindow.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
@@ -190,6 +191,7 @@ xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\plugins\platforms\qwindows.dll" "$(OutDir)
     <ClInclude Include="Modules\PDFParser\IPdfParser.h" />
     <ClInclude Include="Modules\PDFParser\LindabPdfParser.h" />
     <ClInclude Include="Modules\PDFParser\ParserFactory.h" />
+    <ClInclude Include="Modules\PDFParser\PopplerPdfExtractor.h" />
     <ClInclude Include="Modules\PDFParser\XlsxWriter.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
