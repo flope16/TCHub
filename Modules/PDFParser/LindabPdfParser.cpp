@@ -21,7 +21,8 @@ std::string LindabPdfParser::extractText(const std::string& filePath)
     OutputDebugStringA("=== DEBUG EXTRACTION PDF ===\n");
     std::string debug = "Poppler disponible: " + std::string(PopplerPdfExtractor::isPopplerAvailable() ? "OUI" : "NON") + "\n";
     debug += "Texte extrait (" + std::to_string(text.length()) + " caracteres):\n";
-    debug += text.substr(0, std::min(size_t(500), text.length())) + "\n";
+    size_t previewLength = text.length() < 500 ? text.length() : 500;
+    debug += text.substr(0, previewLength) + "\n";
     debug += "=== FIN DEBUG ===\n";
     OutputDebugStringA(debug.c_str());
 
