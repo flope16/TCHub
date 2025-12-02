@@ -140,6 +140,15 @@ xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\libiconv.dll" "$(OutDir)" 2&
 xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\iconv-2.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\libintl.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\charset.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\brotlidec.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\brotlicommon.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\lerc.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\Lerc.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\deflate.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\webp.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\sharpyuv.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\zstd.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\libzstd.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 echo Copie des DLL terminee!
 exit /b 0</Command>
       <Message>Copie automatique des DLL Qt et Poppler (Debug)...</Message>
@@ -190,6 +199,15 @@ xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\libiconv.dll" "$(OutDir)" 2&
 xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\iconv-2.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\libintl.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\charset.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\brotlidec.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\brotlicommon.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\lerc.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\Lerc.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\deflate.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\webp.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\sharpyuv.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\zstd.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\libzstd.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 echo Copie des DLL terminee!
 exit /b 0</Command>
       <Message>Copie automatique des DLL Qt et Poppler (Release)...</Message>
