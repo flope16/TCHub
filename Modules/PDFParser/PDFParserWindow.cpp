@@ -445,7 +445,7 @@ void PDFParserWindow::parsePdfFile()
 
     // Générer le nom du fichier de sortie
     QFileInfo fileInfo(filePath);
-    QString outputPath = fileInfo.absolutePath() + "/" + fileInfo.baseName() + ".xml";
+    QString outputPath = fileInfo.absolutePath() + "/" + fileInfo.baseName() + ".xlsx";
 
     updateStatus("💾 Génération du fichier Excel...");
 
