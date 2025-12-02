@@ -303,16 +303,20 @@ bool XlsxWriter::writeToXlsx(const std::string& outputPath, const std::vector<Pd
 
             // FALLBACK: Utiliser le format SpreadsheetML (Excel 2003)
             // Ce format est plus simple et ne nécessite pas de ZIP
+            // IMPORTANT: On change l'extension en .xml pour que Excel accepte le fichier
+            std::filesystem::path xmlOutputPath = absOutputPath;
+            xmlOutputPath.replace_extension(".xml");
+
             try
             {
                 std::string xmlContent = generateSpreadsheetML(lines);
-                std::ofstream file(absOutputPath, std::ios::binary);
+                std::ofstream file(xmlOutputPath, std::ios::binary);
                 if (file.is_open())
                 {
                     file << xmlContent;
                     file.close();
                     success = true;
-                    OutputDebugStringA("[XlsxWriter] Fallback SpreadsheetML réussi\n");
+                    OutputDebugStringA(("[XlsxWriter] Fallback SpreadsheetML réussi : " + xmlOutputPath.string() + "\n").c_str());
                 }
                 else
                 {
