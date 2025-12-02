@@ -15,7 +15,17 @@ std::string LindabPdfParser::extractText(const std::string& filePath)
     // 1. Extraction native avec Poppler si disponible
     // 2. Fallback vers fichier .txt
     // 3. Fallback vers pdftotext en ligne de commande
-    return PopplerPdfExtractor::extractTextFromPdf(filePath);
+    std::string text = PopplerPdfExtractor::extractTextFromPdf(filePath);
+
+    // Debug: afficher les 500 premiers caractères dans la console
+    OutputDebugStringA("=== DEBUG EXTRACTION PDF ===\n");
+    std::string debug = "Poppler disponible: " + std::string(PopplerPdfExtractor::isPopplerAvailable() ? "OUI" : "NON") + "\n";
+    debug += "Texte extrait (" + std::to_string(text.length()) + " caracteres):\n";
+    debug += text.substr(0, std::min(size_t(500), text.length())) + "\n";
+    debug += "=== FIN DEBUG ===\n";
+    OutputDebugStringA(debug.c_str());
+
+    return text;
 }
 
 std::vector<PdfLine> LindabPdfParser::parseTextContent(const std::string& text)
@@ -35,12 +45,25 @@ std::vector<PdfLine> LindabPdfParser::parseTextContent(const std::string& text)
 
     std::istringstream stream(text);
     std::string line;
+    int pceLineCount = 0;
+    int totalLineCount = 0;
 
     while (std::getline(stream, line))
     {
+        totalLineCount++;
+
         // Debug: chercher les lignes qui ont PCE (indicateur de ligne de produit)
         if (line.find("PCE") == std::string::npos)
             continue;
+
+        pceLineCount++;
+
+        // Debug: afficher les 5 premières lignes avec PCE
+        if (pceLineCount <= 5)
+        {
+            std::string debugLine = "Ligne avec PCE #" + std::to_string(pceLineCount) + ": " + line + "\n";
+            OutputDebugStringA(debugLine.c_str());
+        }
 
         // Pattern pour extraire: Référence, Qté, Prix, Montant
         // Format: numéro_ligne référence ... qté PCE prix montant
@@ -122,6 +145,14 @@ std::vector<PdfLine> LindabPdfParser::parseTextContent(const std::string& text)
             }
         }
     }
+
+    // Debug final
+    std::string debugSummary = "=== RESUME PARSING ===\n";
+    debugSummary += "Lignes totales: " + std::to_string(totalLineCount) + "\n";
+    debugSummary += "Lignes avec PCE: " + std::to_string(pceLineCount) + "\n";
+    debugSummary += "Produits extraits: " + std::to_string(lines.size()) + "\n";
+    debugSummary += "===================\n";
+    OutputDebugStringA(debugSummary.c_str());
 
     return lines;
 }
