@@ -5,6 +5,50 @@
 #include <vector>
 #include <windows.h>
 
+// Fonction helper pour exécuter une commande sans afficher de fenêtre
+static int executeCommandSilent(const std::string& command)
+{
+    STARTUPINFOA si;
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&si, sizeof(si));
+    si.cb = sizeof(si);
+    si.dwFlags = STARTF_USESHOWWINDOW;
+    si.wShowWindow = SW_HIDE;  // Cacher la fenêtre
+    ZeroMemory(&pi, sizeof(pi));
+
+    // Créer une copie modifiable de la commande
+    std::string cmdCopy = command;
+
+    // Créer le processus
+    if (!CreateProcessA(
+        NULL,                   // Nom de l'application
+        &cmdCopy[0],           // Ligne de commande (modifiable)
+        NULL,                   // Attributs de sécurité du processus
+        NULL,                   // Attributs de sécurité du thread
+        FALSE,                  // Héritage des handles
+        CREATE_NO_WINDOW,       // Drapeaux de création (pas de fenêtre)
+        NULL,                   // Environnement
+        NULL,                   // Répertoire courant
+        &si,                    // Informations de démarrage
+        &pi))                   // Informations du processus
+    {
+        return -1;  // Échec
+    }
+
+    // Attendre que le processus se termine
+    WaitForSingleObject(pi.hProcess, INFINITE);
+
+    // Récupérer le code de sortie
+    DWORD exitCode = 0;
+    GetExitCodeProcess(pi.hProcess, &exitCode);
+
+    // Fermer les handles
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+
+    return static_cast<int>(exitCode);
+}
+
 // Définir USE_POPPLER si Poppler est disponible
 // Pour l'instant, on détecte à la compilation
 #ifdef USE_POPPLER
@@ -109,7 +153,8 @@ std::string PopplerPdfExtractor::extractTextFromPdf(const std::string& pdfPath)
     {
         std::string command = "\"" + pdftotext_path + "\" -layout \"" + pdfPath + "\" \"" + tempTxt + "\" 2>nul";
 
-        if (system(command.c_str()) == 0 && std::filesystem::exists(tempTxt))
+        // Exécuter pdftotext sans afficher de fenêtre
+        if (executeCommandSilent(command) == 0 && std::filesystem::exists(tempTxt))
         {
             std::ifstream file(tempTxt);
             if (file.is_open())
