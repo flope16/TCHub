@@ -67,166 +67,56 @@ std::vector<PdfLine> FischerPdfParser::parseTextContent(const std::string& text)
     }
 
     // Parser multi-lignes adapté à la structure Fischer
-    // Format observé :
-    //   Ligne Pos : "10         Collier FRSR 20-25 M8/M10 -100/bte                                                   6   BTE           0,01           1   BTE                                                            145,14"
-    //   Ligne GTIN : "4048962230956               534135                                                                                       Éco-contribution                                        0,01              0,06"
-    //   Ligne Total : "Total éco-contribution comprise                                      22,99          137,94"
+    // Format observé sur 3 lignes :
+    //   Ligne 1 : "10         Collier FRSR 20-25 M8/M10 -100/bte           6   BTE    0,01    1   BTE    145,14"
+    //   Ligne 2 : "4048962230956               534135                      Éco-contribution    0,01    0,06"
+    //   Ligne 3 : "Total éco-contribution comprise                         22,99    137,94"
 
-    std::istringstream stream(text);
-    std::string line;
-    int totalLineCount = 0;
     int extractedCount = 0;
 
-    std::string currentReference;
-    std::string currentDesignation;
-    double currentQuantite = 0.0;
-    double currentPrix = 0.0;
-    bool inProduct = false;
-    int stateInProduct = 0; // 0 = cherche pos, 1 = a trouvé pos, 2 = a trouvé GTIN, 3 = cherche total
+    // Regex multiline qui capture les 3 lignes ensemble
+    // Groupe 1: Position
+    // Groupe 2: Désignation
+    // Groupe 3: Quantité
+    // Groupe 4: GTIN (code à 13 chiffres)
+    // Groupe 5: Prix total (dernier nombre de la ligne Total)
+    std::regex productRegex(
+        R"(^\s*(\d+)\s+(.+?)\s+(\d+)\s+(?:BTE|PCE)\s+[0-9.,]+\s+1\s+(?:BTE|PCE)\s+[0-9.,]+\s*[\r\n]+)"  // Ligne produit
+        R"(\s*(\d{13})\s+\d+\s+[ÉEé]co-contribution\s+[0-9.,]+\s+[0-9.,]+\s*[\r\n]+)"                    // Ligne GTIN + éco
+        R"(\s*Total\s+[ée]co-contribution\s+comprise\s+(?:[0-9.,]+\s+)?([0-9.,]+))",                    // Ligne Total (capture le dernier nombre)
+        std::regex::multiline
+    );
 
-    // Regex plus simples et robustes
-    // Ligne Pos: commence par 1-3 chiffres
-    std::regex posLineRegex(R"(^(\d{1,3})\s+)");
+    // Utiliser regex_iterator pour trouver tous les matches dans le texte
+    auto matches_begin = std::sregex_iterator(text.begin(), text.end(), productRegex);
+    auto matches_end = std::sregex_iterator();
 
-    // Regex pour extraire quantité + BTE
-    std::regex qtyRegex(R"((\d+)\s+BTE)");
-
-    // Regex pour le code GTIN (13 chiffres au début de ligne)
-    std::regex gtinRegex(R"(^(\d{13}))");
-
-    // Regex pour la ligne "Total éco-contribution comprise" - capture tous les nombres
-    std::regex totalRegex(R"(Total\s+[ée]co-contribution\s+comprise)");
-
-    while (std::getline(stream, line))
+    for (std::sregex_iterator i = matches_begin; i != matches_end; ++i)
     {
-        totalLineCount++;
+        std::smatch match = *i;
 
-        // Debug: afficher les lignes
-        if (totalLineCount <= 100)
-        {
-            std::string debugLine = "Fischer L" + std::to_string(totalLineCount) + ": " + line + "\n";
-            OutputDebugStringA(debugLine.c_str());
-        }
-
-        std::smatch match;
-
-        // État 0 ou après avoir fini un produit: chercher une ligne de position
-        if (stateInProduct == 0 || stateInProduct == 3)
-        {
-            if (std::regex_search(line, match, posLineRegex))
-            {
-                // Vérifier que la ligne contient aussi BTE (pour confirmer que c'est une ligne produit)
-                std::smatch qtyMatch;
-                if (std::regex_search(line, qtyMatch, qtyRegex))
-                {
-                    // Nouvelle ligne de produit trouvée
-                    if (stateInProduct == 3 && !currentReference.empty())
-                    {
-                        // Sauvegarder le produit précédent
-                        PdfLine pdfLine;
-                        pdfLine.reference = currentReference;
-                        pdfLine.designation = currentDesignation;
-                        pdfLine.quantite = currentQuantite;
-                        pdfLine.prixHT = currentPrix;
-                        lines.push_back(pdfLine);
-                        extractedCount++;
-
-                        std::string debugMsg = "Fischer produit #" + std::to_string(extractedCount) + ": " +
-                            currentReference + " | " + currentDesignation + " | " +
-                            std::to_string(currentQuantite) + " | " + std::to_string(currentPrix) + "\n";
-                        OutputDebugStringA(debugMsg.c_str());
-                    }
-
-                    // Extraire la désignation: tout ce qui est entre le numéro de position et la quantité BTE
-                    std::string posNum = match[1].str();
-                    size_t posNumEnd = line.find(posNum) + posNum.length();
-                    size_t qtyStart = line.find(qtyMatch[0].str());
-
-                    if (qtyStart != std::string::npos && posNumEnd < qtyStart)
-                    {
-                        currentDesignation = line.substr(posNumEnd, qtyStart - posNumEnd);
-                        // Supprimer les espaces en début et fin
-                        currentDesignation.erase(0, currentDesignation.find_first_not_of(" \t"));
-                        currentDesignation.erase(currentDesignation.find_last_not_of(" \t") + 1);
-                    }
-                    else
-                    {
-                        currentDesignation = "Produit " + posNum;
-                    }
-
-                    // Commencer un nouveau produit
-                    currentReference = "";
-                    currentQuantite = parseFrenchNumber(qtyMatch[1].str());
-                    currentPrix = 0.0;
-                    stateInProduct = 1;
-
-                    std::string debugMsg = "[Fischer] Ligne Pos trouvée : " + currentDesignation +
-                        " | Qté: " + std::to_string(currentQuantite) + "\n";
-                    OutputDebugStringA(debugMsg.c_str());
-                }
-            }
-        }
-        // État 1: chercher le code GTIN sur la ligne suivante
-        else if (stateInProduct == 1)
-        {
-            if (std::regex_search(line, match, gtinRegex))
-            {
-                currentReference = match[1].str();
-                stateInProduct = 2;
-
-                std::string debugMsg = "[Fischer] GTIN trouvé : " + currentReference + "\n";
-                OutputDebugStringA(debugMsg.c_str());
-            }
-        }
-        // État 2: chercher la ligne "Total éco-contribution comprise"
-        else if (stateInProduct == 2)
-        {
-            if (std::regex_search(line, match, totalRegex))
-            {
-                // Extraire le dernier nombre de la ligne (le prix total)
-                std::regex numberRegex(R"(([\d,]+))");
-                std::vector<std::string> numbers;
-                auto words_begin = std::sregex_iterator(line.begin(), line.end(), numberRegex);
-                auto words_end = std::sregex_iterator();
-
-                for (std::sregex_iterator i = words_begin; i != words_end; ++i)
-                {
-                    numbers.push_back((*i).str());
-                }
-
-                // Le dernier nombre est le prix total
-                if (!numbers.empty())
-                {
-                    currentPrix = parseFrenchNumber(numbers.back());
-                    stateInProduct = 3;
-
-                    std::string debugMsg = "[Fischer] Prix total trouvé : " + std::to_string(currentPrix) + "\n";
-                    OutputDebugStringA(debugMsg.c_str());
-                }
-            }
-        }
-    }
-
-    // Sauvegarder le dernier produit si disponible
-    if (stateInProduct == 3 && !currentReference.empty())
-    {
         PdfLine pdfLine;
-        pdfLine.reference = currentReference;
-        pdfLine.designation = currentDesignation;
-        pdfLine.quantite = currentQuantite;
-        pdfLine.prixHT = currentPrix;
+        pdfLine.reference = match[4].str();  // GTIN (13 chiffres)
+        pdfLine.designation = match[2].str(); // Désignation
+
+        // Nettoyer la désignation (supprimer espaces superflus)
+        pdfLine.designation.erase(0, pdfLine.designation.find_first_not_of(" \t"));
+        pdfLine.designation.erase(pdfLine.designation.find_last_not_of(" \t") + 1);
+
+        pdfLine.quantite = parseFrenchNumber(match[3].str());   // Quantité
+        pdfLine.prixHT = parseFrenchNumber(match[5].str());     // Prix total
+
         lines.push_back(pdfLine);
         extractedCount++;
 
         std::string debugMsg = "Fischer produit #" + std::to_string(extractedCount) + ": " +
-            currentReference + " | " + currentDesignation + " | " +
-            std::to_string(currentQuantite) + " | " + std::to_string(currentPrix) + "\n";
+            pdfLine.reference + " | " + pdfLine.designation + " | " +
+            std::to_string(pdfLine.quantite) + " | " + std::to_string(pdfLine.prixHT) + "\n";
         OutputDebugStringA(debugMsg.c_str());
     }
 
     // Log final
     std::string finalMsg = "=== RESUME PARSING FISCHER ===\n";
-    finalMsg += "Lignes totales texte : " + std::to_string(totalLineCount) + "\n";
     finalMsg += "Produits extraits : " + std::to_string(extractedCount) + "\n";
     finalMsg += "==============================\n";
     OutputDebugStringA(finalMsg.c_str());
