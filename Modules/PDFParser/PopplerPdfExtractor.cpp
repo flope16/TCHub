@@ -71,11 +71,25 @@ std::string PopplerPdfExtractor::readWithPoppler(const std::string& pdfPath)
 #ifdef USE_POPPLER
     try
     {
-        // Charger le document PDF
-        std::unique_ptr<poppler::document> doc(poppler::document::load_from_file(pdfPath));
+        // Normaliser le chemin (convertir backslashes en forward slashes)
+        std::string normalizedPath = pdfPath;
+        std::replace(normalizedPath.begin(), normalizedPath.end(), '\\', '/');
 
-        if (!doc || doc->is_locked())
+        std::string debugMsg = "[Poppler API] Tentative de chargement: " + normalizedPath + "\n";
+        OutputDebugStringA(debugMsg.c_str());
+
+        // Charger le document PDF
+        std::unique_ptr<poppler::document> doc(poppler::document::load_from_file(normalizedPath));
+
+        if (!doc)
         {
+            OutputDebugStringA("[Poppler API] ERREUR: Document NULL - fichier introuvable ou invalide\n");
+            return "";
+        }
+
+        if (doc->is_locked())
+        {
+            OutputDebugStringA("[Poppler API] ERREUR: Document verrouille (crypte)\n");
             return "";
         }
 
@@ -83,44 +97,60 @@ std::string PopplerPdfExtractor::readWithPoppler(const std::string& pdfPath)
 
         // Extraire le texte de chaque page
         int pages = doc->pages();
+        debugMsg = "[Poppler API] Document charge: " + std::to_string(pages) + " page(s)\n";
+        OutputDebugStringA(debugMsg.c_str());
+
         for (int i = 0; i < pages; ++i)
         {
             std::unique_ptr<poppler::page> page(doc->create_page(i));
-            if (page)
+            if (!page)
             {
-                // Méthode 1 : Essayer d'extraire avec le layout préservé (si disponible dans la version Poppler)
-                // Note: poppler::text_layout n'est pas toujours disponible dans toutes les versions
-                // On utilise page->text() avec le rectangle de la page entière
-                poppler::rectf pageRect(0, 0, page->page_rect().width(), page->page_rect().height());
-
-                // Extraire le texte de la page entière
-                // Cette méthode peut mieux préserver l'espacement et la mise en page
-                poppler::ustring text = page->text(pageRect);
-
-                // Utiliser UTF-8 pour préserver tous les caractères Unicode (accents, espaces insécables, etc.)
-                poppler::byte_array utf8_data = text.to_utf8();
-                std::string pageText(utf8_data.begin(), utf8_data.end());
-
-                // Si le texte extrait est vide, essayer la méthode simple
-                if (pageText.empty())
-                {
-                    text = page->text();
-                    utf8_data = text.to_utf8();
-                    pageText = std::string(utf8_data.begin(), utf8_data.end());
-                }
-
-                result << pageText << "\n";
+                debugMsg = "[Poppler API] ERREUR: Impossible de creer la page " + std::to_string(i + 1) + "\n";
+                OutputDebugStringA(debugMsg.c_str());
+                continue;
             }
+
+            // Méthode 1 : Essayer d'extraire avec le layout préservé
+            poppler::rectf pageRect(0, 0, page->page_rect().width(), page->page_rect().height());
+            poppler::ustring text = page->text(pageRect);
+
+            // Utiliser UTF-8 pour préserver tous les caractères Unicode (accents, espaces insécables, etc.)
+            poppler::byte_array utf8_data = text.to_utf8();
+            std::string pageText(utf8_data.begin(), utf8_data.end());
+
+            // Si le texte extrait est vide, essayer la méthode simple
+            if (pageText.empty())
+            {
+                text = page->text();
+                utf8_data = text.to_utf8();
+                pageText = std::string(utf8_data.begin(), utf8_data.end());
+            }
+
+            debugMsg = "[Poppler API] Page " + std::to_string(i + 1) + ": " +
+                std::to_string(pageText.length()) + " caracteres extraits\n";
+            OutputDebugStringA(debugMsg.c_str());
+
+            result << pageText << "\n";
         }
 
         std::string extracted = result.str();
 
-        // Si Poppler ne retourne rien, ce n'est pas une vraie erreur
-        // Retourner la chaîne vide pour essayer les autres méthodes
+        debugMsg = "[Poppler API] Total extrait: " + std::to_string(extracted.length()) + " caracteres\n";
+        OutputDebugStringA(debugMsg.c_str());
+
         return extracted;
+    }
+    catch (const std::exception& e)
+    {
+        std::string errorMsg = "[Poppler API] EXCEPTION: ";
+        errorMsg += e.what();
+        errorMsg += "\n";
+        OutputDebugStringA(errorMsg.c_str());
+        return "";
     }
     catch (...)
     {
+        OutputDebugStringA("[Poppler API] EXCEPTION INCONNUE\n");
         return "";
     }
 #else
