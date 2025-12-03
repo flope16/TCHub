@@ -80,11 +80,12 @@ std::vector<PdfLine> FischerPdfParser::parseTextContent(const std::string& text)
     // Groupe 3: Quantité
     // Groupe 4: GTIN (code à 13 chiffres)
     // Groupe 5: Prix total (dernier nombre de la ligne Total)
+    // Note: En C++, on n'utilise pas le flag multiline comme en Python
+    // À la place, on utilise [\s\S] pour matcher y compris les retours à la ligne
     std::regex productRegex(
-        R"(^\s*(\d+)\s+(.+?)\s+(\d+)\s+(?:BTE|PCE)\s+[0-9.,]+\s+1\s+(?:BTE|PCE)\s+[0-9.,]+\s*[\r\n]+)"  // Ligne produit
-        R"(\s*(\d{13})\s+\d+\s+[ÉEé]co-contribution\s+[0-9.,]+\s+[0-9.,]+\s*[\r\n]+)"                    // Ligne GTIN + éco
-        R"(\s*Total\s+[ée]co-contribution\s+comprise\s+(?:[0-9.,]+\s+)?([0-9.,]+))",                    // Ligne Total (capture le dernier nombre)
-        std::regex::multiline
+        R"(^\s*(\d+)\s+(.+?)\s+(\d+)\s+(?:BTE|PCE)\s+[0-9.,]+\s+1\s+(?:BTE|PCE)\s+[0-9.,]+\s*\n)"  // Ligne produit
+        R"(\s*(\d{13})\s+\d+\s+[ÉEé]co-contribution\s+[0-9.,]+\s+[0-9.,]+\s*\n)"                    // Ligne GTIN + éco
+        R"(\s*Total\s+[ée]co-contribution\s+comprise\s+(?:[0-9.,]+\s+)?([0-9.,]+))"                // Ligne Total (capture le dernier nombre)
     );
 
     // Utiliser regex_iterator pour trouver tous les matches dans le texte
