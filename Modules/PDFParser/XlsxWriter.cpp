@@ -191,11 +191,11 @@ std::string XlsxWriter::generateStylesXml()
 </numFmts>
 <fonts count="2">
 <font><sz val="11"/><name val="Calibri"/></font>
-<font><b/><sz val="11"/><name val="Calibri"/><color rgb="FFFFFFFF"/></font>
+<font><b/><sz val="11"/><name val="Calibri"/><color rgb="FFFF0000"/></font>
 </fonts>
 <fills count="2">
 <fill><patternFill patternType="none"/></fill>
-<fill><patternFill patternType="solid"><fgColor rgb="FF4472C4"/></patternFill></fill>
+<fill><patternFill patternType="none"/></fill>
 </fills>
 <borders count="1">
 <border><left/><right/><top/><bottom/><diagonal/></border>

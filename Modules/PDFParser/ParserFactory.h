@@ -8,6 +8,7 @@
 enum class Supplier
 {
     Lindab,
+    Fischer,
     // Ajouter d'autres fournisseurs ici dans le futur
     // Atlantic,
     // Daikin,
