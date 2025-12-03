@@ -163,12 +163,21 @@ std::string PopplerPdfExtractor::extractTextFromPdf(const std::string& pdfPath)
 {
     if (!std::filesystem::exists(pdfPath))
     {
+        OutputDebugStringA("[PopplerExtractor] ERREUR: Fichier PDF introuvable\n");
         return "";
     }
 
+    OutputDebugStringA("=== DEBUT EXTRACTION PDF ===\n");
+    std::string debugMsg = "[PopplerExtractor] Fichier: " + pdfPath + "\n";
+    OutputDebugStringA(debugMsg.c_str());
+
     // MÉTHODE 1 : Essayer pdftotext (utilitaire en ligne de commande de Poppler)
     // C'est souvent plus robuste que l'API C++ pour certains PDFs
+    OutputDebugStringA("[PopplerExtractor] === METHODE 1: pdftotext (ligne de commande) ===\n");
+
     std::string tempTxt = std::filesystem::path(pdfPath).replace_extension(".poppler_temp.txt").string();
+    debugMsg = "[PopplerExtractor] Fichier temp: " + tempTxt + "\n";
+    OutputDebugStringA(debugMsg.c_str());
 
     // Essayer plusieurs emplacements pour pdftotext
     std::vector<std::string> pdftotext_paths = {
@@ -181,10 +190,25 @@ std::string PopplerPdfExtractor::extractTextFromPdf(const std::string& pdfPath)
 
     for (const auto& pdftotext_path : pdftotext_paths)
     {
+        debugMsg = "[PopplerExtractor] Test: " + pdftotext_path + "\n";
+        OutputDebugStringA(debugMsg.c_str());
+
         std::string command = "\"" + pdftotext_path + "\" -layout \"" + pdfPath + "\" \"" + tempTxt + "\" 2>nul";
 
+        debugMsg = "[PopplerExtractor] Commande: " + command + "\n";
+        OutputDebugStringA(debugMsg.c_str());
+
         // Exécuter pdftotext sans afficher de fenêtre
-        if (executeCommandSilent(command) == 0 && std::filesystem::exists(tempTxt))
+        int exitCode = executeCommandSilent(command);
+
+        debugMsg = "[PopplerExtractor] Code retour: " + std::to_string(exitCode) + "\n";
+        OutputDebugStringA(debugMsg.c_str());
+
+        bool tempExists = std::filesystem::exists(tempTxt);
+        debugMsg = "[PopplerExtractor] Fichier temp existe: " + std::string(tempExists ? "OUI" : "NON") + "\n";
+        OutputDebugStringA(debugMsg.c_str());
+
+        if (exitCode == 0 && tempExists)
         {
             std::ifstream file(tempTxt);
             if (file.is_open())
@@ -193,33 +217,58 @@ std::string PopplerPdfExtractor::extractTextFromPdf(const std::string& pdfPath)
                 buffer << file.rdbuf();
                 std::string text = buffer.str();
                 file.close();
+
+                debugMsg = "[PopplerExtractor] Texte extrait: " + std::to_string(text.length()) + " caracteres\n";
+                OutputDebugStringA(debugMsg.c_str());
+
                 std::filesystem::remove(tempTxt);
 
                 if (!text.empty())
                 {
-                    std::string msg = "[PopplerPdfExtractor] Extraction reussie avec pdftotext (" + pdftotext_path + ")\n";
+                    std::string msg = "[PopplerExtractor] ✓ SUCCESS avec pdftotext (" + pdftotext_path + ")\n";
                     OutputDebugStringA(msg.c_str());
                     return text;
                 }
+                else
+                {
+                    OutputDebugStringA("[PopplerExtractor] Fichier temp vide\n");
+                }
+            }
+            else
+            {
+                OutputDebugStringA("[PopplerExtractor] Impossible d'ouvrir le fichier temp\n");
             }
         }
     }
 
+    OutputDebugStringA("[PopplerExtractor] === Toutes les tentatives pdftotext ont echoue ===\n");
+
     // MÉTHODE 2 : Essayer avec l'API Poppler C++
+    OutputDebugStringA("[PopplerExtractor] === METHODE 2: API Poppler C++ ===\n");
     if (isPopplerAvailable())
     {
         std::string text = readWithPoppler(pdfPath);
         if (!text.empty())
         {
-            OutputDebugStringA("[PopplerPdfExtractor] Extraction reussie avec API Poppler C++\n");
+            OutputDebugStringA("[PopplerExtractor] ✓ SUCCESS avec API Poppler C++\n");
             return text;
         }
     }
+    else
+    {
+        OutputDebugStringA("[PopplerExtractor] API Poppler C++ non disponible\n");
+    }
 
     // MÉTHODE 3 : Fallback vers fichier .txt existant
+    OutputDebugStringA("[PopplerExtractor] === METHODE 3: Fichier .txt manuel (fallback) ===\n");
     std::filesystem::path txtPath = std::filesystem::path(pdfPath).replace_extension(".txt");
+
+    std::string debugMsg2 = "[PopplerExtractor] Recherche: " + txtPath.string() + "\n";
+    OutputDebugStringA(debugMsg2.c_str());
+
     if (std::filesystem::exists(txtPath))
     {
+        OutputDebugStringA("[PopplerExtractor] Fichier .txt trouve\n");
         std::ifstream file(txtPath);
         if (file.is_open())
         {
@@ -228,12 +277,16 @@ std::string PopplerPdfExtractor::extractTextFromPdf(const std::string& pdfPath)
             std::string text = buffer.str();
             if (!text.empty())
             {
-                OutputDebugStringA("[PopplerPdfExtractor] Extraction depuis fichier .txt existant\n");
+                OutputDebugStringA("[PopplerExtractor] ✓ SUCCESS avec fichier .txt existant\n");
                 return text;
             }
         }
     }
+    else
+    {
+        OutputDebugStringA("[PopplerExtractor] Fichier .txt introuvable\n");
+    }
 
-    OutputDebugStringA("[PopplerPdfExtractor] ECHEC: Aucune methode n'a reussi a extraire du texte\n");
+    OutputDebugStringA("[PopplerExtractor] === ECHEC: Aucune methode n'a reussi ===\n");
     return "";
 }
