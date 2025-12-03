@@ -215,6 +215,7 @@ exit /b 0</Command>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MainWindow.cpp" />
+    <ClCompile Include="Modules\PDFParser\FischerPdfParser.cpp" />
     <ClCompile Include="Modules\PDFParser\LindabPdfParser.cpp" />
     <ClCompile Include="Modules\PDFParser\PDFParserWindow.cpp" />
     <ClCompile Include="Modules\PDFParser\ParserFactory.cpp" />
@@ -246,6 +247,7 @@ exit /b 0</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Qt\6.10.1\msvc2022_64\bin\moc.exe "%(FullPath)" -o "GeneratedFiles\Release\moc_%(Filename).cpp" -DNDEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB "-IC:\Qt\6.10.1\msvc2022_64\include" "-IC:\Qt\6.10.1\msvc2022_64\include\QtWidgets" "-IC:\Qt\6.10.1\msvc2022_64\include\QtGui" "-IC:\Qt\6.10.1\msvc2022_64\include\QtCore"</Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">GeneratedFiles\Release\moc_%(Filename).cpp</Outputs>
     </CustomBuild>
+    <ClInclude Include="Modules\PDFParser\FischerPdfParser.h" />
     <ClInclude Include="Modules\PDFParser\IPdfParser.h" />
     <ClInclude Include="Modules\PDFParser\LindabPdfParser.h" />
     <ClInclude Include="Modules\PDFParser\ParserFactory.h" />
