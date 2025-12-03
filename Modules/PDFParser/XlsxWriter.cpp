@@ -7,6 +7,75 @@
 #include <ctime>
 #include <windows.h>
 
+// Inclure minizip si disponible
+#ifdef USE_MINIZIP
+#include <minizip/zip.h>
+#endif
+
+// Fonction helper pour créer un ZIP avec minizip
+#ifdef USE_MINIZIP
+static bool createZipFromDirectory(const std::string& zipPath, const std::filesystem::path& sourceDir)
+{
+    zipFile zf = zipOpen(zipPath.c_str(), APPEND_STATUS_CREATE);
+    if (zf == nullptr)
+    {
+        OutputDebugStringA("[XlsxWriter] ERREUR: Impossible de créer le fichier ZIP\n");
+        return false;
+    }
+
+    try
+    {
+        // Parcourir récursivement tous les fichiers du dossier source
+        for (const auto& entry : std::filesystem::recursive_directory_iterator(sourceDir))
+        {
+            if (entry.is_regular_file())
+            {
+                // Chemin relatif dans le ZIP
+                std::filesystem::path relativePath = std::filesystem::relative(entry.path(), sourceDir);
+                std::string relativePathStr = relativePath.string();
+
+                // Remplacer les backslashes par des slashes pour le ZIP
+                std::replace(relativePathStr.begin(), relativePathStr.end(), '\\', '/');
+
+                // Ouvrir le fichier dans le ZIP
+                zip_fileinfo zi = {};
+                if (zipOpenNewFileInZip(zf, relativePathStr.c_str(), &zi,
+                    nullptr, 0, nullptr, 0, nullptr, Z_DEFLATED, Z_DEFAULT_COMPRESSION) != ZIP_OK)
+                {
+                    zipClose(zf, nullptr);
+                    return false;
+                }
+
+                // Lire et écrire le contenu du fichier
+                std::ifstream file(entry.path(), std::ios::binary);
+                if (file.is_open())
+                {
+                    std::vector<char> buffer((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+                    file.close();
+
+                    if (zipWriteInFileInZip(zf, buffer.data(), static_cast<unsigned int>(buffer.size())) != ZIP_OK)
+                    {
+                        zipCloseFileInZip(zf);
+                        zipClose(zf, nullptr);
+                        return false;
+                    }
+                }
+
+                zipCloseFileInZip(zf);
+            }
+        }
+
+        zipClose(zf, nullptr);
+        return true;
+    }
+    catch (...)
+    {
+        zipClose(zf, nullptr);
+        return false;
+    }
+}
+#endif
+
 // Fonction helper pour exécuter une commande sans afficher de fenêtre
 static int executeCommandSilent(const std::string& command)
 {
@@ -265,7 +334,7 @@ bool XlsxWriter::writeToXlsx(const std::string& outputPath, const std::vector<Pd
 
         OutputDebugStringA("[XlsxWriter] Tous les fichiers XML écrits\n");
 
-        // Créer le ZIP avec PowerShell (Windows uniquement)
+        // Créer le ZIP
         std::filesystem::path absOutputPath = std::filesystem::absolute(outputPath);
 
         // Supprimer le fichier de sortie s'il existe déjà
@@ -275,27 +344,57 @@ bool XlsxWriter::writeToXlsx(const std::string& outputPath, const std::vector<Pd
             std::filesystem::remove(absOutputPath);
         }
 
-        // Construire la commande PowerShell avec échappement correct
-        std::string tempDirStr = tempDir.string();
-        std::string outputPathStr = absOutputPath.string();
+        bool success = false;
 
-        // Remplacer les backslashes par des forward slashes pour PowerShell
-        std::replace(tempDirStr.begin(), tempDirStr.end(), '\\', '/');
-        std::replace(outputPathStr.begin(), outputPathStr.end(), '\\', '/');
+#ifdef USE_MINIZIP
+        // MÉTHODE 1 : Essayer minizip (natif C++, toujours fiable)
+        OutputDebugStringA("[XlsxWriter] Tentative de création ZIP avec minizip...\n");
+        if (createZipFromDirectory(absOutputPath.string(), tempDir))
+        {
+            success = std::filesystem::exists(absOutputPath);
+            if (success)
+            {
+                OutputDebugStringA("[XlsxWriter] Fichier XLSX créé avec succès via minizip\n");
+            }
+        }
+        else
+        {
+            OutputDebugStringA("[XlsxWriter] ERREUR: minizip a échoué\n");
+        }
+#endif
 
-        std::string powershellCmd = "powershell -NoProfile -ExecutionPolicy Bypass -Command \"Compress-Archive -Path '" +
-            tempDirStr + "/*' -DestinationPath '" +
-            outputPathStr + "' -Force\"";
+        // MÉTHODE 2 : Essayer PowerShell si minizip n'a pas marché
+        if (!success)
+        {
+            OutputDebugStringA("[XlsxWriter] Tentative avec PowerShell...\n");
 
-        OutputDebugStringA(("[XlsxWriter] Commande ZIP : " + powershellCmd + "\n").c_str());
+            // Construire la commande PowerShell avec échappement correct
+            std::string tempDirStr = tempDir.string();
+            std::string outputPathStr = absOutputPath.string();
 
-        // Exécuter PowerShell sans afficher de fenêtre
-        int result = executeCommandSilent(powershellCmd);
+            // Remplacer les backslashes par des forward slashes pour PowerShell
+            std::replace(tempDirStr.begin(), tempDirStr.end(), '\\', '/');
+            std::replace(outputPathStr.begin(), outputPathStr.end(), '\\', '/');
 
-        OutputDebugStringA(("[XlsxWriter] Résultat ZIP : " + std::to_string(result) + "\n").c_str());
+            std::string powershellCmd = "powershell -NoProfile -ExecutionPolicy Bypass -Command \"Compress-Archive -Path '" +
+                tempDirStr + "/*' -DestinationPath '" +
+                outputPathStr + "' -Force\"";
 
-        // Vérifier si le fichier a bien été créé
-        bool success = (result == 0) && std::filesystem::exists(absOutputPath);
+            OutputDebugStringA(("[XlsxWriter] Commande ZIP : " + powershellCmd + "\n").c_str());
+
+            // Exécuter PowerShell sans afficher de fenêtre
+            int result = executeCommandSilent(powershellCmd);
+
+            OutputDebugStringA(("[XlsxWriter] Résultat ZIP : " + std::to_string(result) + "\n").c_str());
+
+            // Vérifier si le fichier a bien été créé
+            success = (result == 0) && std::filesystem::exists(absOutputPath);
+
+            if (success)
+            {
+                OutputDebugStringA("[XlsxWriter] Fichier XLSX créé avec succès via PowerShell\n");
+            }
+        }
 
         if (!success)
         {
