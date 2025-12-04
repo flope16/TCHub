@@ -68,6 +68,63 @@ static std::string trim(const std::string& s)
     return s.substr(start, end - start + 1);
 }
 
+// Fonction pour détecter et corriger les espaces entre caractères
+static std::string fixInterleavedSpaces(const std::string& text)
+{
+    if (text.empty()) return text;
+
+    // Compter le ratio d'espaces pour détecter le problème
+    size_t spaceCount = std::count(text.begin(), text.end(), ' ');
+    double spaceRatio = static_cast<double>(spaceCount) / text.length();
+
+    // Si le ratio d'espaces est supérieur à 30%, on considère qu'il y a des espaces intercalés
+    if (spaceRatio < 0.3)
+    {
+        OutputDebugStringA("[CGR] Pas d'espaces intercales detectes\n");
+        return text; // Pas de problème détecté
+    }
+
+    std::string debugMsg = "[CGR] Espaces intercales detectes (ratio: " +
+        std::to_string(static_cast<int>(spaceRatio * 100)) + "%)\n";
+    OutputDebugStringA(debugMsg.c_str());
+
+    // Stratégie : remplacer les espaces multiples par un marqueur, supprimer les espaces simples,
+    // puis restaurer les espaces entre mots
+    std::string result = text;
+
+    // Marqueur temporaire unique
+    const std::string MARKER = "\x01\x02\x03";
+
+    // 1. Remplacer les espaces multiples (2 ou plus) par le marqueur
+    size_t pos = 0;
+    while ((pos = result.find("  ", pos)) != std::string::npos)
+    {
+        // Compter le nombre d'espaces consécutifs
+        size_t endPos = pos;
+        while (endPos < result.length() && result[endPos] == ' ')
+            endPos++;
+
+        // Remplacer par le marqueur
+        result.replace(pos, endPos - pos, MARKER);
+        pos += MARKER.length();
+    }
+
+    // 2. Supprimer tous les espaces simples restants
+    result.erase(std::remove(result.begin(), result.end(), ' '), result.end());
+
+    // 3. Remplacer le marqueur par un espace unique
+    pos = 0;
+    while ((pos = result.find(MARKER, pos)) != std::string::npos)
+    {
+        result.replace(pos, MARKER.length(), " ");
+        pos += 1;
+    }
+
+    OutputDebugStringA("[CGR] Espaces intercales corriges\n");
+
+    return result;
+}
+
 std::vector<PdfLine> CgrPdfParser::parseTextContent(const std::string& text)
 {
     std::vector<PdfLine> lines;
@@ -85,6 +142,18 @@ std::vector<PdfLine> CgrPdfParser::parseTextContent(const std::string& text)
     {
         OutputDebugStringA("[CGR] Texte vide, abandon\n");
         return lines;
+    }
+
+    // Corriger les espaces intercalés si nécessaire
+    std::string cleanedText = fixInterleavedSpaces(text);
+
+    // Debug: sauvegarder le texte nettoyé si différent
+    if (cleanedText != text)
+    {
+        OutputDebugStringA("[CGR] Texte nettoye different de l'original\n");
+        std::string debugPreview = cleanedText.length() > 500 ? cleanedText.substr(0, 500) + "..." : cleanedText;
+        std::string debugMsg = "[CGR] Preview texte nettoye: " + debugPreview + "\n";
+        OutputDebugStringA(debugMsg.c_str());
     }
 
     // Parser ligne par ligne adapté à la structure CGR
@@ -111,8 +180,8 @@ std::vector<PdfLine> CgrPdfParser::parseTextContent(const std::string& text)
 
         OutputDebugStringA("[CGR] Regex cree, debut parsing ligne par ligne...\n");
 
-        // Séparer le texte en lignes
-        std::istringstream stream(text);
+        // Séparer le texte en lignes (utiliser le texte nettoyé)
+        std::istringstream stream(cleanedText);
         std::string line;
         std::vector<std::string> textLines;
 
