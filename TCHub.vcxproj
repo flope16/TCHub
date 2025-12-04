@@ -216,6 +216,7 @@ exit /b 0</Command>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MainWindow.cpp" />
     <ClCompile Include="Modules\PDFParser\FischerPdfParser.cpp" />
+    <ClCompile Include="Modules\PDFParser\SiehrPdfParser.cpp" />
     <ClCompile Include="Modules\PDFParser\LindabPdfParser.cpp" />
     <ClCompile Include="Modules\PDFParser\PDFParserWindow.cpp" />
     <ClCompile Include="Modules\PDFParser\ParserFactory.cpp" />
@@ -248,6 +249,7 @@ exit /b 0</Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">GeneratedFiles\Release\moc_%(Filename).cpp</Outputs>
     </CustomBuild>
     <ClInclude Include="Modules\PDFParser\FischerPdfParser.h" />
+    <ClInclude Include="Modules\PDFParser\SiehrPdfParser.h" />
     <ClInclude Include="Modules\PDFParser\IPdfParser.h" />
     <ClInclude Include="Modules\PDFParser\LindabPdfParser.h" />
     <ClInclude Include="Modules\PDFParser\ParserFactory.h" />
