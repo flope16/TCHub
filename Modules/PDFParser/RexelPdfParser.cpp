@@ -194,7 +194,21 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string &text) {
     for (; blockEnd < textLines.size(); ++blockEnd) {
       if (std::regex_search(textLines[blockEnd], refMatch, refPattern))
         break;
+
+      // Stopper avant de rentrer dans les CGV/sections textuelles
+      std::string lower = textLines[blockEnd];
+      std::transform(lower.begin(), lower.end(), lower.begin(),
+                     [](unsigned char c) { return std::tolower(c); });
+      if (lower.find("conditions generales") != std::string::npos ||
+          lower.find("conditions générales") != std::string::npos ||
+          lower.find("cgv") != std::string::npos) {
+        break;
+      }
     }
+
+    // Les lignes d'un produit sont compactes ; couper à un maximum de 12 lignes
+    size_t maxBlockEnd = std::min(textLines.size(), i + 12);
+    blockEnd = std::min(blockEnd, maxBlockEnd);
 
     // Agréger les lignes du bloc pour faciliter le parsing
     std::string blockText;
@@ -326,7 +340,43 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string &text) {
         } catch (...) {
           OutputDebugStringA("[Rexel] Erreur conversion qte (tokens)\n");
         }
-      } else {
+      }
+
+      // Si toujours rien, chercher un nombre au format "1 200" avant le P
+      if (product.quantite <= 0 && pIndex > refTokenIndex + 1) {
+        std::string preP;
+        for (size_t t = refTokenIndex + 1; t < pIndex; ++t) {
+          if (!preP.empty())
+            preP += ' ';
+          preP += tokens[t];
+        }
+
+        std::regex spacedNumber(R"((\d{1,3}(?:\s\d{3})+))");
+        std::smatch spacedMatch;
+        std::string bestSpaced;
+        std::string search = preP;
+        while (std::regex_search(search, spacedMatch, spacedNumber)) {
+          if (spacedMatch.str().size() > bestSpaced.size())
+            bestSpaced = spacedMatch.str();
+          search = spacedMatch.suffix().str();
+        }
+
+        if (!bestSpaced.empty()) {
+          std::string compact = bestSpaced;
+          compact.erase(std::remove_if(compact.begin(), compact.end(),
+                                       [](unsigned char c) { return c == ' '; }),
+                        compact.end());
+          try {
+            product.quantite = std::stod(compact);
+            OutputDebugStringA(
+                ("[Rexel] Qte extraite (spaced): " + compact + "\n").c_str());
+          } catch (...) {
+            OutputDebugStringA("[Rexel] Erreur conversion qte (spaced)\n");
+          }
+        }
+      }
+
+      if (product.quantite <= 0) {
         OutputDebugStringA("[Rexel] Quantité non trouvée\n");
       }
     }
