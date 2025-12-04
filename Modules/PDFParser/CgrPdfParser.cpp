@@ -10,10 +10,16 @@
 
 std::string CgrPdfParser::extractText(const std::string& filePath)
 {
-    // Utiliser PopplerPdfExtractor SANS l'option -layout car elle cause des espaces intercalés pour CGR
-    std::string text = PopplerPdfExtractor::extractTextFromPdf(filePath, false);
+    // Utiliser PopplerPdfExtractor AVEC -layout pour avoir tout sur une ligne
+    // Puis on post-traitera pour enlever les espaces intercalés
+    std::string text = PopplerPdfExtractor::extractTextFromPdf(filePath, true);
 
-    // Debug: sauvegarder le texte extrait
+    // Post-traiter pour enlever les espaces intercalés
+    text = removeInterleavedSpaces(text);
+
+    OutputDebugStringA("[CGR] Post-traitement des espaces intercales effectue\n");
+
+    // Debug: sauvegarder le texte extrait après post-traitement
     try
     {
         std::filesystem::path pdfPathObj(filePath);
@@ -71,6 +77,72 @@ static std::string trim(const std::string& s)
     return s.substr(start, end - start + 1);
 }
 
+// Post-traite le texte pour enlever les espaces intercalés (causés par -layout)
+// Stratégie : les espaces multiples (2+) = vrais séparateurs de colonnes
+//             les espaces simples = faux espaces entre caractères
+static std::string removeInterleavedSpaces(const std::string& text)
+{
+    std::string result;
+    result.reserve(text.length());
+
+    const std::string MARKER = "\x01\x02\x03";  // Marqueur temporaire
+
+    // Traiter ligne par ligne pour préserver les newlines
+    std::istringstream stream(text);
+    std::string line;
+    bool first = true;
+
+    while (std::getline(stream, line))
+    {
+        if (!first) result += '\n';
+        first = false;
+
+        std::string processed;
+
+        // 1. Remplacer les espaces multiples (2+) par le marqueur
+        size_t i = 0;
+        while (i < line.length())
+        {
+            if (line[i] == ' ')
+            {
+                size_t spaceCount = 0;
+                size_t j = i;
+                while (j < line.length() && line[j] == ' ')
+                {
+                    spaceCount++;
+                    j++;
+                }
+
+                if (spaceCount >= 2)
+                {
+                    // Espaces multiples = vrai séparateur
+                    processed += MARKER;
+                }
+                // Sinon on ignore (espace simple = faux espace)
+
+                i = j;
+            }
+            else
+            {
+                processed += line[i];
+                i++;
+            }
+        }
+
+        // 2. Remplacer le marqueur par un espace unique
+        size_t pos = 0;
+        while ((pos = processed.find(MARKER, pos)) != std::string::npos)
+        {
+            processed.replace(pos, MARKER.length(), " ");
+            pos += 1;
+        }
+
+        result += processed;
+    }
+
+    return result;
+}
+
 // Fonction pour nettoyer une référence en enlevant les espaces intercalés
 // Ex: "R SA U 5 0" → "RSAU50"
 static std::string cleanReference(std::string str)
@@ -82,9 +154,9 @@ static std::string cleanReference(std::string str)
 }
 
 // Regex SIMPLE uniquement pour la fin de ligne CGR : Qte Prix € Total €
-// Ex: " 390    1 9 ,0 2 €   7 4 1 7 ,8 0 €"
+// Ex après post-traitement: " 390 19,02€ 7417,80€"  (plus d'espaces intercalés)
 static const std::regex RE_CGR_TAIL(
-    R"(\s(\d+)\s+([\d\s,]+)\s*€\s+([\d\s,]+)\s*€)",
+    R"(\s(\d+)\s+([\d,]+)\s*€\s+([\d,]+)\s*€)",
     std::regex::ECMAScript
 );
 
