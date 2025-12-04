@@ -11,6 +11,7 @@ enum class Supplier
     Fischer,
     Siehr,
     Pompac,
+    CGR,
     // Ajouter d'autres fournisseurs ici dans le futur
     // Atlantic,
     // Daikin,
