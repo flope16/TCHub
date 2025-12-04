@@ -125,6 +125,14 @@ std::vector<PdfLine> SiehrPdfParser::parseTextContent(const std::string& text)
         for (size_t i = 0; i < textLines.size(); ++i)
         {
             std::string currentLine = trim(textLines[i]);
+
+            // Pré-filtre rapide : sauter les lignes qui ne peuvent pas être des produits
+            // Une ligne produit Siehr contient toujours "PIEC"
+            if (currentLine.find("PIEC") == std::string::npos)
+            {
+                continue; // Ligne ignorée, pas besoin de regex coûteux
+            }
+
             std::smatch match;
 
             if (std::regex_match(currentLine, match, lineRegex))
