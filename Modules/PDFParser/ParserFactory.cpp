@@ -2,6 +2,7 @@
 #include "LindabPdfParser.h"
 #include "FischerPdfParser.h"
 #include "SiehrPdfParser.h"
+#include "PompacPdfParser.h"
 #include <algorithm>
 
 std::unique_ptr<IPdfParser> ParserFactory::createParser(Supplier supplier)
@@ -17,6 +18,9 @@ std::unique_ptr<IPdfParser> ParserFactory::createParser(Supplier supplier)
     case Supplier::Siehr:
         return std::make_unique<SiehrPdfParser>();
 
+    case Supplier::Pompac:
+        return std::make_unique<PompacPdfParser>();
+
     // Ajouter d'autres cas ici pour de nouveaux fournisseurs
     // case Supplier::Atlantic:
     //     return std::make_unique<AtlanticPdfParser>();
@@ -31,7 +35,8 @@ std::vector<std::string> ParserFactory::getSupportedSuppliers()
     return {
         "Lindab",
         "Fischer",
-        "Siehr"
+        "Siehr",
+        "Pompac"
         // Ajouter d'autres fournisseurs ici
     };
 }
@@ -49,6 +54,9 @@ Supplier ParserFactory::supplierFromString(const std::string& name)
 
     if (lowerName == "siehr")
         return Supplier::Siehr;
+
+    if (lowerName == "pompac")
+        return Supplier::Pompac;
 
     // Par défaut, retourner Lindab
     return Supplier::Lindab;
