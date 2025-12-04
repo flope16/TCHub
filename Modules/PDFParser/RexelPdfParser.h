@@ -1,0 +1,14 @@
+#pragma once
+#include "IPdfParser.h"
+
+class RexelPdfParser : public IPdfParser
+{
+public:
+    std::vector<PdfLine> parse(const std::string& filePath) override;
+    std::string getSupplierName() const override { return "Rexel"; }
+
+private:
+    // Méthodes privées pour le parsing spécifique Rexel
+    std::string extractText(const std::string& filePath);
+    std::vector<PdfLine> parseTextContent(const std::string& text);
+};

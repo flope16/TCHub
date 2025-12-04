@@ -12,6 +12,7 @@ enum class Supplier
     Siehr,
     Pompac,
     CGR,
+    Rexel,
     // Ajouter d'autres fournisseurs ici dans le futur
     // Atlantic,
     // Daikin,
