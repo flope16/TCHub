@@ -8,44 +8,7 @@
 #include <cctype>
 #include <windows.h>
 
-std::string CgrPdfParser::extractText(const std::string& filePath)
-{
-    // Utiliser PopplerPdfExtractor AVEC -layout pour avoir tout sur une ligne
-    // Puis on post-traitera pour enlever les espaces intercalés
-    std::string text = PopplerPdfExtractor::extractTextFromPdf(filePath, true);
-
-    // Post-traiter pour enlever les espaces intercalés
-    text = removeInterleavedSpaces(text);
-
-    OutputDebugStringA("[CGR] Post-traitement des espaces intercales effectue\n");
-
-    // Debug: sauvegarder le texte extrait après post-traitement
-    try
-    {
-        std::filesystem::path pdfPathObj(filePath);
-        std::filesystem::path debugPath = pdfPathObj.parent_path() / (pdfPathObj.stem().string() + "_cgr_extracted.txt");
-        std::ofstream debugFile(debugPath);
-        if (debugFile.is_open())
-        {
-            debugFile << text;
-            debugFile.close();
-            std::string debugMsg = "[CGR] Texte extrait sauvegardé dans: " + debugPath.string() + "\n";
-            OutputDebugStringA(debugMsg.c_str());
-        }
-    }
-    catch (...) {}
-
-    // Debug: afficher dans la console
-    OutputDebugStringA("=== DEBUG EXTRACTION PDF CGR ===\n");
-    std::string debug = "Poppler disponible: " + std::string(PopplerPdfExtractor::isPopplerAvailable() ? "OUI" : "NON") + "\n";
-    debug += "Texte extrait (" + std::to_string(text.length()) + " caractères):\n";
-    size_t previewLength = text.length() < 1500 ? text.length() : 1500;
-    debug += text.substr(0, previewLength) + "\n";
-    debug += "=== FIN DEBUG CGR ===\n";
-    OutputDebugStringA(debug.c_str());
-
-    return text;
-}
+// ===== FONCTIONS HELPERS (définies avant extractText) =====
 
 // Fonction helper pour normaliser un nombre français avec espaces intercalés
 // Ex: "1 9 ,0 2" → 19.02
@@ -151,6 +114,47 @@ static std::string cleanReference(std::string str)
         [](unsigned char c) { return std::isspace(c); }),
         str.end());
     return str;
+}
+
+// ===== METHODES DE LA CLASSE =====
+
+std::string CgrPdfParser::extractText(const std::string& filePath)
+{
+    // Utiliser PopplerPdfExtractor AVEC -layout pour avoir tout sur une ligne
+    // Puis on post-traitera pour enlever les espaces intercalés
+    std::string text = PopplerPdfExtractor::extractTextFromPdf(filePath, true);
+
+    // Post-traiter pour enlever les espaces intercalés
+    text = removeInterleavedSpaces(text);
+
+    OutputDebugStringA("[CGR] Post-traitement des espaces intercales effectue\n");
+
+    // Debug: sauvegarder le texte extrait après post-traitement
+    try
+    {
+        std::filesystem::path pdfPathObj(filePath);
+        std::filesystem::path debugPath = pdfPathObj.parent_path() / (pdfPathObj.stem().string() + "_cgr_extracted.txt");
+        std::ofstream debugFile(debugPath);
+        if (debugFile.is_open())
+        {
+            debugFile << text;
+            debugFile.close();
+            std::string debugMsg = "[CGR] Texte extrait sauvegardé dans: " + debugPath.string() + "\n";
+            OutputDebugStringA(debugMsg.c_str());
+        }
+    }
+    catch (...) {}
+
+    // Debug: afficher dans la console
+    OutputDebugStringA("=== DEBUG EXTRACTION PDF CGR ===\n");
+    std::string debug = "Poppler disponible: " + std::string(PopplerPdfExtractor::isPopplerAvailable() ? "OUI" : "NON") + "\n";
+    debug += "Texte extrait (" + std::to_string(text.length()) + " caractères):\n";
+    size_t previewLength = text.length() < 1500 ? text.length() : 1500;
+    debug += text.substr(0, previewLength) + "\n";
+    debug += "=== FIN DEBUG CGR ===\n";
+    OutputDebugStringA(debug.c_str());
+
+    return text;
 }
 
 // Regex SIMPLE uniquement pour la fin de ligne CGR : Qte Prix € Total €
