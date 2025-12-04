@@ -198,8 +198,9 @@ std::string PopplerPdfExtractor::extractTextFromPdf(const std::string& pdfPath, 
 
         // Utiliser cmd.exe /c pour que les guillemets et redirections soient correctement interprétés
         // Option -layout uniquement si useLayout=true
+        // Option -enc UTF-8 pour forcer l'encodage UTF-8 (important pour les symboles €, accents, etc.)
         std::string layoutOption = useLayout ? "-layout " : "";
-        std::string command = "cmd.exe /c \"\"" + pdftotext_path + "\" " + layoutOption + "\"" + pdfPath + "\" \"" + tempTxt + "\" 2>nul\"";
+        std::string command = "cmd.exe /c \"\"" + pdftotext_path + "\" " + layoutOption + "-enc UTF-8 \"" + pdfPath + "\" \"" + tempTxt + "\" 2>nul\"";
 
         debugMsg = "[PopplerExtractor] Commande: " + command + "\n";
         OutputDebugStringA(debugMsg.c_str());
