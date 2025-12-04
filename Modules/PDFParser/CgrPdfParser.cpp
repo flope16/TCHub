@@ -5,6 +5,7 @@
 #include <regex>
 #include <algorithm>
 #include <filesystem>
+#include <cctype>
 #include <windows.h>
 
 std::string CgrPdfParser::extractText(const std::string& filePath)
@@ -80,6 +81,110 @@ static std::string cleanReference(std::string str)
     return str;
 }
 
+// Regex SIMPLE uniquement pour la fin de ligne CGR : Qte Prix € Total €
+// Ex: " 390    1 9 ,0 2 €   7 4 1 7 ,8 0 €"
+static const std::regex RE_CGR_TAIL(
+    R"(\s(\d+)\s+([\d\s,]+)\s*€\s+([\d\s,]+)\s*€)",
+    std::regex::ECMAScript
+);
+
+// Parsing d'une ligne CGR sans gros regex (évite error_complexity)
+static bool parseLigneCGR(const std::string& lineIn, PdfLine& out)
+{
+    std::string line = lineIn;
+
+    // Filtrage rapide : doit contenir € et virgule
+    if (line.find(static_cast<unsigned char>('€')) == std::string::npos ||
+        line.find(',') == std::string::npos)
+        return false;
+
+    // On ne garde que la fin de la ligne pour le regex (évite error_complexity)
+    const size_t MAX_TAIL = 120;
+    size_t tailStart = 0;
+    std::string tail;
+
+    if (line.size() > MAX_TAIL) {
+        tailStart = line.size() - MAX_TAIL;
+        tail = line.substr(tailStart);
+    } else {
+        tail = line;
+    }
+
+    // 1) Extraction Qte / Prix / Total sur la queue avec petit regex
+    std::smatch m;
+    try {
+        if (!std::regex_search(tail, m, RE_CGR_TAIL)) {
+            return false; // pas une ligne article CGR
+        }
+    }
+    catch (const std::regex_error& e) {
+        std::string errorMsg = "[CGR] ERREUR regex tail: " + std::string(e.what()) + "\n";
+        OutputDebugStringA(errorMsg.c_str());
+        return false;
+    }
+
+    std::string qteStr = m[1].str();   // ex: "390"
+    std::string prixStr = m[2].str();  // ex: "1 9 ,0 2 "
+    std::string totalStr = m[3].str(); // ex: "7 4 1 7 ,8 0 "
+
+    // Position du match dans la ligne complète
+    size_t matchOffsetInTail = static_cast<size_t>(m.position(0));
+    size_t headEnd = tailStart + matchOffsetInTail;
+
+    // 2) Partie gauche : index + ref + désignation
+    std::string head = line.substr(0, headEnd);
+    head = trim(head);
+
+    // On saute les espaces + l'index numérique au début
+    size_t p = 0;
+    while (p < head.size() && std::isspace(static_cast<unsigned char>(head[p]))) ++p;
+    while (p < head.size() && std::isdigit(static_cast<unsigned char>(head[p]))) ++p;
+    while (p < head.size() && std::isspace(static_cast<unsigned char>(head[p]))) ++p;
+
+    // Début de la référence
+    size_t refStart = p;
+    size_t refEnd = head.size();
+
+    // On cherche la première occurrence de "double espace" pour séparer Réf / Désignation
+    for (size_t i = refStart; i + 1 < head.size(); ++i) {
+        if (head[i] == ' ' && head[i + 1] == ' ') {
+            refEnd = i;
+            break;
+        }
+    }
+
+    std::string refRaw = trim(head.substr(refStart, refEnd - refStart));
+    std::string desc = (refEnd < head.size()) ? trim(head.substr(refEnd)) : "";
+
+    // On "recolle" la référence (supprimer les espaces) : "R SA U 5 0" -> "RSAU50"
+    std::string ref = cleanReference(refRaw);
+
+    // 3) Conversion des nombres
+    double qte = 0.0;
+    double prix = 0.0;
+    double total = 0.0;
+
+    try {
+        qte = std::stod(trim(qteStr));          // int simple (390)
+        prix = normalizeNumber(prixStr);        // "1 9 ,0 2" -> 19.02
+        total = normalizeNumber(totalStr);      // "7 4 1 7 ,8 0" -> 7417.80
+    }
+    catch (const std::exception& e) {
+        std::string errorMsg = "[CGR] ERREUR conversion nombre: " + std::string(e.what()) +
+            " | qte='" + qteStr + "' prix='" + prixStr + "' total='" + totalStr + "'\n";
+        OutputDebugStringA(errorMsg.c_str());
+        return false;
+    }
+
+    // 4) Remplissage de la struct
+    out.reference = ref;
+    out.designation = desc;
+    out.quantite = qte;
+    out.prixHT = prix;
+
+    return true;
+}
+
 std::vector<PdfLine> CgrPdfParser::parseTextContent(const std::string& text)
 {
     std::vector<PdfLine> lines;
@@ -99,119 +204,40 @@ std::vector<PdfLine> CgrPdfParser::parseTextContent(const std::string& text)
         return lines;
     }
 
-    // Parser ligne par ligne adapté à la structure CGR avec espaces intercalés
-    // Format observé avec espaces entre caractères :
-    //   "1   R SA U 5 0   R A C C OR D R S AU 5 0 X 4      390    1 9 ,0 2 €   7 4 1 7 ,8 0 €"
-    // Colonnes : Numéro | Référence | Désignation | Quantité | Prix unitaire | Total
+    OutputDebugStringA("[CGR] Parsing ligne par ligne avec approche simplifiee (sans gros regex)...\n");
+
+    // Séparer le texte en lignes
+    std::istringstream stream(text);
+    std::string line;
+    std::vector<std::string> textLines;
+
+    while (std::getline(stream, line))
+    {
+        textLines.push_back(line);
+    }
+
+    std::string lineCountMsg = "[CGR] Nombre de lignes: " + std::to_string(textLines.size()) + "\n";
+    OutputDebugStringA(lineCountMsg.c_str());
 
     int extractedCount = 0;
 
-    try
+    // Parser chaque ligne avec la fonction simplifiée
+    for (size_t i = 0; i < textLines.size(); ++i)
     {
-        OutputDebugStringA("[CGR] Creation du regex ligne article (avec espaces intercales)...\n");
+        PdfLine product;
 
-        // Regex simplifié pour CGR avec chiffres espacés (évite error_complexity)
-        // (\d(?:\s?\d)*\s*,\s*\d{2}) = nombre avec chiffres possiblement espacés
-        // Ex: "1 9 ,0 2" ou "19,02" ou "7 4 1 7 ,8 0"
-        std::regex lineRegex(
-            R"(^\s*\d+\s+(.+?)\s{2,}(.+?)\s+(\d+)\s+(\d(?:\s?\d)*\s*,\s*\d{2})\s+(\d(?:\s?\d)*\s*,\s*\d{2}))",
-            std::regex::ECMAScript
-        );
-
-        OutputDebugStringA("[CGR] Regex cree, debut parsing ligne par ligne...\n");
-
-        // Séparer le texte en lignes
-        std::istringstream stream(text);
-        std::string line;
-        std::vector<std::string> textLines;
-
-        while (std::getline(stream, line))
+        if (parseLigneCGR(textLines[i], product))
         {
-            textLines.push_back(line);
-        }
+            lines.push_back(product);
+            extractedCount++;
 
-        std::string lineCountMsg = "[CGR] Nombre de lignes: " + std::to_string(textLines.size()) + "\n";
-        OutputDebugStringA(lineCountMsg.c_str());
-
-        // Parser chaque ligne
-        for (size_t i = 0; i < textLines.size(); ++i)
-        {
-            std::string currentLine = trim(textLines[i]);
-
-            if (currentLine.empty())
-                continue;
-
-            // Filtrage pré-regex pour éviter error_complexity sur les pavés de texte
-            // Une ligne article CGR doit contenir une virgule ET un symbole € (ou chiffres typiques)
-            if (currentLine.find(',') == std::string::npos)
-                continue;
-
-            std::smatch match;
-
-            try
-            {
-                if (!std::regex_match(currentLine, match, lineRegex))
-                    continue; // Pas une ligne article
-            }
-            catch (const std::regex_error& e)
-            {
-                std::string errorMsg = "[CGR] ERREUR REGEX runtime sur ligne: " + std::string(e.what()) + "\n";
-                OutputDebugStringA(errorMsg.c_str());
-                continue;
-            }
-
-            PdfLine product;
-
-            // Référence (groupe 1) - nettoyer les espaces intercalés
-            std::string refRaw = trim(match[1].str());
-            product.reference = cleanReference(refRaw);  // "R SA U 5 0" → "RSAU50"
-
-            // Désignation (groupe 2) - peut avoir des espaces intercalés aussi, mais on garde tel quel
-            product.designation = trim(match[2].str());
-            // Optionnel : nettoyer aussi la désignation
-            // product.designation = cleanReference(product.designation);
-
-            // Quantité (groupe 3)
-            std::string qteStr = match[3].str();
-            product.quantite = normalizeNumber(qteStr);
-
-            // Prix unitaire (groupe 4) - avec espaces intercalés : "1 9 ,0 2"
-            std::string prixStr = match[4].str();
-            product.prixHT = normalizeNumber(prixStr);
-
-            // Total (groupe 5) - avec espaces intercalés : "7 4 1 7 ,8 0"
-            // std::string totalStr = match[5].str();
-            // double total = normalizeNumber(totalStr);
-
-            std::string debugMsg = "[CGR] Ligne article trouvee: Ref=" + product.reference +
+            std::string debugMsg = "[CGR] Ligne article #" + std::to_string(extractedCount) +
+                ": Ref=" + product.reference +
                 " | Desc=" + product.designation +
                 " | Qte=" + std::to_string(product.quantite) +
                 " | Prix=" + std::to_string(product.prixHT) + "\n";
             OutputDebugStringA(debugMsg.c_str());
-
-            // Ajouter le produit à la liste
-            lines.push_back(product);
-            extractedCount++;
-
-            std::string productMsg = "CGR produit #" + std::to_string(extractedCount) + ": " +
-                product.reference + " | " + product.designation + " | " +
-                std::to_string(product.quantite) + " | " + std::to_string(product.prixHT) + "\n";
-            OutputDebugStringA(productMsg.c_str());
         }
-    }
-    catch (const std::regex_error& e)
-    {
-        std::string errorMsg = "[CGR] ERREUR REGEX: " + std::string(e.what()) + "\n";
-        OutputDebugStringA(errorMsg.c_str());
-    }
-    catch (const std::exception& e)
-    {
-        std::string errorMsg = "[CGR] EXCEPTION: " + std::string(e.what()) + "\n";
-        OutputDebugStringA(errorMsg.c_str());
-    }
-    catch (...)
-    {
-        OutputDebugStringA("[CGR] EXCEPTION INCONNUE\n");
     }
 
     // Log final
