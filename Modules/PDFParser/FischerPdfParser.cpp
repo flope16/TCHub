@@ -60,9 +60,18 @@ std::vector<PdfLine> FischerPdfParser::parseTextContent(const std::string& text)
 {
     std::vector<PdfLine> lines;
 
+    OutputDebugStringA("=== DEBUT PARSING FISCHER ===\n");
+
     // Vérifier si c'est un message d'erreur
     if (text.find("ERREUR:") == 0)
     {
+        OutputDebugStringA("[Fischer] Texte contient ERREUR, abandon\n");
+        return lines;
+    }
+
+    if (text.empty())
+    {
+        OutputDebugStringA("[Fischer] Texte vide, abandon\n");
         return lines;
     }
 
@@ -74,46 +83,72 @@ std::vector<PdfLine> FischerPdfParser::parseTextContent(const std::string& text)
 
     int extractedCount = 0;
 
-    // Regex multiline qui capture les 3 lignes ensemble
-    // Groupe 1: Position
-    // Groupe 2: Désignation
-    // Groupe 3: Quantité
-    // Groupe 4: GTIN (code à 13 chiffres)
-    // Groupe 5: Prix total (dernier nombre de la ligne Total)
-    // Note: En C++, ^ matche uniquement le début de la chaîne, pas chaque ligne
-    // On enlève ^ pour permettre le match n'importe où dans le texte
-    std::regex productRegex(
-        R"((\d+)\s+(.+?)\s+(\d+)\s+(?:BTE|PCE)\s+[0-9.,]+\s+1\s+(?:BTE|PCE)\s+[0-9.,]+\s*\n)"  // Ligne produit
-        R"(\s*(\d{13})\s+\d+\s+[ÉEé]co-contribution\s+[0-9.,]+\s+[0-9.,]+\s*\n)"                    // Ligne GTIN + éco
-        R"(\s*Total\s+[ée]co-contribution\s+comprise\s+(?:[0-9.,]+\s+)?([0-9.,]+))"                // Ligne Total (capture le dernier nombre)
-    );
-
-    // Utiliser regex_iterator pour trouver tous les matches dans le texte
-    auto matches_begin = std::sregex_iterator(text.begin(), text.end(), productRegex);
-    auto matches_end = std::sregex_iterator();
-
-    for (std::sregex_iterator i = matches_begin; i != matches_end; ++i)
+    try
     {
-        std::smatch match = *i;
+        OutputDebugStringA("[Fischer] Creation du regex...\n");
 
-        PdfLine pdfLine;
-        pdfLine.reference = match[4].str();  // GTIN (13 chiffres)
-        pdfLine.designation = match[2].str(); // Désignation
+        // Regex plus permissif:
+        // - Utiliser \s+ au lieu de simples espaces pour gérer la mise en page avec beaucoup d'espaces
+        // - Rendre la désignation plus flexible avec .*? pour capturer tout jusqu'aux unités
+        std::regex productRegex(
+            R"((\d+)\s+(.+?)\s+(\d+)\s+(?:BTE|PCE)\s+[0-9.,]+\s+1\s+(?:BTE|PCE)\s+[0-9.,]+)"  // Ligne produit (sans \n obligatoire)
+            R"(.*?)"  // Espaces et retour à la ligne flexibles
+            R"((\d{13}).*?[ÉEé]co-contribution.*?)"  // Ligne GTIN + éco (flexible)
+            R"(Total\s+[ée]co-contribution\s+comprise\s+(?:[0-9.,]+\s+)?([0-9.,]+))"  // Ligne Total
+        );
 
-        // Nettoyer la désignation (supprimer espaces superflus)
-        pdfLine.designation.erase(0, pdfLine.designation.find_first_not_of(" \t"));
-        pdfLine.designation.erase(pdfLine.designation.find_last_not_of(" \t") + 1);
+        OutputDebugStringA("[Fischer] Regex cree, debut recherche...\n");
 
-        pdfLine.quantite = parseFrenchNumber(match[3].str());   // Quantité
-        pdfLine.prixHT = parseFrenchNumber(match[5].str());     // Prix total
+        // Utiliser regex_iterator pour trouver tous les matches dans le texte
+        auto matches_begin = std::sregex_iterator(text.begin(), text.end(), productRegex);
+        auto matches_end = std::sregex_iterator();
 
-        lines.push_back(pdfLine);
-        extractedCount++;
+        std::string countMsg = "[Fischer] Nombre de matches trouves: " +
+            std::to_string(std::distance(matches_begin, matches_end)) + "\n";
+        OutputDebugStringA(countMsg.c_str());
 
-        std::string debugMsg = "Fischer produit #" + std::to_string(extractedCount) + ": " +
-            pdfLine.reference + " | " + pdfLine.designation + " | " +
-            std::to_string(pdfLine.quantite) + " | " + std::to_string(pdfLine.prixHT) + "\n";
-        OutputDebugStringA(debugMsg.c_str());
+        // Re-créer l'itérateur car distance() l'a consommé
+        matches_begin = std::sregex_iterator(text.begin(), text.end(), productRegex);
+
+        for (std::sregex_iterator i = matches_begin; i != matches_end; ++i)
+        {
+            std::smatch match = *i;
+
+            OutputDebugStringA("[Fischer] Match trouve, extraction...\n");
+
+            PdfLine pdfLine;
+            pdfLine.reference = match[4].str();  // GTIN (13 chiffres)
+            pdfLine.designation = match[2].str(); // Désignation
+
+            // Nettoyer la désignation (supprimer espaces superflus)
+            pdfLine.designation.erase(0, pdfLine.designation.find_first_not_of(" \t"));
+            pdfLine.designation.erase(pdfLine.designation.find_last_not_of(" \t") + 1);
+
+            pdfLine.quantite = parseFrenchNumber(match[3].str());   // Quantité
+            pdfLine.prixHT = parseFrenchNumber(match[5].str());     // Prix total
+
+            lines.push_back(pdfLine);
+            extractedCount++;
+
+            std::string debugMsg = "Fischer produit #" + std::to_string(extractedCount) + ": " +
+                pdfLine.reference + " | " + pdfLine.designation + " | " +
+                std::to_string(pdfLine.quantite) + " | " + std::to_string(pdfLine.prixHT) + "\n";
+            OutputDebugStringA(debugMsg.c_str());
+        }
+    }
+    catch (const std::regex_error& e)
+    {
+        std::string errorMsg = "[Fischer] ERREUR REGEX: " + std::string(e.what()) + "\n";
+        OutputDebugStringA(errorMsg.c_str());
+    }
+    catch (const std::exception& e)
+    {
+        std::string errorMsg = "[Fischer] EXCEPTION: " + std::string(e.what()) + "\n";
+        OutputDebugStringA(errorMsg.c_str());
+    }
+    catch (...)
+    {
+        OutputDebugStringA("[Fischer] EXCEPTION INCONNUE\n");
     }
 
     // Log final
