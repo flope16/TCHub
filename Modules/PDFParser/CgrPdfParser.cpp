@@ -68,59 +68,94 @@ static std::string trim(const std::string& s)
     return s.substr(start, end - start + 1);
 }
 
-// Fonction pour détecter et corriger les espaces entre caractères
+// Fonction pour détecter et corriger les espaces entre caractères (CGR uniquement)
 static std::string fixInterleavedSpaces(const std::string& text)
 {
     if (text.empty()) return text;
 
-    // Compter le ratio d'espaces pour détecter le problème
-    size_t spaceCount = std::count(text.begin(), text.end(), ' ');
-    double spaceRatio = static_cast<double>(spaceCount) / text.length();
+    // Analyser un échantillon pour détecter le pattern "X Y Z" (espaces entre chaque caractère)
+    // On prend les 500 premiers caractères pour l'analyse
+    size_t sampleSize = std::min<size_t>(500, text.length());
+    std::string sample = text.substr(0, sampleSize);
 
-    // Si le ratio d'espaces est supérieur à 30%, on considère qu'il y a des espaces intercalés
-    if (spaceRatio < 0.3)
+    // Compter le pattern "caractère + espace + caractère" (pas newline)
+    int charSpaceCharCount = 0;
+    for (size_t i = 0; i + 2 < sample.length(); i++)
     {
-        OutputDebugStringA("[CGR] Pas d'espaces intercales detectes\n");
-        return text; // Pas de problème détecté
+        if (sample[i] != ' ' && sample[i] != '\n' && sample[i] != '\r' &&
+            sample[i + 1] == ' ' &&
+            sample[i + 2] != ' ' && sample[i + 2] != '\n' && sample[i + 2] != '\r')
+        {
+            charSpaceCharCount++;
+        }
     }
 
-    std::string debugMsg = "[CGR] Espaces intercales detectes (ratio: " +
-        std::to_string(static_cast<int>(spaceRatio * 100)) + "%)\n";
+    double charSpaceCharRatio = static_cast<double>(charSpaceCharCount) / sampleSize;
+
+    std::string debugMsg = "[CGR] Detection espaces intercales - Ratio pattern 'X Y': " +
+        std::to_string(static_cast<int>(charSpaceCharRatio * 100)) + "%\n";
     OutputDebugStringA(debugMsg.c_str());
 
-    // Stratégie : remplacer les espaces multiples par un marqueur, supprimer les espaces simples,
-    // puis restaurer les espaces entre mots
+    // Si moins de 20% de patterns "X Y", pas de problème
+    if (charSpaceCharRatio < 0.2)
+    {
+        OutputDebugStringA("[CGR] Pas d'espaces intercales detectes\n");
+        return text;
+    }
+
+    OutputDebugStringA("[CGR] Espaces intercales DETECTES, correction en cours...\n");
+
+    // Stratégie améliorée :
+    // - Conserver les newlines et tabs
+    // - Remplacer 3+ espaces par un marqueur (séparateurs de colonnes)
+    // - Remplacer 2 espaces par un autre marqueur (séparateurs de mots)
+    // - Supprimer tous les espaces simples (entre caractères)
+    // - Restaurer les marqueurs
+
     std::string result = text;
 
-    // Marqueur temporaire unique
-    const std::string MARKER = "\x01\x02\x03";
+    const std::string MARKER_MULTI = "\x01\x02\x03";  // Pour 3+ espaces
+    const std::string MARKER_DOUBLE = "\x04\x05\x06"; // Pour 2 espaces
 
-    // 1. Remplacer les espaces multiples (2 ou plus) par le marqueur
+    // 1. Remplacer les séquences de 3+ espaces
     size_t pos = 0;
-    while ((pos = result.find("  ", pos)) != std::string::npos)
+    while ((pos = result.find("   ", pos)) != std::string::npos)
     {
-        // Compter le nombre d'espaces consécutifs
         size_t endPos = pos;
         while (endPos < result.length() && result[endPos] == ' ')
             endPos++;
 
-        // Remplacer par le marqueur
-        result.replace(pos, endPos - pos, MARKER);
-        pos += MARKER.length();
+        result.replace(pos, endPos - pos, MARKER_MULTI);
+        pos += MARKER_MULTI.length();
     }
 
-    // 2. Supprimer tous les espaces simples restants
+    // 2. Remplacer les double espaces
+    pos = 0;
+    while ((pos = result.find("  ", pos)) != std::string::npos)
+    {
+        result.replace(pos, 2, MARKER_DOUBLE);
+        pos += MARKER_DOUBLE.length();
+    }
+
+    // 3. Supprimer tous les espaces simples
     result.erase(std::remove(result.begin(), result.end(), ' '), result.end());
 
-    // 3. Remplacer le marqueur par un espace unique
+    // 4. Restaurer les marqueurs par des espaces
     pos = 0;
-    while ((pos = result.find(MARKER, pos)) != std::string::npos)
+    while ((pos = result.find(MARKER_MULTI, pos)) != std::string::npos)
     {
-        result.replace(pos, MARKER.length(), " ");
+        result.replace(pos, MARKER_MULTI.length(), "  ");  // 2 espaces pour colonnes
+        pos += 2;
+    }
+
+    pos = 0;
+    while ((pos = result.find(MARKER_DOUBLE, pos)) != std::string::npos)
+    {
+        result.replace(pos, MARKER_DOUBLE.length(), " ");  // 1 espace pour mots
         pos += 1;
     }
 
-    OutputDebugStringA("[CGR] Espaces intercales corriges\n");
+    OutputDebugStringA("[CGR] Espaces intercales corriges avec succes\n");
 
     return result;
 }
@@ -151,6 +186,22 @@ std::vector<PdfLine> CgrPdfParser::parseTextContent(const std::string& text)
     if (cleanedText != text)
     {
         OutputDebugStringA("[CGR] Texte nettoye different de l'original\n");
+
+        // Sauvegarder le texte nettoyé dans un fichier pour inspection
+        try
+        {
+            // Le fichier source devrait être accessible via la fonction appelante
+            // Pour l'instant on sauvegarde dans un fichier temporaire
+            std::ofstream debugFile("CGR_cleaned_text.txt");
+            if (debugFile.is_open())
+            {
+                debugFile << cleanedText;
+                debugFile.close();
+                OutputDebugStringA("[CGR] Texte nettoye sauvegarde dans: CGR_cleaned_text.txt\n");
+            }
+        }
+        catch (...) {}
+
         std::string debugPreview = cleanedText.length() > 500 ? cleanedText.substr(0, 500) + "..." : cleanedText;
         std::string debugMsg = "[CGR] Preview texte nettoye: " + debugPreview + "\n";
         OutputDebugStringA(debugMsg.c_str());
