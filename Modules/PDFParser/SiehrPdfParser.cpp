@@ -131,27 +131,47 @@ std::vector<PdfLine> SiehrPdfParser::parseTextContent(const std::string& text)
             {
                 PdfLine product;
 
-                // Référence (groupe 1) - peut être vide
-                if (match[1].matched && !match[1].str().empty())
+                // Extraire les captures
+                std::string rawRef = match[1].matched ? match[1].str() : "";
+                std::string desc = trim(match[2].str());
+                std::string qteStr = match[3].str();
+                std::string prixStr = match[4].str();
+                // Montant total dans groupe 5 (non utilisé)
+
+                // Filtrer les références : si pas de chiffre, c'est partie de la désignation
+                auto hasDigit = [](const std::string& s) {
+                    return std::any_of(s.begin(), s.end(),
+                        [](unsigned char c) { return std::isdigit(c); });
+                };
+
+                if (!rawRef.empty() && hasDigit(rawRef))
                 {
-                    product.reference = match[1].str();
+                    // Cas normal : vraie référence type SB2050, S00286...
+                    product.reference = rawRef;
                 }
                 else
                 {
+                    // Pas de vraie ref -> le premier mot fait partie de la désignation
+                    if (!rawRef.empty())
+                    {
+                        if (!desc.empty())
+                            desc = rawRef + " " + desc;
+                        else
+                            desc = rawRef;
+                    }
                     product.reference = "VIDE";
-                    OutputDebugStringA("[Siehr] Reference vide detectee\n");
+
+                    OutputDebugStringA("[Siehr] Reference vide detectee (pas de chiffre dans le premier mot)\n");
                 }
 
-                // Désignation (groupe 2)
-                product.designation = trim(match[2].str());
+                // Désignation
+                product.designation = desc;
 
-                // Quantité (groupe 3)
-                product.quantite = parseFrenchNumber(match[3].str());
+                // Quantité
+                product.quantite = parseFrenchNumber(qteStr);
 
-                // Prix unitaire (groupe 4)
-                product.prixHT = parseFrenchNumber(match[4].str());
-
-                // Montant total dans groupe 5 (non utilisé pour l'instant)
+                // Prix unitaire
+                product.prixHT = parseFrenchNumber(prixStr);
 
                 std::string debugMsg = "[Siehr] Ligne article trouvee: Ref=" + product.reference +
                     " | Qte=" + std::to_string(product.quantite) +
