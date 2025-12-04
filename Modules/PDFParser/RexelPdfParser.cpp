@@ -42,8 +42,8 @@ static std::string trim(const std::string& s)
 
 std::string RexelPdfParser::extractText(const std::string& filePath)
 {
-    // Utiliser PopplerPdfExtractor SANS -layout pour obtenir le format éclaté ligne par ligne
-    std::string text = PopplerPdfExtractor::extractTextFromPdf(filePath, false);
+    // Utiliser PopplerPdfExtractor AVEC -layout pour préserver la structure en colonnes
+    std::string text = PopplerPdfExtractor::extractTextFromPdf(filePath, true);
 
     // Debug: sauvegarder le texte extrait
     try
@@ -104,7 +104,7 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string& text)
 {
     std::vector<PdfLine> lines;
 
-    OutputDebugStringA("=== DEBUT PARSING REXEL (format éclaté) ===\n");
+    OutputDebugStringA("=== DEBUT PARSING REXEL (format avec -layout) ===\n");
 
     // Vérifier si c'est un message d'erreur
     if (text.find("ERREUR:") == 0)
@@ -132,94 +132,93 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string& text)
     std::string lineCountMsg = "[Rexel] Nombre de lignes: " + std::to_string(textLines.size()) + "\n";
     OutputDebugStringA(lineCountMsg.c_str());
 
-    // Format Rexel sans layout - structure fixe par produit :
-    // L0  : 001    NDX402010          (numéro + référence)
-    // L1  : 00086, 0                  (prix de base, ignoré)
-    // L2  : 0,68000                   (prix unitaire net)
-    // L3  : 008                       (remise, ignoré)
-    // L4  : 800    P                  (quantité)
-    // L5  : 00, 445                   (ignoré)
-    // L6  : 544,00   2                (montant HT + code TVA)
-    // L7  : 6                         (ignoré)
-    // L8  : 636     1   j             (dispo, ignoré)
-    // L9  : ECLISSE RAPIDTOL ER 48 SZ (désignation)
-    // L10 : 1                         (ignoré)
-    // L11 : 164     5   j             (délai, ignoré)
-    // L12 : 002    NDX421955          (produit suivant)
-
-    std::regex refRegex(R"(^\s*(\d{3})\s+(\S+)\s*$)"); // Détecte "001    NDX402010"
-    std::regex qteRegex(R"(^\s*(\d+)\s+P\b)");          // Détecte "800    P"
-
-    int extractedCount = 0;
-
-    // LOG: afficher les 150 premières lignes pour debug
-    OutputDebugStringA("[Rexel] === AFFICHAGE DES 150 PREMIERES LIGNES ===\n");
-    for (size_t i = 0; i < textLines.size() && i < 150; ++i)
+    // LOG: afficher les 100 premières lignes pour debug
+    OutputDebugStringA("[Rexel] === AFFICHAGE DES 100 PREMIERES LIGNES (avec -layout) ===\n");
+    for (size_t i = 0; i < textLines.size() && i < 100; ++i)
     {
         std::string logLine = "[Rexel] Ligne " + std::to_string(i) + ": \"" + textLines[i] + "\"\n";
         OutputDebugStringA(logLine.c_str());
     }
     OutputDebugStringA("[Rexel] === FIN AFFICHAGE ===\n");
 
+    int extractedCount = 0;
+
+    // Format Rexel avec -layout : chercher les lignes contenant "NDX" (références)
+    // et extraire les données depuis ces lignes
+    std::regex refLineRegex(R"(^\s*(\d{3})\s+(NDX\d+)\s+(.*))"); // Capte "001    NDX402010   ..."
+
     for (size_t i = 0; i < textLines.size(); ++i)
     {
         std::smatch match;
 
-        // LOG: Tester si la ligne matche le regex de référence
-        if (std::regex_match(textLines[i], match, refRegex))
+        // Chercher une ligne commençant par un numéro et contenant NDX
+        if (std::regex_search(textLines[i], match, refLineRegex))
         {
             PdfLine product;
-            product.reference = match[2].str();
+            product.reference = trim(match[2].str()); // NDX402010
+            std::string restOfLine = match[3].str(); // Le reste de la ligne
 
-            std::string debugMsg = "[Rexel] ✓ MATCH REF à ligne " + std::to_string(i) + ": " + product.reference + "\n";
+            std::string debugMsg = "[Rexel] ✓ MATCH REF à ligne " + std::to_string(i) + ": \"" + product.reference + "\" | Reste: \"" + restOfLine + "\"\n";
             OutputDebugStringA(debugMsg.c_str());
 
-            // Prix unitaire net : ligne i+2
-            if (i + 2 < textLines.size())
+            // Chercher la désignation sur la ligne suivante
+            if (i + 1 < textLines.size())
             {
-                std::string prixStr = trim(textLines[i + 2]);
-                product.prixHT = parseFrenchNumber(prixStr);
-
-                std::string debugPrix = "[Rexel] PU (ligne " + std::to_string(i + 2) + "): \"" + prixStr + "\" = " + std::to_string(product.prixHT) + "\n";
-                OutputDebugStringA(debugPrix.c_str());
-            }
-
-            // Quantité : ligne i+4 (format "800    P")
-            if (i + 4 < textLines.size())
-            {
-                std::string debugQteTest = "[Rexel] Test Qte (ligne " + std::to_string(i + 4) + "): \"" + textLines[i + 4] + "\"\n";
-                OutputDebugStringA(debugQteTest.c_str());
-
-                std::smatch matchQte;
-                if (std::regex_search(textLines[i + 4], matchQte, qteRegex))
+                std::string nextLine = trim(textLines[i + 1]);
+                // La désignation est souvent sur la ligne suivante si elle commence par une lettre
+                if (!nextLine.empty() && std::isalpha(static_cast<unsigned char>(nextLine[0])))
                 {
-                    product.quantite = std::stod(matchQte[1].str());
-
-                    std::string debugQte = "[Rexel] ✓ Qte trouvée: " + matchQte[1].str() + "\n";
-                    OutputDebugStringA(debugQte.c_str());
-                }
-                else
-                {
-                    OutputDebugStringA("[Rexel] ✗ Qte non matchée\n");
+                    product.designation = nextLine;
+                    std::string debugDesc = "[Rexel] Desc trouvée (ligne " + std::to_string(i + 1) + "): \"" + product.designation + "\"\n";
+                    OutputDebugStringA(debugDesc.c_str());
                 }
             }
 
-            // Montant HT : ligne i+6 (format "544,00   2")
-            // On ne l'utilise pas pour le produit mais on peut le logger pour validation
-            if (i + 6 < textLines.size())
+            // Parser le reste de la ligne pour extraire quantité et prix
+            // Format typique : "001 NDX402010   800   P   0,68000   ...   544,00  2"
+            std::regex dataRegex(R"((\d+)\s+P\s+[\d,]+\s+([\d,]+))"); // Quantité + P + ... + Prix
+            std::smatch dataMatch;
+            if (std::regex_search(restOfLine, dataMatch, dataRegex))
             {
-                std::string totalStr = trim(textLines[i + 6]);
-                std::string debugTotal = "[Rexel] Total HT (ligne " + std::to_string(i + 6) + "): \"" + totalStr + "\"\n";
-                OutputDebugStringA(debugTotal.c_str());
+                product.quantite = std::stod(dataMatch[1].str());
+                product.prixHT = parseFrenchNumber(dataMatch[2].str());
+
+                std::string debugData = "[Rexel] Qte=" + std::to_string(product.quantite) +
+                                       " | PU=" + std::to_string(product.prixHT) + "\n";
+                OutputDebugStringA(debugData.c_str());
             }
-
-            // Désignation : ligne i+9
-            if (i + 9 < textLines.size())
+            else
             {
-                product.designation = trim(textLines[i + 9]);
+                // Si le regex ne match pas, chercher manuellement les nombres
+                OutputDebugStringA("[Rexel] Regex data ne matche pas, extraction manuelle...\n");
 
-                std::string debugDesc = "[Rexel] Desc (ligne " + std::to_string(i + 9) + "): \"" + product.designation + "\"\n";
-                OutputDebugStringA(debugDesc.c_str());
+                // Chercher " P " dans la ligne pour trouver la quantité juste avant
+                size_t pPos = restOfLine.find(" P ");
+                if (pPos != std::string::npos)
+                {
+                    // Extraire le nombre avant " P "
+                    size_t startQte = restOfLine.rfind(' ', pPos - 1);
+                    if (startQte != std::string::npos)
+                    {
+                        std::string qteStr = trim(restOfLine.substr(startQte, pPos - startQte));
+                        product.quantite = std::stod(qteStr);
+
+                        std::string debugQte = "[Rexel] Qte extraite manuellement: " + std::to_string(product.quantite) + "\n";
+                        OutputDebugStringA(debugQte.c_str());
+                    }
+                }
+
+                // Chercher le prix : premier nombre avec virgule et 5 décimales après " P "
+                std::regex priceRegex(R"(\b(\d+,\d{5})\b)");
+                std::smatch priceMatch;
+                std::string afterP = restOfLine.substr(pPos + 3);
+                if (std::regex_search(afterP, priceMatch, priceRegex))
+                {
+                    product.prixHT = parseFrenchNumber(priceMatch[1].str());
+
+                    std::string debugPrix = "[Rexel] Prix extrait manuellement: " + std::to_string(product.prixHT) + "\n";
+                    OutputDebugStringA(debugPrix.c_str());
+                }
             }
 
             // Ajouter le produit si on a au moins une référence et une quantité
@@ -240,10 +239,6 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string& text)
                     "\", qte=" + std::to_string(product.quantite) + ")\n";
                 OutputDebugStringA(debugFail.c_str());
             }
-
-            // Avancer de 11 lignes (i sera incrémenté à la boucle suivante)
-            // Structure : 12 lignes par produit (0 à 11), donc on avance à i+11
-            i += 11;
         }
     }
 
