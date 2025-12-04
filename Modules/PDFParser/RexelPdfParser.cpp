@@ -92,79 +92,128 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string& text)
         return lines;
     }
 
-    // Regex Rexel pour extraire : Référence + Désignation + Quantité + Prix unitaire + Total
-    // Groupe 1: Référence (ex: NDX402010)
-    // Groupe 2: Désignation (ex: ECLISSE RAPIDTOL ER 48 SZ)
-    // Groupe 3: Quantité (ex: 800)
-    // Groupe 4: Prix unitaire (ex: 0,68000)
-    // Groupe 5: Montant total (ex: 544,00)
-    std::regex rexelRegex(
-        R"(([A-Z0-9]{5,})\s*\r?\n([A-Z0-9 \-/]+?)\s+(?:\S+\s+){2,}?(\d+)\s+\S+\s+([\d.,]+)\s+\S+\s+([\d.,]+))",
-        std::regex::ECMAScript
-    );
+    OutputDebugStringA("[Rexel] Parsing ligne par ligne avec state machine...\n");
 
-    OutputDebugStringA("[Rexel] Regex cree, debut parsing...\n");
+    // Séparer le texte en lignes
+    std::istringstream stream(text);
+    std::string line;
+    std::vector<std::string> textLines;
+
+    while (std::getline(stream, line))
+    {
+        textLines.push_back(line);
+    }
+
+    std::string lineCountMsg = "[Rexel] Nombre de lignes: " + std::to_string(textLines.size()) + "\n";
+    OutputDebugStringA(lineCountMsg.c_str());
 
     int extractedCount = 0;
 
-    try
+    // State machine pour parser les blocs Rexel (référence, désignation, quantité, prix)
+    // Format observé :
+    // Ligne N : "001    NDX402010                                ..."
+    // Ligne N+1 : "       ECLISSE RAPIDTOL ER 48 SZ"
+    // Ligne N+2 : "       800"
+    // Ligne N+3 : "       8      P        00,68000"
+
+    enum class State { SEARCHING, FOUND_REF, FOUND_DESC, FOUND_QTE };
+    State state = State::SEARCHING;
+    PdfLine currentProduct;
+
+    // Regex simples pour identifier chaque type de ligne
+    std::regex refRegex(R"(^\s*\d+\s+([A-Z0-9]{5,})\s*)"); // Ligne avec numéro + référence
+    std::regex qteRegex(R"(^\s*(\d+)\s*$)"); // Ligne avec juste un nombre (quantité)
+    std::regex prixRegex(R"(^\s*\d+\s+P\s+([\d,]+))"); // Ligne avec "P" et prix
+
+    for (size_t i = 0; i < textLines.size(); ++i)
     {
-        // Chercher tous les matches dans le texte
-        auto words_begin = std::sregex_iterator(text.begin(), text.end(), rexelRegex);
-        auto words_end = std::sregex_iterator();
+        std::string currentLine = trim(textLines[i]);
 
-        int matchCount = std::distance(words_begin, words_end);
-        std::string matchMsg = "[Rexel] Nombre de matches trouves: " + std::to_string(matchCount) + "\n";
-        OutputDebugStringA(matchMsg.c_str());
+        if (currentLine.empty())
+            continue;
 
-        for (std::sregex_iterator i = words_begin; i != words_end; ++i)
+        std::smatch match;
+
+        switch (state)
         {
-            std::smatch match = *i;
+        case State::SEARCHING:
+            // Chercher une ligne avec référence
+            if (std::regex_search(currentLine, match, refRegex))
+            {
+                currentProduct = PdfLine();
+                currentProduct.reference = trim(match[1].str());
 
-            PdfLine product;
+                std::string debugMsg = "[Rexel] Ref trouvee: " + currentProduct.reference + "\n";
+                OutputDebugStringA(debugMsg.c_str());
 
-            // Référence (groupe 1)
-            product.reference = trim(match[1].str());
+                state = State::FOUND_REF;
+            }
+            break;
 
-            // Désignation (groupe 2)
-            product.designation = trim(match[2].str());
+        case State::FOUND_REF:
+            // La ligne suivante est la désignation (commence par des espaces, contient des lettres)
+            if (currentLine.find_first_not_of(' ') != std::string::npos &&
+                std::isalpha(static_cast<unsigned char>(currentLine[currentLine.find_first_not_of(' ')])))
+            {
+                currentProduct.designation = trim(currentLine);
 
-            // Quantité (groupe 3)
-            std::string qteStr = match[3].str();
-            product.quantite = normalizeNumber(qteStr);
+                std::string debugMsg = "[Rexel] Desc trouvee: " + currentProduct.designation + "\n";
+                OutputDebugStringA(debugMsg.c_str());
 
-            // Prix unitaire (groupe 4)
-            std::string prixStr = match[4].str();
-            product.prixHT = normalizeNumber(prixStr);
+                state = State::FOUND_DESC;
+            }
+            else
+            {
+                // Pas de désignation, revenir à la recherche
+                state = State::SEARCHING;
+            }
+            break;
 
-            // Total (groupe 5) - non utilisé pour l'instant mais disponible
-            // std::string totalStr = match[5].str();
-            // double total = normalizeNumber(totalStr);
+        case State::FOUND_DESC:
+            // Chercher la quantité (ligne avec juste un nombre)
+            if (std::regex_match(currentLine, match, qteRegex))
+            {
+                currentProduct.quantite = normalizeNumber(match[1].str());
 
-            std::string debugMsg = "[Rexel] Article trouve: Ref=" + product.reference +
-                " | Desc=" + product.designation +
-                " | Qte=" + std::to_string(product.quantite) +
-                " | Prix=" + std::to_string(product.prixHT) + "\n";
-            OutputDebugStringA(debugMsg.c_str());
+                std::string debugMsg = "[Rexel] Qte trouvee: " + std::to_string(currentProduct.quantite) + "\n";
+                OutputDebugStringA(debugMsg.c_str());
 
-            // Ajouter le produit à la liste
-            lines.push_back(product);
-            extractedCount++;
+                state = State::FOUND_QTE;
+            }
+            else
+            {
+                // Pas de quantité, revenir à la recherche
+                state = State::SEARCHING;
+            }
+            break;
+
+        case State::FOUND_QTE:
+            // Chercher le prix (ligne avec "P" et un nombre)
+            if (std::regex_search(currentLine, match, prixRegex))
+            {
+                currentProduct.prixHT = normalizeNumber(match[1].str());
+
+                std::string debugMsg = "[Rexel] Prix trouve: " + std::to_string(currentProduct.prixHT) + "\n";
+                OutputDebugStringA(debugMsg.c_str());
+
+                // Produit complet, l'ajouter
+                lines.push_back(currentProduct);
+                extractedCount++;
+
+                std::string productMsg = "Rexel produit #" + std::to_string(extractedCount) + ": " +
+                    currentProduct.reference + " | " + currentProduct.designation + " | " +
+                    std::to_string(currentProduct.quantite) + " | " + std::to_string(currentProduct.prixHT) + "\n";
+                OutputDebugStringA(productMsg.c_str());
+
+                state = State::SEARCHING;
+            }
+            else
+            {
+                // Pas de prix trouvé, continuer à chercher sur la ligne suivante
+                // (le prix peut être sur la ligne suivante)
+            }
+            break;
         }
-    }
-    catch (const std::regex_error& e)
-    {
-        std::string errorMsg = "[Rexel] ERREUR REGEX: " + std::string(e.what()) + "\n";
-        OutputDebugStringA(errorMsg.c_str());
-    }
-    catch (const std::exception& e)
-    {
-        std::string errorMsg = "[Rexel] EXCEPTION: " + std::string(e.what()) + "\n";
-        OutputDebugStringA(errorMsg.c_str());
-    }
-    catch (...)
-    {
-        OutputDebugStringA("[Rexel] EXCEPTION INCONNUE\n");
     }
 
     // Log final
