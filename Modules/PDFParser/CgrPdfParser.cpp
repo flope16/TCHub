@@ -40,12 +40,14 @@ std::string CgrPdfParser::extractText(const std::string& filePath)
     return text;
 }
 
-// Fonction helper pour normaliser un nombre français (virgule, espaces des milliers)
+// Fonction helper pour normaliser un nombre français avec espaces intercalés
+// Ex: "1 9 ,0 2" → 19.02
+//     "7 4 1 7 ,8 0" → 7417.80
 static double normalizeNumber(std::string str)
 {
-    // Enlever les espaces (y compris espaces insécables U+00A0)
+    // Enlever TOUS les espaces (y compris tabs, espaces insécables U+00A0)
     str.erase(std::remove_if(str.begin(), str.end(),
-        [](unsigned char c) { return c == ' ' || c == '\xA0'; }),
+        [](unsigned char c) { return std::isspace(c) || c == '\xA0'; }),
         str.end());
 
     // Remplacer virgule par point
@@ -68,96 +70,14 @@ static std::string trim(const std::string& s)
     return s.substr(start, end - start + 1);
 }
 
-// Fonction pour détecter et corriger les espaces entre caractères (CGR uniquement)
-static std::string fixInterleavedSpaces(const std::string& text)
+// Fonction pour nettoyer une référence en enlevant les espaces intercalés
+// Ex: "R SA U 5 0" → "RSAU50"
+static std::string cleanReference(std::string str)
 {
-    if (text.empty()) return text;
-
-    // Analyser un échantillon pour détecter le pattern "X Y Z" (espaces entre chaque caractère)
-    // On prend les 500 premiers caractères pour l'analyse
-    size_t sampleSize = std::min<size_t>(500, text.length());
-    std::string sample = text.substr(0, sampleSize);
-
-    // Compter le pattern "caractère + espace + caractère" (pas newline)
-    int charSpaceCharCount = 0;
-    for (size_t i = 0; i + 2 < sample.length(); i++)
-    {
-        if (sample[i] != ' ' && sample[i] != '\n' && sample[i] != '\r' &&
-            sample[i + 1] == ' ' &&
-            sample[i + 2] != ' ' && sample[i + 2] != '\n' && sample[i + 2] != '\r')
-        {
-            charSpaceCharCount++;
-        }
-    }
-
-    double charSpaceCharRatio = static_cast<double>(charSpaceCharCount) / sampleSize;
-
-    std::string debugMsg = "[CGR] Detection espaces intercales - Ratio pattern 'X Y': " +
-        std::to_string(static_cast<int>(charSpaceCharRatio * 100)) + "%\n";
-    OutputDebugStringA(debugMsg.c_str());
-
-    // Si moins de 20% de patterns "X Y", pas de problème
-    if (charSpaceCharRatio < 0.2)
-    {
-        OutputDebugStringA("[CGR] Pas d'espaces intercales detectes\n");
-        return text;
-    }
-
-    OutputDebugStringA("[CGR] Espaces intercales DETECTES, correction en cours...\n");
-
-    // Stratégie améliorée :
-    // - Conserver les newlines et tabs
-    // - Remplacer 3+ espaces par un marqueur (séparateurs de colonnes)
-    // - Remplacer 2 espaces par un autre marqueur (séparateurs de mots)
-    // - Supprimer tous les espaces simples (entre caractères)
-    // - Restaurer les marqueurs
-
-    std::string result = text;
-
-    const std::string MARKER_MULTI = "\x01\x02\x03";  // Pour 3+ espaces
-    const std::string MARKER_DOUBLE = "\x04\x05\x06"; // Pour 2 espaces
-
-    // 1. Remplacer les séquences de 3+ espaces
-    size_t pos = 0;
-    while ((pos = result.find("   ", pos)) != std::string::npos)
-    {
-        size_t endPos = pos;
-        while (endPos < result.length() && result[endPos] == ' ')
-            endPos++;
-
-        result.replace(pos, endPos - pos, MARKER_MULTI);
-        pos += MARKER_MULTI.length();
-    }
-
-    // 2. Remplacer les double espaces
-    pos = 0;
-    while ((pos = result.find("  ", pos)) != std::string::npos)
-    {
-        result.replace(pos, 2, MARKER_DOUBLE);
-        pos += MARKER_DOUBLE.length();
-    }
-
-    // 3. Supprimer tous les espaces simples
-    result.erase(std::remove(result.begin(), result.end(), ' '), result.end());
-
-    // 4. Restaurer les marqueurs par des espaces
-    pos = 0;
-    while ((pos = result.find(MARKER_MULTI, pos)) != std::string::npos)
-    {
-        result.replace(pos, MARKER_MULTI.length(), "  ");  // 2 espaces pour colonnes
-        pos += 2;
-    }
-
-    pos = 0;
-    while ((pos = result.find(MARKER_DOUBLE, pos)) != std::string::npos)
-    {
-        result.replace(pos, MARKER_DOUBLE.length(), " ");  // 1 espace pour mots
-        pos += 1;
-    }
-
-    OutputDebugStringA("[CGR] Espaces intercales corriges avec succes\n");
-
-    return result;
+    str.erase(std::remove_if(str.begin(), str.end(),
+        [](unsigned char c) { return std::isspace(c); }),
+        str.end());
+    return str;
 }
 
 std::vector<PdfLine> CgrPdfParser::parseTextContent(const std::string& text)
@@ -179,60 +99,29 @@ std::vector<PdfLine> CgrPdfParser::parseTextContent(const std::string& text)
         return lines;
     }
 
-    // Corriger les espaces intercalés si nécessaire
-    std::string cleanedText = fixInterleavedSpaces(text);
-
-    // Debug: sauvegarder le texte nettoyé si différent
-    if (cleanedText != text)
-    {
-        OutputDebugStringA("[CGR] Texte nettoye different de l'original\n");
-
-        // Sauvegarder le texte nettoyé dans un fichier pour inspection
-        try
-        {
-            // Le fichier source devrait être accessible via la fonction appelante
-            // Pour l'instant on sauvegarde dans un fichier temporaire
-            std::ofstream debugFile("CGR_cleaned_text.txt");
-            if (debugFile.is_open())
-            {
-                debugFile << cleanedText;
-                debugFile.close();
-                OutputDebugStringA("[CGR] Texte nettoye sauvegarde dans: CGR_cleaned_text.txt\n");
-            }
-        }
-        catch (...) {}
-
-        std::string debugPreview = cleanedText.length() > 500 ? cleanedText.substr(0, 500) + "..." : cleanedText;
-        std::string debugMsg = "[CGR] Preview texte nettoye: " + debugPreview + "\n";
-        OutputDebugStringA(debugMsg.c_str());
-    }
-
-    // Parser ligne par ligne adapté à la structure CGR
-    // Format observé (très propre) :
-    //   "1    RSAU 50        RACCORD RSAU 50X4                    390    19,02 €    7 417,80 €   0764"
-    // Colonnes : Numéro | Référence | Désignation | Quantité | Prix unitaire | Total | Code catalogue
+    // Parser ligne par ligne adapté à la structure CGR avec espaces intercalés
+    // Format observé avec espaces entre caractères :
+    //   "1   R SA U 5 0   R A C C OR D R S AU 5 0 X 4      390    1 9 ,0 2 €   7 4 1 7 ,8 0 €"
+    // Colonnes : Numéro | Référence | Désignation | Quantité | Prix unitaire | Total
 
     int extractedCount = 0;
 
     try
     {
-        OutputDebugStringA("[CGR] Creation du regex ligne article...\n");
+        OutputDebugStringA("[CGR] Creation du regex ligne article (avec espaces intercales)...\n");
 
-        // Regex pour ligne article CGR
-        // Groupe 1 : Référence (peut contenir espaces, ex: "RSAU 50")
-        // Groupe 2 : Désignation
-        // Groupe 3 : Quantité (entier)
-        // Groupe 4 : Prix unitaire (format XX,XX)
-        // Groupe 5 : Total ligne (format X XXX,XX avec espaces des milliers)
+        // Regex simplifié pour CGR avec chiffres espacés (évite error_complexity)
+        // (\d(?:\s?\d)*\s*,\s*\d{2}) = nombre avec chiffres possiblement espacés
+        // Ex: "1 9 ,0 2" ou "19,02" ou "7 4 1 7 ,8 0"
         std::regex lineRegex(
-            R"(^\s*\d+\s+(.+?)\s{2,}(.+?)\s+(\d+)\s+(\d+,\d{2})\s*€?\s+([\d\s]+,\d{2})\s*€?.*$)",
+            R"(^\s*\d+\s+(.+?)\s{2,}(.+?)\s+(\d+)\s+(\d(?:\s?\d)*\s*,\s*\d{2})\s+(\d(?:\s?\d)*\s*,\s*\d{2}))",
             std::regex::ECMAScript
         );
 
         OutputDebugStringA("[CGR] Regex cree, debut parsing ligne par ligne...\n");
 
-        // Séparer le texte en lignes (utiliser le texte nettoyé)
-        std::istringstream stream(cleanedText);
+        // Séparer le texte en lignes
+        std::istringstream stream(text);
         std::string line;
         std::vector<std::string> textLines;
 
@@ -252,29 +141,47 @@ std::vector<PdfLine> CgrPdfParser::parseTextContent(const std::string& text)
             if (currentLine.empty())
                 continue;
 
+            // Filtrage pré-regex pour éviter error_complexity sur les pavés de texte
+            // Une ligne article CGR doit contenir une virgule ET un symbole € (ou chiffres typiques)
+            if (currentLine.find(',') == std::string::npos)
+                continue;
+
             std::smatch match;
 
-            if (!std::regex_match(currentLine, match, lineRegex))
-                continue; // Pas une ligne article
+            try
+            {
+                if (!std::regex_match(currentLine, match, lineRegex))
+                    continue; // Pas une ligne article
+            }
+            catch (const std::regex_error& e)
+            {
+                std::string errorMsg = "[CGR] ERREUR REGEX runtime sur ligne: " + std::string(e.what()) + "\n";
+                OutputDebugStringA(errorMsg.c_str());
+                continue;
+            }
 
             PdfLine product;
 
-            // Référence (groupe 1)
-            product.reference = trim(match[1].str());
+            // Référence (groupe 1) - nettoyer les espaces intercalés
+            std::string refRaw = trim(match[1].str());
+            product.reference = cleanReference(refRaw);  // "R SA U 5 0" → "RSAU50"
 
-            // Désignation (groupe 2)
+            // Désignation (groupe 2) - peut avoir des espaces intercalés aussi, mais on garde tel quel
             product.designation = trim(match[2].str());
+            // Optionnel : nettoyer aussi la désignation
+            // product.designation = cleanReference(product.designation);
 
             // Quantité (groupe 3)
             std::string qteStr = match[3].str();
             product.quantite = normalizeNumber(qteStr);
 
-            // Prix unitaire (groupe 4)
+            // Prix unitaire (groupe 4) - avec espaces intercalés : "1 9 ,0 2"
             std::string prixStr = match[4].str();
             product.prixHT = normalizeNumber(prixStr);
 
-            // Total dans groupe 5 (non utilisé pour l'instant)
+            // Total (groupe 5) - avec espaces intercalés : "7 4 1 7 ,8 0"
             // std::string totalStr = match[5].str();
+            // double total = normalizeNumber(totalStr);
 
             std::string debugMsg = "[CGR] Ligne article trouvee: Ref=" + product.reference +
                 " | Desc=" + product.designation +
