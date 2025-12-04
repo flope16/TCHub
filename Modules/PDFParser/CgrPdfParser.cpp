@@ -93,30 +93,35 @@ static bool parseLigneCGR(const std::string& lineIn, PdfLine& out)
 {
     std::string line = lineIn;
 
-    // DEBUG: Log des premières lignes pour voir le contenu
-    static int debugLineCount = 0;
-    if (debugLineCount < 10 && line.length() > 20) {
-        std::string debugMsg = "[CGR DEBUG] Ligne " + std::to_string(debugLineCount) + ": " +
-            line.substr(0, std::min<size_t>(100, line.length())) + "\n";
-        OutputDebugStringA(debugMsg.c_str());
-        debugLineCount++;
-    }
-
     // Filtrage rapide : doit contenir € (chaîne UTF-8, pas char) et virgule
     // Note : € en UTF-8 = 3 bytes (0xE2 0x82 0xAC)
     // Mais si lu comme Windows-1252, ça donne "â‚¬"
-    bool hasEuro = (line.find("\xE2\x82\xAC") != std::string::npos) ||  // € en UTF-8
-                   (line.find("\xA2\x80\xAC") != std::string::npos) ||  // Autre encodage possible
-                   (line.find("€") != std::string::npos);                // Essai direct
     bool hasComma = (line.find(',') != std::string::npos);
 
-    static int filterDebugCount = 0;
-    if (filterDebugCount < 5) {
-        std::string debugMsg = "[CGR DEBUG] Filtrage - Euro: " + std::string(hasEuro ? "OUI" : "NON") +
-            ", Comma: " + std::string(hasComma ? "OUI" : "NON") + "\n";
+    // DEBUG: Log des lignes avec virgule pour trouver les articles
+    static int debugCommaLineCount = 0;
+    if (hasComma && debugCommaLineCount < 10) {
+        std::string debugMsg = "[CGR DEBUG] Ligne avec virgule #" + std::to_string(debugCommaLineCount) + ": " +
+            line.substr(0, std::min<size_t>(150, line.length())) + "\n";
         OutputDebugStringA(debugMsg.c_str());
-        filterDebugCount++;
+
+        // Afficher les bytes du symbole € si présent
+        size_t pos = line.find("\xE2\x82\xAC");
+        if (pos != std::string::npos) {
+            OutputDebugStringA("[CGR DEBUG] Trouve € (UTF-8) dans la ligne !\n");
+        }
+
+        // Chercher "â‚¬" (affichage Windows-1252 de € UTF-8)
+        if (line.find("â‚¬") != std::string::npos ||
+            line.find("\xC3\xA2\xE2\x80\x9A\xC2\xAC") != std::string::npos) {
+            OutputDebugStringA("[CGR DEBUG] Trouve sequence 'â‚¬' dans la ligne !\n");
+        }
+
+        debugCommaLineCount++;
     }
+
+    bool hasEuro = (line.find("\xE2\x82\xAC") != std::string::npos) ||  // € en UTF-8
+                   (line.find("€") != std::string::npos);                // Essai direct
 
     if (!hasEuro || !hasComma)
         return false;
