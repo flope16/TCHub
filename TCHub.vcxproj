@@ -219,6 +219,7 @@ exit /b 0</Command>
     <ClCompile Include="Modules\PDFParser\SiehrPdfParser.cpp" />
     <ClCompile Include="Modules\PDFParser\PompacPdfParser.cpp" />
     <ClCompile Include="Modules\PDFParser\CgrPdfParser.cpp" />
+    <ClCompile Include="Modules\PDFParser\RexelPdfParser.cpp" />
     <ClCompile Include="Modules\PDFParser\LindabPdfParser.cpp" />
     <ClCompile Include="Modules\PDFParser\PDFParserWindow.cpp" />
     <ClCompile Include="Modules\PDFParser\ParserFactory.cpp" />
@@ -254,6 +255,7 @@ exit /b 0</Command>
     <ClInclude Include="Modules\PDFParser\SiehrPdfParser.h" />
     <ClInclude Include="Modules\PDFParser\PompacPdfParser.h" />
     <ClInclude Include="Modules\PDFParser\CgrPdfParser.h" />
+    <ClInclude Include="Modules\PDFParser\RexelPdfParser.h" />
     <ClInclude Include="Modules\PDFParser\IPdfParser.h" />
     <ClInclude Include="Modules\PDFParser\LindabPdfParser.h" />
     <ClInclude Include="Modules\PDFParser\ParserFactory.h" />
