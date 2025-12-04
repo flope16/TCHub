@@ -193,7 +193,8 @@ std::string PopplerPdfExtractor::extractTextFromPdf(const std::string& pdfPath)
         debugMsg = "[PopplerExtractor] Test: " + pdftotext_path + "\n";
         OutputDebugStringA(debugMsg.c_str());
 
-        std::string command = "\"" + pdftotext_path + "\" -layout \"" + pdfPath + "\" \"" + tempTxt + "\" 2>nul";
+        // Utiliser cmd.exe /c pour que les guillemets et redirections soient correctement interprétés
+        std::string command = "cmd.exe /c \"\"" + pdftotext_path + "\" -layout \"" + pdfPath + "\" \"" + tempTxt + "\" 2>nul\"";
 
         debugMsg = "[PopplerExtractor] Commande: " + command + "\n";
         OutputDebugStringA(debugMsg.c_str());
