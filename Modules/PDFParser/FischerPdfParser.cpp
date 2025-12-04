@@ -94,8 +94,9 @@ std::vector<PdfLine> FischerPdfParser::parseTextContent(const std::string& text)
         // Ligne 2 : GTIN + Référence (le 2ème nombre après GTIN)
         std::regex line2Regex(R"(^\s*\d{10,}\s+(\d{5,})\b)");
 
-        // Ligne 3 : Prix unitaire + Montant total (avec accents UTF-8)
-        std::regex line3Regex(u8R"(Total\s+[ée]co-contribution\s+comprise\s+(\d+,\d{2})\s+(\d+,\d{2}))");
+        // Ligne 3 : Prix (format large pour capturer xx,xx avec optionnellement € ou EUR)
+        // On cherche simplement un montant au format français
+        std::regex line3Regex(R"((\d+,\d{2})\s*(?:€|EUR)?)", std::regex::ECMAScript);
 
         OutputDebugStringA("[Fischer] Regex crees, debut parsing ligne par ligne...\n");
 
@@ -163,9 +164,15 @@ std::vector<PdfLine> FischerPdfParser::parseTextContent(const std::string& text)
                 break;
 
             case State::WAITING_LINE3:
+                // Logger la ligne brute pour debugging
+                {
+                    std::string lineDebug = "[Fischer][DEBUG] Ligne3 brute: '" + currentLine + "'\n";
+                    OutputDebugStringA(lineDebug.c_str());
+                }
+
                 if (std::regex_search(currentLine, match, line3Regex))
                 {
-                    // Le premier nombre est le prix unitaire, le second est le total
+                    // On a trouvé un montant au format français
                     currentProduct.prixHT = parseFrenchNumber(match[1].str());
 
                     std::string debugMsg = "[Fischer] Ligne3 trouvee: Prix=" + std::to_string(currentProduct.prixHT) + "\n";
@@ -184,8 +191,19 @@ std::vector<PdfLine> FischerPdfParser::parseTextContent(const std::string& text)
                 }
                 else
                 {
-                    // Ligne 3 non trouvée, retour à l'état initial
-                    OutputDebugStringA("[Fischer] Ligne3 non trouvee, abandon produit\n");
+                    // Ligne 3 non trouvée - ne pas abandonner le produit si L1+L2 sont OK
+                    // Mettre prix = 0.0 et ajouter quand même le produit
+                    OutputDebugStringA("[Fischer][WARN] Prix non trouve, ajout avec prix=0.0\n");
+                    currentProduct.prixHT = 0.0;
+
+                    lines.push_back(currentProduct);
+                    extractedCount++;
+
+                    std::string productMsg = "Fischer produit #" + std::to_string(extractedCount) + " (SANS PRIX): " +
+                        currentProduct.reference + " | " + currentProduct.designation + " | " +
+                        std::to_string(currentProduct.quantite) + " | " + std::to_string(currentProduct.prixHT) + "\n";
+                    OutputDebugStringA(productMsg.c_str());
+
                     state = State::WAITING_LINE1;
                 }
                 break;
