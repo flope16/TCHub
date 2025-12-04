@@ -92,12 +92,12 @@ static std::string removeInterleavedSpaces(const std::string& text)
             }
         }
 
-        // 2. Remplacer le marqueur par un espace unique
+        // 2. Remplacer le marqueur par DEUX espaces (pour garder la séparation visible)
         size_t pos = 0;
         while ((pos = processed.find(MARKER, pos)) != std::string::npos)
         {
-            processed.replace(pos, MARKER.length(), " ");
-            pos += 1;
+            processed.replace(pos, MARKER.length(), "  ");  // 2 espaces, pas 1
+            pos += 2;
         }
 
         result += processed;
