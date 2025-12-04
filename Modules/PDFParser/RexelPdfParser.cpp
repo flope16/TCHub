@@ -152,9 +152,9 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string& text)
 
     int extractedCount = 0;
 
-    // LOG: afficher les 50 premières lignes pour debug
-    OutputDebugStringA("[Rexel] === AFFICHAGE DES 50 PREMIERES LIGNES ===\n");
-    for (size_t i = 0; i < textLines.size() && i < 50; ++i)
+    // LOG: afficher les 150 premières lignes pour debug
+    OutputDebugStringA("[Rexel] === AFFICHAGE DES 150 PREMIERES LIGNES ===\n");
+    for (size_t i = 0; i < textLines.size() && i < 150; ++i)
     {
         std::string logLine = "[Rexel] Ligne " + std::to_string(i) + ": \"" + textLines[i] + "\"\n";
         OutputDebugStringA(logLine.c_str());
