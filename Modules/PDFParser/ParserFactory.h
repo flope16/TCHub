@@ -10,6 +10,7 @@ enum class Supplier
     Lindab,
     Fischer,
     Siehr,
+    Pompac,
     // Ajouter d'autres fournisseurs ici dans le futur
     // Atlantic,
     // Daikin,
