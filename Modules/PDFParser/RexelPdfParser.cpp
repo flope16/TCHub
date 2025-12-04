@@ -202,7 +202,8 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string& text)
                     searchText += " " + textLines[j];
                 }
 
-                std::string debugSearch = "[Rexel] Texte de recherche (lignes " + std::to_string(i) + " à " + std::to_string(std::min(i + 5, textLines.size() - 1)) + "): \"" + searchText.substr(0, 200) + "...\"\n";
+                size_t endLine = (i + 5 < textLines.size()) ? (i + 5) : (textLines.size() - 1);
+                std::string debugSearch = "[Rexel] Texte de recherche (lignes " + std::to_string(i) + " à " + std::to_string(endLine) + "): \"" + searchText.substr(0, 200) + "...\"\n";
                 OutputDebugStringA(debugSearch.c_str());
 
                 // Chercher " P " dans le texte combiné
