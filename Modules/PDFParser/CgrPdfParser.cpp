@@ -93,10 +93,32 @@ static bool parseLigneCGR(const std::string& lineIn, PdfLine& out)
 {
     std::string line = lineIn;
 
+    // DEBUG: Log des premières lignes pour voir le contenu
+    static int debugLineCount = 0;
+    if (debugLineCount < 10 && line.length() > 20) {
+        std::string debugMsg = "[CGR DEBUG] Ligne " + std::to_string(debugLineCount) + ": " +
+            line.substr(0, std::min<size_t>(100, line.length())) + "\n";
+        OutputDebugStringA(debugMsg.c_str());
+        debugLineCount++;
+    }
+
     // Filtrage rapide : doit contenir € (chaîne UTF-8, pas char) et virgule
     // Note : € en UTF-8 = 3 bytes (0xE2 0x82 0xAC)
-    if (line.find("\xE2\x82\xAC") == std::string::npos ||  // € en UTF-8
-        line.find(',') == std::string::npos)
+    // Mais si lu comme Windows-1252, ça donne "â‚¬"
+    bool hasEuro = (line.find("\xE2\x82\xAC") != std::string::npos) ||  // € en UTF-8
+                   (line.find("\xA2\x80\xAC") != std::string::npos) ||  // Autre encodage possible
+                   (line.find("€") != std::string::npos);                // Essai direct
+    bool hasComma = (line.find(',') != std::string::npos);
+
+    static int filterDebugCount = 0;
+    if (filterDebugCount < 5) {
+        std::string debugMsg = "[CGR DEBUG] Filtrage - Euro: " + std::string(hasEuro ? "OUI" : "NON") +
+            ", Comma: " + std::string(hasComma ? "OUI" : "NON") + "\n";
+        OutputDebugStringA(debugMsg.c_str());
+        filterDebugCount++;
+    }
+
+    if (!hasEuro || !hasComma)
         return false;
 
     // On ne garde que la fin de la ligne pour le regex (évite error_complexity)
