@@ -192,32 +192,65 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string& text)
                 // Si le regex ne match pas, chercher manuellement les nombres
                 OutputDebugStringA("[Rexel] Regex data ne matche pas, extraction manuelle...\n");
 
-                // Chercher " P " dans la ligne pour trouver la quantité juste avant
-                size_t pPos = restOfLine.find(" P ");
-                if (pPos != std::string::npos)
-                {
-                    // Extraire le nombre avant " P "
-                    size_t startQte = restOfLine.rfind(' ', pPos - 1);
-                    if (startQte != std::string::npos)
-                    {
-                        std::string qteStr = trim(restOfLine.substr(startQte, pPos - startQte));
-                        product.quantite = std::stod(qteStr);
+                // Avec -layout, les données sont souvent éclatées sur plusieurs lignes
+                // Chercher " P " dans cette ligne et les 5 lignes suivantes
+                std::string searchText = restOfLine;
+                size_t searchLineStart = i;
 
-                        std::string debugQte = "[Rexel] Qte extraite manuellement: " + std::to_string(product.quantite) + "\n";
-                        OutputDebugStringA(debugQte.c_str());
-                    }
+                for (size_t j = i + 1; j < textLines.size() && j < i + 6; ++j)
+                {
+                    searchText += " " + textLines[j];
                 }
 
-                // Chercher le prix : premier nombre avec virgule et 5 décimales après " P "
-                std::regex priceRegex(R"(\b(\d+,\d{5})\b)");
-                std::smatch priceMatch;
-                std::string afterP = restOfLine.substr(pPos + 3);
-                if (std::regex_search(afterP, priceMatch, priceRegex))
-                {
-                    product.prixHT = parseFrenchNumber(priceMatch[1].str());
+                std::string debugSearch = "[Rexel] Texte de recherche (lignes " + std::to_string(i) + " à " + std::to_string(std::min(i + 5, textLines.size() - 1)) + "): \"" + searchText.substr(0, 200) + "...\"\n";
+                OutputDebugStringA(debugSearch.c_str());
 
-                    std::string debugPrix = "[Rexel] Prix extrait manuellement: " + std::to_string(product.prixHT) + "\n";
-                    OutputDebugStringA(debugPrix.c_str());
+                // Chercher " P " dans le texte combiné
+                size_t pPos = searchText.find(" P ");
+                if (pPos != std::string::npos)
+                {
+                    std::string debugPFound = "[Rexel] ' P ' trouvé à position " + std::to_string(pPos) + "\n";
+                    OutputDebugStringA(debugPFound.c_str());
+
+                    // Extraire le nombre avant " P "
+                    size_t startQte = searchText.rfind(' ', pPos - 1);
+                    if (startQte != std::string::npos)
+                    {
+                        std::string qteStr = trim(searchText.substr(startQte, pPos - startQte));
+
+                        try {
+                            product.quantite = std::stod(qteStr);
+                            std::string debugQte = "[Rexel] Qte extraite: \"" + qteStr + "\" = " + std::to_string(product.quantite) + "\n";
+                            OutputDebugStringA(debugQte.c_str());
+                        }
+                        catch (...) {
+                            OutputDebugStringA("[Rexel] Erreur conversion qte\n");
+                        }
+                    }
+
+                    // Chercher le prix : premier nombre avec virgule et 5 décimales après " P "
+                    if (pPos + 3 < searchText.length())
+                    {
+                        std::regex priceRegex(R"(\b(\d+,\d{5})\b)");
+                        std::smatch priceMatch;
+                        std::string afterP = searchText.substr(pPos + 3);
+
+                        if (std::regex_search(afterP, priceMatch, priceRegex))
+                        {
+                            product.prixHT = parseFrenchNumber(priceMatch[1].str());
+
+                            std::string debugPrix = "[Rexel] Prix extrait: \"" + priceMatch[1].str() + "\" = " + std::to_string(product.prixHT) + "\n";
+                            OutputDebugStringA(debugPrix.c_str());
+                        }
+                        else
+                        {
+                            OutputDebugStringA("[Rexel] Prix non trouvé avec regex\n");
+                        }
+                    }
+                }
+                else
+                {
+                    OutputDebugStringA("[Rexel] ' P ' non trouvé dans les lignes suivantes\n");
                 }
             }
 
