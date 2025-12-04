@@ -119,7 +119,7 @@ std::vector<PdfLine> FischerPdfParser::parseTextContent(const std::string& text)
         State state = State::WAITING_LINE1;
         PdfLine currentProduct;
         int skipLinesCounter = 0;
-        const int MAX_SKIP_LINES = 10;  // Permettre de sauter jusqu'à 10 lignes (en-têtes, pieds de page)
+        const int MAX_SKIP_LINES = 40;  // Permettre de sauter jusqu'à 40 lignes (logos, infos légales, pieds de page volumineux)
 
         for (size_t i = 0; i < textLines.size(); ++i)
         {
