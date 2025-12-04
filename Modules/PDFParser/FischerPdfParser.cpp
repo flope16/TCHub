@@ -114,9 +114,12 @@ std::vector<PdfLine> FischerPdfParser::parseTextContent(const std::string& text)
         OutputDebugStringA(lineCountMsg.c_str());
 
         // State machine à 3 états pour parser les blocs de 3 lignes
+        // Avec compteur pour permettre de sauter des lignes (coupures de pages)
         enum class State { WAITING_LINE1, WAITING_LINE2, WAITING_LINE3 };
         State state = State::WAITING_LINE1;
         PdfLine currentProduct;
+        int skipLinesCounter = 0;
+        const int MAX_SKIP_LINES = 10;  // Permettre de sauter jusqu'à 10 lignes (en-têtes, pieds de page)
 
         for (size_t i = 0; i < textLines.size(); ++i)
         {
@@ -142,6 +145,7 @@ std::vector<PdfLine> FischerPdfParser::parseTextContent(const std::string& text)
                     OutputDebugStringA(debugMsg.c_str());
 
                     state = State::WAITING_LINE2;
+                    skipLinesCounter = 0;  // Réinitialiser le compteur
                 }
                 break;
 
@@ -150,32 +154,36 @@ std::vector<PdfLine> FischerPdfParser::parseTextContent(const std::string& text)
                 {
                     currentProduct.reference = match[1].str();
 
-                    std::string debugMsg = "[Fischer] Ligne2 trouvee: Ref=" + currentProduct.reference + "\n";
+                    std::string debugMsg = "[Fischer] Ligne2 trouvee: Ref=" + currentProduct.reference +
+                        " (apres " + std::to_string(skipLinesCounter) + " lignes sautees)\n";
                     OutputDebugStringA(debugMsg.c_str());
 
                     state = State::WAITING_LINE3;
+                    skipLinesCounter = 0;  // Réinitialiser le compteur
                 }
                 else
                 {
-                    // Ligne 2 non trouvée, retour à l'état initial
-                    OutputDebugStringA("[Fischer] Ligne2 non trouvee, abandon produit\n");
-                    state = State::WAITING_LINE1;
+                    skipLinesCounter++;
+                    if (skipLinesCounter > MAX_SKIP_LINES)
+                    {
+                        // Trop de lignes sautées, abandon du produit
+                        std::string debugMsg = "[Fischer] Ligne2 non trouvee apres " +
+                            std::to_string(MAX_SKIP_LINES) + " lignes, abandon produit\n";
+                        OutputDebugStringA(debugMsg.c_str());
+                        state = State::WAITING_LINE1;
+                    }
+                    // Sinon, continuer à chercher ligne 2 sur les lignes suivantes
                 }
                 break;
 
             case State::WAITING_LINE3:
-                // Logger la ligne brute pour debugging
-                {
-                    std::string lineDebug = "[Fischer][DEBUG] Ligne3 brute: '" + currentLine + "'\n";
-                    OutputDebugStringA(lineDebug.c_str());
-                }
-
                 if (std::regex_search(currentLine, match, line3Regex))
                 {
                     // On a trouvé un montant au format français
                     currentProduct.prixHT = parseFrenchNumber(match[1].str());
 
-                    std::string debugMsg = "[Fischer] Ligne3 trouvee: Prix=" + std::to_string(currentProduct.prixHT) + "\n";
+                    std::string debugMsg = "[Fischer] Ligne3 trouvee: Prix=" + std::to_string(currentProduct.prixHT) +
+                        " (apres " + std::to_string(skipLinesCounter) + " lignes sautees)\n";
                     OutputDebugStringA(debugMsg.c_str());
 
                     // Produit complet, l'ajouter à la liste
@@ -188,23 +196,31 @@ std::vector<PdfLine> FischerPdfParser::parseTextContent(const std::string& text)
                     OutputDebugStringA(productMsg.c_str());
 
                     state = State::WAITING_LINE1;
+                    skipLinesCounter = 0;
                 }
                 else
                 {
-                    // Ligne 3 non trouvée - ne pas abandonner le produit si L1+L2 sont OK
-                    // Mettre prix = 0.0 et ajouter quand même le produit
-                    OutputDebugStringA("[Fischer][WARN] Prix non trouve, ajout avec prix=0.0\n");
-                    currentProduct.prixHT = 0.0;
+                    skipLinesCounter++;
+                    if (skipLinesCounter > MAX_SKIP_LINES)
+                    {
+                        // Trop de lignes sautées, ajouter le produit avec prix=0.0
+                        std::string debugMsg = "[Fischer][WARN] Prix non trouve apres " +
+                            std::to_string(MAX_SKIP_LINES) + " lignes, ajout avec prix=0.0\n";
+                        OutputDebugStringA(debugMsg.c_str());
 
-                    lines.push_back(currentProduct);
-                    extractedCount++;
+                        currentProduct.prixHT = 0.0;
+                        lines.push_back(currentProduct);
+                        extractedCount++;
 
-                    std::string productMsg = "Fischer produit #" + std::to_string(extractedCount) + " (SANS PRIX): " +
-                        currentProduct.reference + " | " + currentProduct.designation + " | " +
-                        std::to_string(currentProduct.quantite) + " | " + std::to_string(currentProduct.prixHT) + "\n";
-                    OutputDebugStringA(productMsg.c_str());
+                        std::string productMsg = "Fischer produit #" + std::to_string(extractedCount) + " (SANS PRIX): " +
+                            currentProduct.reference + " | " + currentProduct.designation + " | " +
+                            std::to_string(currentProduct.quantite) + " | " + std::to_string(currentProduct.prixHT) + "\n";
+                        OutputDebugStringA(productMsg.c_str());
 
-                    state = State::WAITING_LINE1;
+                        state = State::WAITING_LINE1;
+                        skipLinesCounter = 0;
+                    }
+                    // Sinon, continuer à chercher ligne 3 sur les lignes suivantes
                 }
                 break;
             }
