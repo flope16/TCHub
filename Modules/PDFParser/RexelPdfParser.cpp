@@ -152,75 +152,99 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string& text)
 
     int extractedCount = 0;
 
+    // LOG: afficher les 50 premières lignes pour debug
+    OutputDebugStringA("[Rexel] === AFFICHAGE DES 50 PREMIERES LIGNES ===\n");
+    for (size_t i = 0; i < textLines.size() && i < 50; ++i)
+    {
+        std::string logLine = "[Rexel] Ligne " + std::to_string(i) + ": \"" + textLines[i] + "\"\n";
+        OutputDebugStringA(logLine.c_str());
+    }
+    OutputDebugStringA("[Rexel] === FIN AFFICHAGE ===\n");
+
     for (size_t i = 0; i < textLines.size(); ++i)
     {
         std::smatch match;
-        if (!std::regex_match(textLines[i], match, refRegex))
-            continue; // Pas un début de produit
 
-        PdfLine product;
-        product.reference = match[2].str();
-
-        std::string debugMsg = "[Rexel] Ref trouvée à ligne " + std::to_string(i) + ": " + product.reference + "\n";
-        OutputDebugStringA(debugMsg.c_str());
-
-        // Prix unitaire net : ligne i+2
-        if (i + 2 < textLines.size())
+        // LOG: Tester si la ligne matche le regex de référence
+        if (std::regex_match(textLines[i], match, refRegex))
         {
-            std::string prixStr = trim(textLines[i + 2]);
-            product.prixHT = parseFrenchNumber(prixStr);
+            PdfLine product;
+            product.reference = match[2].str();
 
-            std::string debugPrix = "[Rexel] PU (ligne " + std::to_string(i + 2) + "): " + prixStr + " = " + std::to_string(product.prixHT) + "\n";
-            OutputDebugStringA(debugPrix.c_str());
-        }
+            std::string debugMsg = "[Rexel] ✓ MATCH REF à ligne " + std::to_string(i) + ": " + product.reference + "\n";
+            OutputDebugStringA(debugMsg.c_str());
 
-        // Quantité : ligne i+4 (format "800    P")
-        if (i + 4 < textLines.size())
-        {
-            std::smatch matchQte;
-            if (std::regex_search(textLines[i + 4], matchQte, qteRegex))
+            // Prix unitaire net : ligne i+2
+            if (i + 2 < textLines.size())
             {
-                product.quantite = std::stod(matchQte[1].str());
+                std::string prixStr = trim(textLines[i + 2]);
+                product.prixHT = parseFrenchNumber(prixStr);
 
-                std::string debugQte = "[Rexel] Qte (ligne " + std::to_string(i + 4) + "): " + matchQte[1].str() + "\n";
-                OutputDebugStringA(debugQte.c_str());
+                std::string debugPrix = "[Rexel] PU (ligne " + std::to_string(i + 2) + "): \"" + prixStr + "\" = " + std::to_string(product.prixHT) + "\n";
+                OutputDebugStringA(debugPrix.c_str());
             }
+
+            // Quantité : ligne i+4 (format "800    P")
+            if (i + 4 < textLines.size())
+            {
+                std::string debugQteTest = "[Rexel] Test Qte (ligne " + std::to_string(i + 4) + "): \"" + textLines[i + 4] + "\"\n";
+                OutputDebugStringA(debugQteTest.c_str());
+
+                std::smatch matchQte;
+                if (std::regex_search(textLines[i + 4], matchQte, qteRegex))
+                {
+                    product.quantite = std::stod(matchQte[1].str());
+
+                    std::string debugQte = "[Rexel] ✓ Qte trouvée: " + matchQte[1].str() + "\n";
+                    OutputDebugStringA(debugQte.c_str());
+                }
+                else
+                {
+                    OutputDebugStringA("[Rexel] ✗ Qte non matchée\n");
+                }
+            }
+
+            // Montant HT : ligne i+6 (format "544,00   2")
+            // On ne l'utilise pas pour le produit mais on peut le logger pour validation
+            if (i + 6 < textLines.size())
+            {
+                std::string totalStr = trim(textLines[i + 6]);
+                std::string debugTotal = "[Rexel] Total HT (ligne " + std::to_string(i + 6) + "): \"" + totalStr + "\"\n";
+                OutputDebugStringA(debugTotal.c_str());
+            }
+
+            // Désignation : ligne i+9
+            if (i + 9 < textLines.size())
+            {
+                product.designation = trim(textLines[i + 9]);
+
+                std::string debugDesc = "[Rexel] Desc (ligne " + std::to_string(i + 9) + "): \"" + product.designation + "\"\n";
+                OutputDebugStringA(debugDesc.c_str());
+            }
+
+            // Ajouter le produit si on a au moins une référence et une quantité
+            if (!product.reference.empty() && product.quantite > 0)
+            {
+                lines.push_back(product);
+                extractedCount++;
+
+                std::string productMsg = "[Rexel] ✓✓✓ Produit #" + std::to_string(extractedCount) + " AJOUTE: " +
+                    product.reference + " | Qte=" + std::to_string(product.quantite) +
+                    " | PU=" + std::to_string(product.prixHT) +
+                    " | Desc=\"" + product.designation + "\"\n";
+                OutputDebugStringA(productMsg.c_str());
+            }
+            else
+            {
+                std::string debugFail = "[Rexel] ✗ Produit NON ajouté (ref=\"" + product.reference +
+                    "\", qte=" + std::to_string(product.quantite) + ")\n";
+                OutputDebugStringA(debugFail.c_str());
+            }
+
+            // Avancer de 11 lignes (i sera incrémenté à la boucle suivante)
+            // Structure : 12 lignes par produit (0 à 11), donc on avance à i+11
+            i += 11;
         }
-
-        // Montant HT : ligne i+6 (format "544,00   2")
-        // On ne l'utilise pas pour le produit mais on peut le logger pour validation
-        if (i + 6 < textLines.size())
-        {
-            std::string totalStr = trim(textLines[i + 6]);
-            std::string debugTotal = "[Rexel] Total HT (ligne " + std::to_string(i + 6) + "): " + totalStr + "\n";
-            OutputDebugStringA(debugTotal.c_str());
-        }
-
-        // Désignation : ligne i+9
-        if (i + 9 < textLines.size())
-        {
-            product.designation = trim(textLines[i + 9]);
-
-            std::string debugDesc = "[Rexel] Desc (ligne " + std::to_string(i + 9) + "): " + product.designation + "\n";
-            OutputDebugStringA(debugDesc.c_str());
-        }
-
-        // Ajouter le produit si on a au moins une référence et une quantité
-        if (!product.reference.empty() && product.quantite > 0)
-        {
-            lines.push_back(product);
-            extractedCount++;
-
-            std::string productMsg = "[Rexel] Produit #" + std::to_string(extractedCount) + ": " +
-                product.reference + " | Qte=" + std::to_string(product.quantite) +
-                " | PU=" + std::to_string(product.prixHT) +
-                " | Desc=\"" + product.designation + "\"\n";
-            OutputDebugStringA(productMsg.c_str());
-        }
-
-        // Avancer de 11 lignes (i sera incrémenté à la boucle suivante)
-        // Structure : 12 lignes par produit (0 à 11), donc on avance à i+11
-        i += 11;
     }
 
     // Log final
