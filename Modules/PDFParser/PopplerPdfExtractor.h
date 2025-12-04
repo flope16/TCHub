@@ -7,7 +7,9 @@ class PopplerPdfExtractor
 public:
     // Extrait le texte d'un PDF en utilisant Poppler
     // Retourne le texte extrait ou une chaîne vide en cas d'erreur
-    static std::string extractTextFromPdf(const std::string& pdfPath);
+    // useLayout: si true, utilise l'option -layout de pdftotext (défaut: true)
+    //            pour CGR, utiliser false car -layout cause des espaces intercalés
+    static std::string extractTextFromPdf(const std::string& pdfPath, bool useLayout = true);
 
     // Vérifie si Poppler est disponible
     static bool isPopplerAvailable();

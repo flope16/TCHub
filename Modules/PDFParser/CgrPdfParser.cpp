@@ -9,8 +9,8 @@
 
 std::string CgrPdfParser::extractText(const std::string& filePath)
 {
-    // Utiliser PopplerPdfExtractor
-    std::string text = PopplerPdfExtractor::extractTextFromPdf(filePath);
+    // Utiliser PopplerPdfExtractor SANS l'option -layout car elle cause des espaces intercalés pour CGR
+    std::string text = PopplerPdfExtractor::extractTextFromPdf(filePath, false);
 
     // Debug: sauvegarder le texte extrait
     try
