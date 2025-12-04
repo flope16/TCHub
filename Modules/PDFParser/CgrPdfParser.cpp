@@ -93,8 +93,9 @@ static bool parseLigneCGR(const std::string& lineIn, PdfLine& out)
 {
     std::string line = lineIn;
 
-    // Filtrage rapide : doit contenir € et virgule
-    if (line.find(static_cast<unsigned char>('€')) == std::string::npos ||
+    // Filtrage rapide : doit contenir € (chaîne UTF-8, pas char) et virgule
+    // Note : € en UTF-8 = 3 bytes (0xE2 0x82 0xAC)
+    if (line.find("\xE2\x82\xAC") == std::string::npos ||  // € en UTF-8
         line.find(',') == std::string::npos)
         return false;
 
