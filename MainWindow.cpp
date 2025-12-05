@@ -1,5 +1,6 @@
 #include "MainWindow.h"
 #include "Modules/PDFParser/PDFParserWindow.h"
+#include "Modules/ExcelCracker/ExcelCrackerWindow.h"
 #include <QApplication>
 #include <QScreen>
 #include <QIcon>
@@ -133,6 +134,44 @@ void MainWindow::setupUi()
 
     modulesLayout->addWidget(pdfParserFrame);
 
+    // Module Excel Cracker
+    QFrame *excelCrackerFrame = new QFrame(this);
+    excelCrackerFrame->setStyleSheet(
+        "QFrame { "
+        "   background-color: #f8f9fa; "
+        "   border: 1px solid #dee2e6; "
+        "   border-radius: 6px; "
+        "   padding: 10px; "
+        "}"
+    );
+
+    QHBoxLayout *excelCrackerLayout = new QHBoxLayout(excelCrackerFrame);
+
+    QLabel *excelIcon = new QLabel(this);
+    excelIcon->setText("🔓");
+    excelIcon->setStyleSheet("QLabel { font-size: 32px; background: transparent; border: none; }");
+    excelCrackerLayout->addWidget(excelIcon);
+
+    QVBoxLayout *excelInfoLayout = new QVBoxLayout();
+    QLabel *excelTitle = new QLabel("Excel Cracker", this);
+    excelTitle->setStyleSheet("QLabel { font-size: 14px; font-weight: bold; color: #2c3e50; background: transparent; border: none; }");
+
+    QLabel *excelDesc = new QLabel("Supprime la protection des feuilles Excel ou force le mot de passe par brute-force", this);
+    excelDesc->setStyleSheet("QLabel { font-size: 11px; color: #6c757d; background: transparent; border: none; }");
+    excelDesc->setWordWrap(true);
+
+    excelInfoLayout->addWidget(excelTitle);
+    excelInfoLayout->addWidget(excelDesc);
+    excelCrackerLayout->addLayout(excelInfoLayout, 1);
+
+    excelCrackerButton = new QPushButton("Ouvrir", this);
+    excelCrackerButton->setFixedSize(100, 35);
+    excelCrackerButton->setCursor(Qt::PointingHandCursor);
+    connect(excelCrackerButton, &QPushButton::clicked, this, &MainWindow::onExcelCrackerClicked);
+    excelCrackerLayout->addWidget(excelCrackerButton);
+
+    modulesLayout->addWidget(excelCrackerFrame);
+
     // Placeholder pour futurs modules
     QLabel *futureModules = new QLabel("D'autres modules seront ajoutés ici...", this);
     futureModules->setAlignment(Qt::AlignCenter);
@@ -196,4 +235,11 @@ void MainWindow::onPdfParserClicked()
     PDFParserWindow *pdfWindow = new PDFParserWindow(this);
     pdfWindow->exec();
     delete pdfWindow;
+}
+
+void MainWindow::onExcelCrackerClicked()
+{
+    ExcelCrackerWindow *excelWindow = new ExcelCrackerWindow(this);
+    excelWindow->exec();
+    delete excelWindow;
 }
