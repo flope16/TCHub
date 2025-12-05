@@ -190,10 +190,10 @@ void ExcelCrackerWindow::setupUi()
     // Connecter les signaux pour mettre à jour l'estimation
     connect(minLengthSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &ExcelCrackerWindow::onBruteForceConfigChanged);
     connect(maxLengthSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &ExcelCrackerWindow::onBruteForceConfigChanged);
-    connect(lowercaseCheck, &QCheckBox::stateChanged, this, &ExcelCrackerWindow::onBruteForceConfigChanged);
-    connect(uppercaseCheck, &QCheckBox::stateChanged, this, &ExcelCrackerWindow::onBruteForceConfigChanged);
-    connect(digitsCheck, &QCheckBox::stateChanged, this, &ExcelCrackerWindow::onBruteForceConfigChanged);
-    connect(specialCharsCheck, &QCheckBox::stateChanged, this, &ExcelCrackerWindow::onBruteForceConfigChanged);
+    connect(lowercaseCheck, &QCheckBox::checkStateChanged, this, &ExcelCrackerWindow::onBruteForceConfigChanged);
+    connect(uppercaseCheck, &QCheckBox::checkStateChanged, this, &ExcelCrackerWindow::onBruteForceConfigChanged);
+    connect(digitsCheck, &QCheckBox::checkStateChanged, this, &ExcelCrackerWindow::onBruteForceConfigChanged);
+    connect(specialCharsCheck, &QCheckBox::checkStateChanged, this, &ExcelCrackerWindow::onBruteForceConfigChanged);
 
     // Initialiser l'estimation
     updateEstimation();
