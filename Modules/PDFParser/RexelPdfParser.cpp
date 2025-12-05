@@ -380,6 +380,31 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string &text) {
         }
       }
 
+      // Si aucune quantité fiable, tenter une reconstruction simple d'un
+      // millier "1" suivi d'un bloc à 3 chiffres (ex: tokens "1" "200")
+      if (product.quantite <= 0) {
+        for (size_t t = refTokenIndex + 1; t + 1 < tokens.size(); ++t) {
+          if (tokens[t] == "1" &&
+              tokens[t + 1].size() == 3 &&
+              std::all_of(tokens[t + 1].begin(), tokens[t + 1].end(),
+                          [](unsigned char c) {
+                            return std::isdigit(c);
+                          })) {
+            std::string merged = tokens[t] + tokens[t + 1];
+            try {
+              product.quantite = std::stod(merged);
+              OutputDebugStringA(
+                  ("[Rexel] Qte extraite (millier reconstruit): " + merged +
+                   "\n")
+                      .c_str());
+              break;
+            } catch (...) {
+              OutputDebugStringA("[Rexel] Erreur conversion qte (millier)\n");
+            }
+          }
+        }
+      }
+
       if (product.quantite <= 0) {
         OutputDebugStringA("[Rexel] Quantité non trouvée\n");
       }
@@ -397,29 +422,63 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string &text) {
       }
 
       std::string priceCandidate;
+      double bestPrice = 0.0;
+
+      auto pushCandidate = [&](const std::string &raw) -> bool {
+        if (raw.empty())
+          return false;
+
+        double value = parseFrenchNumber(raw);
+
+        // Cas particulier : certains fragments arrivent sous la forme
+        // ",0818" (pas de partie entière, 4 chiffres). Dans ce cas la valeur
+        // obtenue est 0.0818, on la re-projette sur deux décimales => 8.18.
+        if (value > 0.0 && value < 1.0 && raw.size() == 5 && raw[0] == ',' &&
+            std::all_of(raw.begin() + 1, raw.end(), [](unsigned char c) {
+              return std::isdigit(c);
+            })) {
+          value *= 100.0;
+        }
+
+        if (value > 0.0) {
+          product.prixHT = std::round(value * 100.0) / 100.0;
+          priceCandidate = raw;
+          bestPrice = product.prixHT;
+          return true;
+        }
+        return false;
+      };
+
+      // Parcourir les tokens après "P" et reconstruire toutes les combinaisons
+      // plausibles (token seul ou token précédent + token courant)
       for (size_t t =
                (pIndex == tokens.size() ? refTokenIndex + 1 : pIndex + 1);
            t < tokens.size(); ++t) {
-        // Combiner les fragments (ex: "00" suivi de ",68000")
-        if (tokens[t].find(',') != std::string::npos) {
-          if (!priceCandidate.empty())
-            priceCandidate += tokens[t];
-          else if (t > 0 &&
-                   std::all_of(tokens[t - 1].begin(), tokens[t - 1].end(),
-                               [](unsigned char c) { return std::isdigit(c); }))
-            priceCandidate = tokens[t - 1] + tokens[t];
-          else
-            priceCandidate = tokens[t];
-          break;
+        const std::string &tok = tokens[t];
+
+        // Candidat direct
+        if (tok.find(',') != std::string::npos) {
+          if (pushCandidate(tok))
+            break;
+        }
+
+        // Candidat combiné avec le token précédent si 100% numérique
+        if (tok.find(',') != std::string::npos && t > 0) {
+          const std::string &prev = tokens[t - 1];
+          bool prevNumeric = std::all_of(prev.begin(), prev.end(),
+                                         [](unsigned char c) {
+                                           return std::isdigit(c);
+                                         });
+          if (prevNumeric) {
+            if (pushCandidate(prev + tok))
+              break;
+          }
         }
       }
 
       if (!priceCandidate.empty()) {
-        product.prixHT = parseFrenchNumber(priceCandidate);
-        product.prixHT =
-            std::round(product.prixHT * 100.0) / 100.0; // forcer deux décimales
         std::string debugPrix = "[Rexel] Prix extrait: " + priceCandidate +
-                                " => " + std::to_string(product.prixHT) + "\n";
+                                " => " + std::to_string(bestPrice) + "\n";
         OutputDebugStringA(debugPrix.c_str());
       } else {
         OutputDebugStringA("[Rexel] Prix non trouvé\n");
