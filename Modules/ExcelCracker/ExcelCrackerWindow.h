@@ -11,6 +11,7 @@
 #include <QSpinBox>
 #include <QCheckBox>
 #include <QThread>
+#include <QDateTime>
 
 /**
  * @brief Fenêtre Qt pour l'outil Excel Cracker
@@ -74,4 +75,8 @@ private:
     // État
     bool isProcessing;
     QThread* workerThread;
+
+    // Suivi du brute-force
+    QDateTime bruteForceStartTime;
+    long long totalCombinations;
 };
