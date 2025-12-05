@@ -156,6 +156,7 @@ xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\zstd.dll" "$(OutDir)" 2&gt;n
 xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\libzstd.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 echo Copie du fichier de configuration Qt...
 xcopy /Y /D "$(ProjectDir)qt.conf" "$(OutDir)" || VER&gt;NUL
+xcopy /Y /D "$(ProjectDir)version.txt" "$(OutDir)" || VER&gt;NUL
 echo Copie des plugins Qt (platforms)...
 if not exist "$(OutDir)platforms\" mkdir "$(OutDir)platforms\"
 xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\plugins\platforms\qwindowsd.dll" "$(OutDir)platforms\" 2&gt;nul || VER&gt;NUL
@@ -228,6 +229,7 @@ xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\zstd.dll" "$(OutDir)" 2&gt;n
 xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\libzstd.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 echo Copie du fichier de configuration Qt...
 xcopy /Y /D "$(ProjectDir)qt.conf" "$(OutDir)" || VER&gt;NUL
+xcopy /Y /D "$(ProjectDir)version.txt" "$(OutDir)" || VER&gt;NUL
 echo Copie des plugins Qt (platforms)...
 if not exist "$(OutDir)platforms\" mkdir "$(OutDir)platforms\"
 xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\plugins\platforms\qwindows.dll" "$(OutDir)platforms\" 2&gt;nul || VER&gt;NUL
@@ -273,6 +275,8 @@ exit /b 0</Command>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MainWindow.cpp" />
+    <ClCompile Include="UpdateChecker.cpp" />
+    <ClCompile Include="UpdateDialog.cpp" />
     <ClCompile Include="Modules\PDFParser\FischerPdfParser.cpp" />
     <ClCompile Include="Modules\PDFParser\SiehrPdfParser.cpp" />
     <ClCompile Include="Modules\PDFParser\PompacPdfParser.cpp" />
@@ -304,6 +308,12 @@ exit /b 0</Command>
     <ClCompile Include="GeneratedFiles\Release\moc_ExcelCrackerWindow.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_UpdateDialog.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_UpdateDialog.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="MainWindow.h">
@@ -324,6 +334,13 @@ exit /b 0</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Qt\6.10.1\msvc2022_64\bin\moc.exe "%(FullPath)" -o "GeneratedFiles\Release\moc_%(Filename).cpp" -DNDEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB "-IC:\Qt\6.10.1\msvc2022_64\include" "-IC:\Qt\6.10.1\msvc2022_64\include\QtWidgets" "-IC:\Qt\6.10.1\msvc2022_64\include\QtGui" "-IC:\Qt\6.10.1\msvc2022_64\include\QtCore"</Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">GeneratedFiles\Release\moc_%(Filename).cpp</Outputs>
     </CustomBuild>
+    <CustomBuild Include="UpdateDialog.h">
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Qt\6.10.1\msvc2022_64\bin\moc.exe "%(FullPath)" -o "GeneratedFiles\Debug\moc_%(Filename).cpp" -D_DEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB "-IC:\Qt\6.10.1\msvc2022_64\include" "-IC:\Qt\6.10.1\msvc2022_64\include\QtWidgets" "-IC:\Qt\6.10.1\msvc2022_64\include\QtGui" "-IC:\Qt\6.10.1\msvc2022_64\include\QtCore"</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">GeneratedFiles\Debug\moc_%(Filename).cpp</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Qt\6.10.1\msvc2022_64\bin\moc.exe "%(FullPath)" -o "GeneratedFiles\Release\moc_%(Filename).cpp" -DNDEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB "-IC:\Qt\6.10.1\msvc2022_64\include" "-IC:\Qt\6.10.1\msvc2022_64\include\QtWidgets" "-IC:\Qt\6.10.1\msvc2022_64\include\QtGui" "-IC:\Qt\6.10.1\msvc2022_64\include\QtCore"</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">GeneratedFiles\Release\moc_%(Filename).cpp</Outputs>
+    </CustomBuild>
+    <ClInclude Include="UpdateChecker.h" />
     <ClInclude Include="Modules\PDFParser\FischerPdfParser.h" />
     <ClInclude Include="Modules\PDFParser\SiehrPdfParser.h" />
     <ClInclude Include="Modules\PDFParser\PompacPdfParser.h" />
