@@ -49,6 +49,21 @@
     <ClCompile Include="Modules\PDFParser\LindabPdfParser.cpp">
       <Filter>Modules\PDFParser</Filter>
     </ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>Fichiers sources</Filter>
+    </ClCompile>
+    <ClCompile Include="MainWindow.cpp">
+      <Filter>Fichiers sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Modules\ExcelCracker\ExcelProtectionRemover.cpp">
+      <Filter>Modules\ExcelCracker</Filter>
+    </ClCompile>
+    <ClCompile Include="Modules\ExcelCracker\ExcelBruteForce.cpp">
+      <Filter>Modules\ExcelCracker</Filter>
+    </ClCompile>
+    <ClCompile Include="Modules\ExcelCracker\ExcelCrackerWindow.cpp">
+      <Filter>Modules\ExcelCracker</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="TCHub.h">
@@ -62,6 +77,18 @@
     </ClInclude>
     <ClInclude Include="resource.h">
       <Filter>Fichiers d%27en-tête</Filter>
+    </ClInclude>
+    <ClInclude Include="MainWindow.h">
+      <Filter>Fichiers d%27en-tête</Filter>
+    </ClInclude>
+    <ClInclude Include="Modules\ExcelCracker\ExcelProtectionRemover.h">
+      <Filter>Modules\ExcelCracker</Filter>
+    </ClInclude>
+    <ClInclude Include="Modules\ExcelCracker\ExcelBruteForce.h">
+      <Filter>Modules\ExcelCracker</Filter>
+    </ClInclude>
+    <ClInclude Include="Modules\ExcelCracker\ExcelCrackerWindow.h">
+      <Filter>Modules\ExcelCracker</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
