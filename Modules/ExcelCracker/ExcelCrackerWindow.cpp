@@ -180,6 +180,24 @@ void ExcelCrackerWindow::setupUi()
     warningLabel->setStyleSheet("QLabel { color: #e74c3c; font-weight: bold; background: transparent; }");
     bfConfigLayout->addWidget(warningLabel);
 
+    // Label d'estimation
+    estimationLabel = new QLabel(this);
+    estimationLabel->setStyleSheet("QLabel { color: #3498db; font-weight: bold; background: #ecf0f1; padding: 10px; border-radius: 5px; border: 2px solid #3498db; }");
+    estimationLabel->setAlignment(Qt::AlignCenter);
+    estimationLabel->setWordWrap(true);
+    bfConfigLayout->addWidget(estimationLabel);
+
+    // Connecter les signaux pour mettre à jour l'estimation
+    connect(minLengthSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &ExcelCrackerWindow::onBruteForceConfigChanged);
+    connect(maxLengthSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &ExcelCrackerWindow::onBruteForceConfigChanged);
+    connect(lowercaseCheck, &QCheckBox::stateChanged, this, &ExcelCrackerWindow::onBruteForceConfigChanged);
+    connect(uppercaseCheck, &QCheckBox::stateChanged, this, &ExcelCrackerWindow::onBruteForceConfigChanged);
+    connect(digitsCheck, &QCheckBox::stateChanged, this, &ExcelCrackerWindow::onBruteForceConfigChanged);
+    connect(specialCharsCheck, &QCheckBox::stateChanged, this, &ExcelCrackerWindow::onBruteForceConfigChanged);
+
+    // Initialiser l'estimation
+    updateEstimation();
+
     mainLayout->addWidget(bruteForceConfigGroup);
 
     // Boutons d'action
@@ -584,4 +602,117 @@ void ExcelCrackerWindow::updateStatus(const QString &message, bool isError)
     QTextCursor cursor = statusText->textCursor();
     cursor.movePosition(QTextCursor::End);
     statusText->setTextCursor(cursor);
+}
+
+void ExcelCrackerWindow::onBruteForceConfigChanged()
+{
+    updateEstimation();
+}
+
+long long ExcelCrackerWindow::calculateTotalCombinations()
+{
+    // Construire le jeu de caractères
+    std::string charset = "";
+    if (lowercaseCheck->isChecked()) charset += "abcdefghijklmnopqrstuvwxyz";
+    if (uppercaseCheck->isChecked()) charset += "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    if (digitsCheck->isChecked()) charset += "0123456789";
+    if (specialCharsCheck->isChecked()) charset += "!@#$%^&*()-_=+[]{}|;:,.<>?";
+
+    if (charset.empty()) return 0;
+
+    int charsetSize = charset.length();
+    int minLen = minLengthSpin->value();
+    int maxLen = maxLengthSpin->value();
+
+    long long total = 0;
+
+    // Calculer le total pour chaque longueur
+    for (int len = minLen; len <= maxLen; len++)
+    {
+        long long combinations = 1;
+        for (int i = 0; i < len; i++)
+        {
+            combinations *= charsetSize;
+        }
+        total += combinations;
+    }
+
+    return total;
+}
+
+QString ExcelCrackerWindow::formatTime(long long seconds)
+{
+    if (seconds < 60)
+    {
+        return QString("%1 seconde%2").arg(seconds).arg(seconds > 1 ? "s" : "");
+    }
+    else if (seconds < 3600)
+    {
+        long long minutes = seconds / 60;
+        long long secs = seconds % 60;
+        return QString("%1 minute%2 %3s").arg(minutes).arg(minutes > 1 ? "s" : "").arg(secs);
+    }
+    else if (seconds < 86400)
+    {
+        long long hours = seconds / 3600;
+        long long minutes = (seconds % 3600) / 60;
+        return QString("%1 heure%2 %3min").arg(hours).arg(hours > 1 ? "s" : "").arg(minutes);
+    }
+    else
+    {
+        long long days = seconds / 86400;
+        long long hours = (seconds % 86400) / 3600;
+        return QString("%1 jour%2 %3h").arg(days).arg(days > 1 ? "s" : "").arg(hours);
+    }
+}
+
+void ExcelCrackerWindow::updateEstimation()
+{
+    long long totalCombinations = calculateTotalCombinations();
+
+    if (totalCombinations == 0)
+    {
+        estimationLabel->setText("⚠️ Veuillez sélectionner au moins un jeu de caractères");
+        estimationLabel->setStyleSheet("QLabel { color: #e74c3c; font-weight: bold; background: #fee; padding: 10px; border-radius: 5px; border: 2px solid #e74c3c; }");
+        return;
+    }
+
+    // Estimation : environ 50-100 tentatives par seconde avec COM Automation Excel
+    // Utilisons 75 comme moyenne
+    const int attemptsPerSecond = 75;
+    long long estimatedSeconds = totalCombinations / attemptsPerSecond;
+
+    QString estimation = QString("📊 <b>Estimation:</b><br/>"
+                                 "Combinaisons totales: <b>%1</b><br/>"
+                                 "Temps estimé: <b>%2</b><br/>"
+                                 "<small>(Basé sur ~%3 tentatives/sec)</small>")
+                            .arg(QString::number(totalCombinations))
+                            .arg(formatTime(estimatedSeconds))
+                            .arg(attemptsPerSecond);
+
+    // Changer la couleur selon le temps estimé
+    QString style;
+    if (estimatedSeconds < 60)
+    {
+        // Moins d'1 minute : vert
+        style = "QLabel { color: #27ae60; font-weight: bold; background: #e8f8f5; padding: 10px; border-radius: 5px; border: 2px solid #27ae60; }";
+    }
+    else if (estimatedSeconds < 600)
+    {
+        // Moins de 10 minutes : bleu
+        style = "QLabel { color: #3498db; font-weight: bold; background: #ecf0f1; padding: 10px; border-radius: 5px; border: 2px solid #3498db; }";
+    }
+    else if (estimatedSeconds < 3600)
+    {
+        // Moins d'1 heure : orange
+        style = "QLabel { color: #f39c12; font-weight: bold; background: #fef5e7; padding: 10px; border-radius: 5px; border: 2px solid #f39c12; }";
+    }
+    else
+    {
+        // Plus d'1 heure : rouge
+        style = "QLabel { color: #e74c3c; font-weight: bold; background: #fee; padding: 10px; border-radius: 5px; border: 2px solid #e74c3c; }";
+    }
+
+    estimationLabel->setText(estimation);
+    estimationLabel->setStyleSheet(style);
 }
