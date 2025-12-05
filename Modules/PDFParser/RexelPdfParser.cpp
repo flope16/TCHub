@@ -146,7 +146,6 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string &text) {
 
   OutputDebugStringA("=== DEBUT PARSING REXEL (format avec -layout) ===\n");
 
-  // Vérifier si c'est un message d'erreur
   if (text.find("ERREUR:") == 0) {
     OutputDebugStringA("[Rexel] Texte contient ERREUR, abandon\n");
     return lines;
@@ -157,7 +156,6 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string &text) {
     return lines;
   }
 
-  // Séparer le texte en lignes
   std::istringstream stream(text);
   std::string line;
   std::vector<std::string> textLines;
@@ -166,23 +164,15 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string &text) {
     textLines.push_back(line);
   }
 
-  std::string lineCountMsg =
-      "[Rexel] Nombre de lignes: " + std::to_string(textLines.size()) + "\n";
-  OutputDebugStringA(lineCountMsg.c_str());
+  OutputDebugStringA(("[Rexel] Nombre de lignes: " + std::to_string(textLines.size()) + "\n").c_str());
 
-  // LOG: afficher les 100 premières lignes pour debug
-  OutputDebugStringA(
-      "[Rexel] === AFFICHAGE DES 100 PREMIERES LIGNES (avec -layout) ===\n");
+  OutputDebugStringA("[Rexel] === AFFICHAGE DES 100 PREMIERES LIGNES (avec -layout) ===\n");
   for (size_t i = 0; i < textLines.size() && i < 100; ++i) {
-    std::string logLine =
-        "[Rexel] Ligne " + std::to_string(i) + ": \"" + textLines[i] + "\"\n";
+    std::string logLine = "[Rexel] Ligne " + std::to_string(i) + ": \"" + textLines[i] + "\"\n";
     OutputDebugStringA(logLine.c_str());
   }
   OutputDebugStringA("[Rexel] === FIN AFFICHAGE ===\n");
 
-  // Détection de la zone du tableau : on cherche la ligne contenant
-  // "Référence / Désignation" puis on s'arrête à "NC = Nous consulter" ou
-  // équivalent.
   auto toLower = [](std::string s) {
     std::transform(s.begin(), s.end(), s.begin(),
                    [](unsigned char c) { return std::tolower(c); });
@@ -227,14 +217,12 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string &text) {
     PdfLine product;
     product.reference = trim(refMatch.str());
 
-    // Déterminer la fin du bloc
     size_t blockEnd = i + 1;
     for (; blockEnd < endIdx; ++blockEnd) {
       if (std::regex_search(textLines[blockEnd], refMatch, refPattern))
         break;
     }
 
-    // Agréger le bloc
     std::string blockText;
     for (size_t j = i; j < blockEnd; ++j) {
       std::string trimmed = trim(textLines[j]);
@@ -245,11 +233,10 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string &text) {
       }
     }
 
-    std::string debugMsg = "[Rexel] Bloc ref ligne " + std::to_string(i) +
-                           " => " + blockText.substr(0, 150) + "...\n";
-    OutputDebugStringA(debugMsg.c_str());
+    OutputDebugStringA(("[Rexel] Bloc ref ligne " + std::to_string(i) +
+                       " => " + blockText.substr(0, 150) + "...\n")
+                          .c_str());
 
-    // Tokenisation du bloc
     std::vector<std::string> tokens;
     {
       std::istringstream iss(blockText);
@@ -259,14 +246,12 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string &text) {
       }
     }
 
-    // Index de la référence dans les tokens
     size_t refTokenIndex = 0;
     for (; refTokenIndex < tokens.size(); ++refTokenIndex) {
       if (tokens[refTokenIndex].find(product.reference) != std::string::npos)
         break;
     }
 
-    // Désignation : ligne avec lettres la plus longue ne contenant pas la ref
     size_t bestDescLine = SIZE_MAX;
     for (size_t j = i; j < blockEnd; ++j) {
       std::string cand = trim(textLines[j]);
@@ -285,13 +270,12 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string &text) {
       }
     }
     if (!product.designation.empty()) {
-      std::string debugDesc = "[Rexel] Désignation (ligne " +
-                              std::to_string(bestDescLine) + "): " +
-                              product.designation + "\n";
-      OutputDebugStringA(debugDesc.c_str());
+      OutputDebugStringA(("[Rexel] Désignation (ligne " +
+                          std::to_string(bestDescLine) + ": " +
+                          product.designation + "\n")
+                             .c_str());
     }
 
-    // Recherche du marqueur "P"
     size_t pIndex = tokens.size();
     for (size_t t = refTokenIndex + 1; t < tokens.size(); ++t) {
       if (tokens[t] == "P") {
@@ -300,108 +284,88 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string &text) {
       }
     }
 
-    // Quantité : analyser les tokens entre la référence et "P"
-    double bestQuantity = 0.0;
-    auto tryQty = [&](const std::string &raw, const char *label) {
-      if (raw.empty())
-        return;
-      try {
-        double v = std::stod(raw);
-        if (v > bestQuantity) {
-          bestQuantity = v;
-          OutputDebugStringA(("[Rexel] Qte candidate (" + std::string(label) +
-                              "): " + std::to_string(v) + "\n")
-                                 .c_str());
-        }
-      } catch (...) {
-      }
-    };
-
-    // tokens numériques simples
-    for (size_t t = refTokenIndex + 1; t < pIndex; ++t) {
-      if (std::all_of(tokens[t].begin(), tokens[t].end(), [](unsigned char c) {
-            return std::isdigit(c);
-          })) {
-        tryQty(tokens[t], "token");
-      }
-    }
-
-    // combinaisons de deux tokens numériques consécutifs
-    for (size_t t = refTokenIndex + 1; t + 1 < pIndex; ++t) {
-      bool digits1 = std::all_of(tokens[t].begin(), tokens[t].end(),
-                                 [](unsigned char c) { return std::isdigit(c); });
-      bool digits2 = std::all_of(tokens[t + 1].begin(), tokens[t + 1].end(),
-                                 [](unsigned char c) { return std::isdigit(c); });
-      if (digits1 && digits2) {
-        tryQty(tokens[t] + tokens[t + 1], "fusion2");
-      }
-    }
-
-    // motif type "1 200" reconstruit à partir du texte avant P
-    if (pIndex > refTokenIndex + 1) {
-      std::string preP;
+    double quantity = 0.0;
+    std::smatch qtyMatch;
+    std::regex qtyPattern(R"((\d{2,6})\s+\d+\s+j)");
+    if (std::regex_search(blockText, qtyMatch, qtyPattern)) {
+      quantity = static_cast<double>(std::stod(qtyMatch[1]));
+    } else if (pIndex < tokens.size()) {
+      std::vector<std::string> digitTokens;
       for (size_t t = refTokenIndex + 1; t < pIndex; ++t) {
-        if (!preP.empty())
-          preP += ' ';
-        preP += tokens[t];
+        if (!tokens[t].empty() &&
+            std::all_of(tokens[t].begin(), tokens[t].end(), [](unsigned char c) {
+              return std::isdigit(c);
+            })) {
+          digitTokens.push_back(tokens[t]);
+        }
       }
-      std::regex spaced(R"((\d{1,3}(?:\s\d{3})+))");
-      std::smatch m;
-      if (std::regex_search(preP, m, spaced)) {
-        std::string compact = m.str();
-        compact.erase(std::remove(compact.begin(), compact.end(), ' '),
-                      compact.end());
-        tryQty(compact, "spaced");
+
+      if (!digitTokens.empty()) {
+        std::string merged = digitTokens.back();
+        if (digitTokens.size() >= 2) {
+          const std::string &prev = digitTokens[digitTokens.size() - 2];
+          if (prev.size() + merged.size() <= 6)
+            merged = prev + merged;
+        }
+        try {
+          quantity = std::stod(merged);
+        } catch (...) {
+          quantity = 0.0;
+        }
       }
     }
 
-    if (bestQuantity > 0.0)
-      product.quantite = bestQuantity;
+    if (quantity > 0.0)
+      product.quantite = quantity;
 
-    // Prix unitaire : premier nombre avec virgule après P
-    if (product.quantite > 0 && pIndex < tokens.size()) {
-      auto parsePriceToken = [&](size_t idx) -> bool {
-        const std::string &tok = tokens[idx];
-        if (tok.find(',') == std::string::npos)
-          return false;
+    if (pIndex < tokens.size()) {
+      double price = 0.0;
+      std::regex pricePattern(R"((\d+,\d{2,4}))");
 
-        double val = parseFrenchNumber(tok);
-        if (val <= 0.0) {
-          // Cas ",0818" : rattacher le token précédent s'il est numérique
-          if (idx > 0 && std::all_of(tokens[idx - 1].begin(),
-                                     tokens[idx - 1].end(), [](unsigned char c) {
-                                       return std::isdigit(c);
-                                     })) {
-            val = parseFrenchNumber(tokens[idx - 1] + tok);
-          }
-        }
-
-        if (val > 0.0) {
-          product.prixHT = std::round(val * 100.0) / 100.0;
-          OutputDebugStringA(("[Rexel] Prix extrait: " + tok + " => " +
-                              std::to_string(product.prixHT) + "\n")
-                                 .c_str());
-          return true;
-        }
-        return false;
-      };
-
-      for (size_t t = pIndex + 1; t < tokens.size(); ++t) {
-        if (parsePriceToken(t))
+      for (size_t t = pIndex + 1; t < tokens.size() && price <= 0.0; ++t) {
+        std::smatch priceMatch;
+        if (std::regex_search(tokens[t], priceMatch, pricePattern)) {
+          price = parseFrenchNumber(priceMatch[1]);
           break;
+        }
       }
+
+      if (price <= 0.0) {
+        std::string afterP;
+        for (size_t t = pIndex + 1; t < tokens.size(); ++t) {
+          if (!afterP.empty())
+            afterP += ' ';
+          afterP += tokens[t];
+        }
+
+        std::smatch priceMatch;
+        if (std::regex_search(afterP, priceMatch, pricePattern)) {
+          price = parseFrenchNumber(priceMatch[1]);
+        }
+      }
+
+      if (price > 0.0) {
+        product.prixHT = std::round(price * 100.0) / 100.0;
+        OutputDebugStringA(("[Rexel] Prix extrait: " +
+                            std::to_string(product.prixHT) + "\n")
+                               .c_str());
+      }
+    }
+
+    if (product.quantite > 0 && product.prixHT > 0) {
+      product.montantHT = product.quantite * product.prixHT;
     }
 
     if (!product.reference.empty() && product.quantite > 0) {
       extractedCount++;
       lines.push_back(product);
 
-      std::string productMsg = "[Rexel] Produit #" + std::to_string(extractedCount) +
-                               " => Ref=" + product.reference +
-                               " Qte=" + std::to_string(product.quantite) +
-                               " PU=" + std::to_string(product.prixHT) +
-                               " Desc=\"" + product.designation + "\"\n";
-      OutputDebugStringA(productMsg.c_str());
+      OutputDebugStringA(("[Rexel] Produit #" + std::to_string(extractedCount) +
+                          " => Ref=" + product.reference +
+                          " Qte=" + std::to_string(product.quantite) +
+                          " PU=" + std::to_string(product.prixHT) +
+                          " Desc=\"" + product.designation + "\"\n")
+                             .c_str());
     } else {
       OutputDebugStringA("[Rexel] Produit ignoré (réf/quantité manquante)\n");
     }
@@ -416,7 +380,6 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string &text) {
 
   return lines;
 }
-
 std::vector<PdfLine> RexelPdfParser::parse(const std::string &filePath) {
   std::string text = extractText(filePath);
   return parseTextContent(text);
