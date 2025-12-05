@@ -31,6 +31,13 @@ public:
      */
     static std::string getLastError();
 
+    /**
+     * @brief Génère le nom du fichier de sortie par défaut
+     * @param inputPath Chemin du fichier d'entrée
+     * @return Chemin du fichier de sortie
+     */
+    static std::string generateOutputPath(const std::string& inputPath);
+
 private:
     static std::string lastError;
 
@@ -56,11 +63,4 @@ private:
      * @return true si succès
      */
     static bool createZip(const std::string& zipPath, const std::string& sourceDir);
-
-    /**
-     * @brief Génère le nom du fichier de sortie par défaut
-     * @param inputPath Chemin du fichier d'entrée
-     * @return Chemin du fichier de sortie
-     */
-    static std::string generateOutputPath(const std::string& inputPath);
 };

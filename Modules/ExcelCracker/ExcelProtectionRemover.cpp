@@ -271,7 +271,7 @@ bool ExcelProtectionRemover::removeProtection(const std::string& filePath, const
         // Extraire le ZIP
         if (!extractZip(filePath, tempDir.string()))
         {
-            OutputDebugStringA(("[ExcelProtectionRemover] Échec de l'extraction\n").c_str());
+            OutputDebugStringA("[ExcelProtectionRemover] Échec de l'extraction\n");
             return false;
         }
 
