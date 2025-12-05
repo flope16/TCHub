@@ -18,6 +18,7 @@ public:
 
 private slots:
     void onPdfParserClicked();
+    void onExcelCrackerClicked();
 
 private:
     void setupUi();
@@ -29,5 +30,6 @@ private:
     QLabel *logoLabel;
     QGroupBox *modulesGroup;
     QPushButton *pdfParserButton;
+    QPushButton *excelCrackerButton;
     QPushButton *quitButton;
 };
