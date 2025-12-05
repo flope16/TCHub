@@ -113,13 +113,14 @@
       <AdditionalDependencies>Qt6Cored.lib;Qt6Guid.lib;Qt6Widgetsd.lib;Qt6Concurrentd.lib;poppler-cpp.lib;zlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
-      <Command>echo Pre-copie des DLL critiques Poppler...
+      <Command>echo Pre-copie des DLL critiques Poppler et minizip...
 if not exist "$(OutDir)" mkdir "$(OutDir)"
 xcopy /Y /Q "C:\Dev\vcpkg\installed\x64-windows\bin\poppler-cpp.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 xcopy /Y /Q "C:\Dev\vcpkg\installed\x64-windows\bin\poppler.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 xcopy /Y /Q "C:\Dev\vcpkg\installed\x64-windows\bin\freetype.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
-xcopy /Y /Q "C:\Dev\vcpkg\installed\x64-windows\bin\zlib1.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL</Command>
-      <Message>Copie préventive des DLL Poppler critiques avant le build...</Message>
+xcopy /Y /Q "C:\Dev\vcpkg\installed\x64-windows\bin\zlib1.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /Q "C:\Dev\vcpkg\installed\x64-windows\bin\minizip.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL</Command>
+      <Message>Copie préventive des DLL Poppler et minizip critiques avant le build...</Message>
     </PreBuildEvent>
     <PostBuildEvent>
       <Command>echo Copie des DLL Poppler et dependances...
@@ -173,13 +174,14 @@ exit /b 0</Command>
       <AdditionalDependencies>Qt6Core.lib;Qt6Gui.lib;Qt6Widgets.lib;Qt6Concurrent.lib;poppler-cpp.lib;zlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
-      <Command>echo Pre-copie des DLL critiques Poppler...
+      <Command>echo Pre-copie des DLL critiques Poppler et minizip...
 if not exist "$(OutDir)" mkdir "$(OutDir)"
 xcopy /Y /Q "C:\Dev\vcpkg\installed\x64-windows\bin\poppler-cpp.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 xcopy /Y /Q "C:\Dev\vcpkg\installed\x64-windows\bin\poppler.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 xcopy /Y /Q "C:\Dev\vcpkg\installed\x64-windows\bin\freetype.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
-xcopy /Y /Q "C:\Dev\vcpkg\installed\x64-windows\bin\zlib1.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL</Command>
-      <Message>Copie préventive des DLL Poppler critiques avant le build...</Message>
+xcopy /Y /Q "C:\Dev\vcpkg\installed\x64-windows\bin\zlib1.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /Q "C:\Dev\vcpkg\installed\x64-windows\bin\minizip.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL</Command>
+      <Message>Copie préventive des DLL Poppler et minizip critiques avant le build...</Message>
     </PreBuildEvent>
     <PostBuildEvent>
       <Command>echo Copie des DLL Poppler et dependances...
