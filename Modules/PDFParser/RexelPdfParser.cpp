@@ -80,9 +80,9 @@ static std::string cleanDesignation(const std::string &line) {
 // ===== METHODES DE LA CLASSE =====
 
 std::string RexelPdfParser::extractText(const std::string &filePath) {
-  // Utiliser PopplerPdfExtractor SANS -layout pour avoir un flux de texte linéaire
-  // qui préserve mieux l'ordre des éléments
-  std::string text = PopplerPdfExtractor::extractTextFromPdf(filePath, false);
+  // Utiliser PopplerPdfExtractor AVEC -layout pour préserver la structure en
+  // colonnes
+  std::string text = PopplerPdfExtractor::extractTextFromPdf(filePath, true);
 
   // Debug: sauvegarder le texte extrait
   try {
@@ -144,7 +144,7 @@ static double parseFrenchNumber(const std::string &s) {
 std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string &text) {
   std::vector<PdfLine> lines;
 
-  OutputDebugStringA("=== DEBUT PARSING REXEL (format sans -layout) ===\n");
+  OutputDebugStringA("=== DEBUT PARSING REXEL (format avec -layout) ===\n");
 
   // Vérifier si c'est un message d'erreur
   if (text.find("ERREUR:") == 0) {
@@ -172,7 +172,7 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string &text) {
 
   // LOG: afficher les 100 premières lignes pour debug
   OutputDebugStringA(
-      "[Rexel] === AFFICHAGE DES 100 PREMIERES LIGNES (sans -layout) ===\n");
+      "[Rexel] === AFFICHAGE DES 100 PREMIERES LIGNES (avec -layout) ===\n");
   for (size_t i = 0; i < textLines.size() && i < 100; ++i) {
     std::string logLine =
         "[Rexel] Ligne " + std::to_string(i) + ": \"" + textLines[i] + "\"\n";
