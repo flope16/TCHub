@@ -570,10 +570,10 @@ void ExcelCrackerWindow::updateProgress(int attempts, const QString& currentPass
 void ExcelCrackerWindow::updateStatus(const QString &message, bool isError)
 {
     QString timestamp = QTime::currentTime().toString("hh:mm:ss");
-    QString color = isError ? "#e74c3c" : "#2ecc71";
+    QString color = isError ? "#ff6b6b" : "#51cf66";  // Rouge plus clair / Vert plus clair pour meilleur contraste
 
-    QString html = QString("<span style='color: #95a5a6;'>[%1]</span> "
-                          "<span style='color: %2;'>%3</span>")
+    QString html = QString("<span style='color: #e1e8ed;'>[%1]</span> "  // Gris très clair pour timestamp
+                          "<span style='color: %2; font-weight: bold;'>%3</span>")
                       .arg(timestamp)
                       .arg(color)
                       .arg(message);
