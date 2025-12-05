@@ -33,6 +33,7 @@ private slots:
     void onStopClicked();
     void onModeChanged(int index);
     void updateProgress(int attempts, const QString& currentPassword);
+    void onBruteForceConfigChanged();
 
 private:
     void setupUi();
@@ -41,6 +42,9 @@ private:
     void processFile();
     void removeProtection();
     void bruteForcePassword();
+    void updateEstimation();
+    long long calculateTotalCombinations();
+    QString formatTime(long long seconds);
 
     // Widgets
     QComboBox *modeCombo;
@@ -65,6 +69,7 @@ private:
     QCheckBox *digitsCheck;
     QCheckBox *specialCharsCheck;
     QLabel *progressLabel;
+    QLabel *estimationLabel;
 
     // État
     bool isProcessing;
