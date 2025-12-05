@@ -1,3 +1,7 @@
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
 #include "RexelPdfParser.h"
 #include "PopplerPdfExtractor.h"
 #include <algorithm>
