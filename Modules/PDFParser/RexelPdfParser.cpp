@@ -353,25 +353,34 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string &text) {
         }
       }
 
-      // PRIORITÉ 2 : Reconstruction simple d'un millier "1" suivi d'un bloc à 3 chiffres (ex: tokens "1" "200")
+      // PRIORITÉ 2 : Reconstruction millier "1" suivi de 3 chiffres (ex: tokens "1" "200" ou "1" "200,00")
       if (product.quantite <= 0) {
         for (size_t t = refTokenIndex + 1; t + 1 < tokens.size(); ++t) {
-          if (tokens[t] == "1" &&
-              tokens[t + 1].size() == 3 &&
-              std::all_of(tokens[t + 1].begin(), tokens[t + 1].end(),
-                          [](unsigned char c) {
-                            return std::isdigit(c);
-                          })) {
-            std::string merged = tokens[t] + tokens[t + 1];
-            try {
-              product.quantite = std::stod(merged);
-              OutputDebugStringA(
-                  ("[Rexel] Qte extraite (millier reconstruit): " + merged +
-                   "\n")
-                      .c_str());
-              break;
-            } catch (...) {
-              OutputDebugStringA("[Rexel] Erreur conversion qte (millier)\n");
+          if (tokens[t] == "1" || tokens[t] == "2") {
+            // Extraire les premiers chiffres du token suivant
+            const std::string &nextToken = tokens[t + 1];
+            std::string digits;
+            for (char c : nextToken) {
+              if (std::isdigit(static_cast<unsigned char>(c))) {
+                digits.push_back(c);
+              } else {
+                break; // Arrêter dès qu'on rencontre un non-chiffre
+              }
+            }
+
+            // Si on a exactement 3 chiffres, c'est probablement un millier
+            if (digits.size() == 3) {
+              std::string merged = tokens[t] + digits;
+              try {
+                product.quantite = std::stod(merged);
+                OutputDebugStringA(
+                    ("[Rexel] Qte extraite (millier reconstruit): " + merged +
+                     " depuis \"" + tokens[t] + "\" + \"" + nextToken + "\"\n")
+                        .c_str());
+                break;
+              } catch (...) {
+                OutputDebugStringA("[Rexel] Erreur conversion qte (millier)\n");
+              }
             }
           }
         }
