@@ -319,34 +319,7 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string &text) {
         }
       }
 
-      std::string bestNumeric;
-      for (size_t t = refTokenIndex + 1; t < pIndex; ++t) {
-        bool allDigits = std::all_of(
-            tokens[t].begin(), tokens[t].end(), [](unsigned char c) {
-              return std::isdigit(static_cast<unsigned char>(c));
-            });
-        if (!allDigits)
-          continue;
-
-        if (tokens[t].size() >= 2) {
-          if (tokens[t].size() > bestNumeric.size())
-            bestNumeric = tokens[t];
-        } else if (bestNumeric.empty()) {
-          bestNumeric = tokens[t];
-        }
-      }
-
-      if (!bestNumeric.empty()) {
-        try {
-          product.quantite = std::stod(bestNumeric);
-          OutputDebugStringA(
-              ("[Rexel] Qte extraite (tokens): " + bestNumeric + "\n").c_str());
-        } catch (...) {
-          OutputDebugStringA("[Rexel] Erreur conversion qte (tokens)\n");
-        }
-      }
-
-      // Si toujours rien, chercher un nombre au format "1 200" avant le P
+      // PRIORITÉ 1 : Chercher un nombre au format "1 200" avant le P
       if (product.quantite <= 0 && pIndex > refTokenIndex + 1) {
         std::string preP;
         for (size_t t = refTokenIndex + 1; t < pIndex; ++t) {
@@ -380,8 +353,7 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string &text) {
         }
       }
 
-      // Si aucune quantité fiable, tenter une reconstruction simple d'un
-      // millier "1" suivi d'un bloc à 3 chiffres (ex: tokens "1" "200")
+      // PRIORITÉ 2 : Reconstruction simple d'un millier "1" suivi d'un bloc à 3 chiffres (ex: tokens "1" "200")
       if (product.quantite <= 0) {
         for (size_t t = refTokenIndex + 1; t + 1 < tokens.size(); ++t) {
           if (tokens[t] == "1" &&
@@ -401,6 +373,36 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string &text) {
             } catch (...) {
               OutputDebugStringA("[Rexel] Erreur conversion qte (millier)\n");
             }
+          }
+        }
+      }
+
+      // PRIORITÉ 3 : Meilleur token numérique avant P (fallback)
+      if (product.quantite <= 0) {
+        std::string bestNumeric;
+        for (size_t t = refTokenIndex + 1; t < pIndex; ++t) {
+          bool allDigits = std::all_of(
+              tokens[t].begin(), tokens[t].end(), [](unsigned char c) {
+                return std::isdigit(static_cast<unsigned char>(c));
+              });
+          if (!allDigits)
+            continue;
+
+          if (tokens[t].size() >= 2) {
+            if (tokens[t].size() > bestNumeric.size())
+              bestNumeric = tokens[t];
+          } else if (bestNumeric.empty()) {
+            bestNumeric = tokens[t];
+          }
+        }
+
+        if (!bestNumeric.empty()) {
+          try {
+            product.quantite = std::stod(bestNumeric);
+            OutputDebugStringA(
+                ("[Rexel] Qte extraite (tokens): " + bestNumeric + "\n").c_str());
+          } catch (...) {
+            OutputDebugStringA("[Rexel] Erreur conversion qte (tokens)\n");
           }
         }
       }
@@ -450,20 +452,17 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string &text) {
       };
 
       // Parcourir les tokens après "P" et reconstruire toutes les combinaisons
-      // plausibles (token seul ou token précédent + token courant)
+      // plausibles (token précédent + token courant prioritaire, sinon token seul)
       for (size_t t =
                (pIndex == tokens.size() ? refTokenIndex + 1 : pIndex + 1);
            t < tokens.size(); ++t) {
         const std::string &tok = tokens[t];
 
-        // Candidat direct
-        if (tok.find(',') != std::string::npos) {
-          if (pushCandidate(tok))
-            break;
-        }
+        if (tok.find(',') == std::string::npos)
+          continue;
 
-        // Candidat combiné avec le token précédent si 100% numérique
-        if (tok.find(',') != std::string::npos && t > 0) {
+        // PRIORITÉ 1 : Candidat combiné avec le token précédent si 100% numérique
+        if (t > 0) {
           const std::string &prev = tokens[t - 1];
           bool prevNumeric = std::all_of(prev.begin(), prev.end(),
                                          [](unsigned char c) {
@@ -474,6 +473,10 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string &text) {
               break;
           }
         }
+
+        // PRIORITÉ 2 : Candidat direct seulement si combinaison impossible
+        if (pushCandidate(tok))
+          break;
       }
 
       if (!priceCandidate.empty()) {
