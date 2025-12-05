@@ -278,31 +278,38 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string &text) {
     }
 
     // Heuristique quantité :
-    // 1) ligne composée uniquement de chiffres/espaces juste après la référence
+    // 1) ligne composée de chiffres/espaces/virgule juste après la référence
     // 2) sinon, choisir le plus grand token numérique (>=2 chiffres) avant "P"
     for (size_t j = i; j < blockEnd; ++j) {
       std::string candidate = textLines[j];
-      bool onlyDigitsAndSpaces =
+      bool onlyDigitsSpacesComma =
           std::all_of(candidate.begin(), candidate.end(), [](unsigned char c) {
-            return std::isspace(c) || (c >= '0' && c <= '9');
+            return std::isspace(c) || (c >= '0' && c <= '9') || c == ',' || c == '.';
           });
 
-      if (!onlyDigitsAndSpaces)
+      if (!onlyDigitsSpacesComma)
         continue;
 
-      // retirer tous les espaces
-      candidate.erase(
-          std::remove_if(candidate.begin(), candidate.end(),
-                         [](unsigned char c) { return std::isspace(c); }),
-          candidate.end());
-      if (candidate.empty())
+      // Extraire la partie entière avant la virgule (pour gérer "1 200,00")
+      std::string integerPart;
+      for (char c : candidate) {
+        if (c >= '0' && c <= '9') {
+          integerPart.push_back(c);
+        } else if (c == ',' || c == '.') {
+          break; // Arrêter à la virgule/point décimal
+        }
+        // Ignorer les espaces (pas besoin de les ajouter)
+      }
+
+      if (integerPart.empty())
         continue;
 
       if (j > i) {
         try {
-          product.quantite = std::stod(candidate);
+          product.quantite = std::stod(integerPart);
           OutputDebugStringA(
-              ("[Rexel] Qte extraite (ligne numérique): " + candidate + "\n")
+              ("[Rexel] Qte extraite (ligne numérique): " + integerPart +
+               " depuis \"" + candidate + "\"\n")
                   .c_str());
           break;
         } catch (...) {
