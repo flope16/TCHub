@@ -274,8 +274,10 @@ void ExcelCrackerWindow::setupUi()
     // Label de progression
     progressLabel = new QLabel(this);
     progressLabel->setVisible(false);
+    progressLabel->setTextFormat(Qt::RichText);  // Activer le format HTML
     progressLabel->setStyleSheet("QLabel { color: #2c3e50; font-weight: bold; background: transparent; }");
     progressLabel->setAlignment(Qt::AlignCenter);
+    progressLabel->setWordWrap(true);  // Permettre le retour à la ligne
     mainLayout->addWidget(progressLabel);
 
     // Groupe de résultats
@@ -525,6 +527,10 @@ void ExcelCrackerWindow::bruteForcePassword()
     stopButton->setVisible(true);
     stopButton->setEnabled(true);
 
+    // Enregistrer le temps de démarrage et calculer les combinaisons totales
+    bruteForceStartTime = QDateTime::currentDateTime();
+    totalCombinations = calculateTotalCombinations();
+
     // Configuration
     ExcelBruteForce::Config config;
     config.minLength = minLength;
@@ -580,9 +586,52 @@ void ExcelCrackerWindow::bruteForcePassword()
 
 void ExcelCrackerWindow::updateProgress(int attempts, const QString& currentPassword)
 {
-    progressLabel->setText(QString("Tentatives: %1 | Mot de passe: %2")
+    // Calculer le temps écoulé
+    QDateTime currentTime = QDateTime::currentDateTime();
+    qint64 elapsedSeconds = bruteForceStartTime.secsTo(currentTime);
+
+    // Éviter la division par zéro
+    if (elapsedSeconds <= 0) {
+        progressLabel->setText(QString("Tentatives: %1 | Mot de passe: %2 | Initialisation...")
+            .arg(attempts)
+            .arg(currentPassword));
+        return;
+    }
+
+    // Calculer le taux (tentatives par seconde)
+    double rate = static_cast<double>(attempts) / static_cast<double>(elapsedSeconds);
+
+    // Calculer les combinaisons restantes
+    long long remainingCombinations = totalCombinations - attempts;
+
+    // Calculer le temps restant estimé
+    QString remainingTimeStr;
+    if (rate > 0 && remainingCombinations > 0) {
+        long long remainingSeconds = static_cast<long long>(remainingCombinations / rate);
+        remainingTimeStr = formatTime(remainingSeconds);
+    } else {
+        remainingTimeStr = "Calcul...";
+    }
+
+    // Formater le temps écoulé
+    QString elapsedTimeStr = formatTime(elapsedSeconds);
+
+    // Mettre à jour le label avec toutes les informations
+    progressLabel->setText(QString(
+        "⏱️ <b>Tentatives:</b> %1 / %2 (%3%)<br/>"
+        "🔑 <b>Mot de passe testé:</b> %4<br/>"
+        "⚡ <b>Vitesse:</b> ~%5 tentatives/sec<br/>"
+        "⏳ <b>Temps écoulé:</b> %6<br/>"
+        "⏰ <b>Temps restant estimé:</b> %7"
+    )
         .arg(attempts)
-        .arg(currentPassword));
+        .arg(totalCombinations)
+        .arg(totalCombinations > 0 ? QString::number(100.0 * attempts / totalCombinations, 'f', 2) : "0.00")
+        .arg(currentPassword)
+        .arg(QString::number(rate, 'f', 0))
+        .arg(elapsedTimeStr)
+        .arg(remainingTimeStr)
+    );
 }
 
 void ExcelCrackerWindow::updateStatus(const QString &message, bool isError)
