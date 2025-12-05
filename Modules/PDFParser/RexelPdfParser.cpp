@@ -324,28 +324,18 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string &text) {
       }
     }
 
-    // 2) plus grand token numérique (>=2 chiffres) avant "P"
-    std::string bestNumeric;
+    // 2) tokens numériques avant "P" (on prend la plus grande valeur)
     for (size_t t = refTokenIndex + 1; t < pIndex; ++t) {
       bool allDigits = std::all_of(tokens[t].begin(), tokens[t].end(),
                                    [](unsigned char c) {
                                      return std::isdigit(
                                          static_cast<unsigned char>(c));
                                    });
-      if (!allDigits)
+      if (!allDigits || tokens[t].size() < 2)
         continue;
 
-      if (tokens[t].size() >= 2) {
-        if (tokens[t].size() > bestNumeric.size())
-          bestNumeric = tokens[t];
-      } else if (bestNumeric.empty()) {
-        bestNumeric = tokens[t];
-      }
-    }
-
-    if (!bestNumeric.empty()) {
       try {
-        registerQty(std::stod(bestNumeric), "token");
+        registerQty(std::stod(tokens[t]), "token");
       } catch (...) {
         OutputDebugStringA("[Rexel] Erreur conversion qte (tokens)\n");
       }
@@ -404,7 +394,8 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string &text) {
       OutputDebugStringA("[Rexel] Quantité non trouvée\n");
     }
 
-    // Rechercher le prix APRÈS la quantité et le marqueur "P"
+    // Rechercher le prix (priorité aux valeurs avec virgule juste avant "P",
+    // puis après)
     if (product.quantite > 0) {
       // trouver la position du token "P"
       size_t pIndex = tokens.size();
@@ -443,30 +434,41 @@ std::vector<PdfLine> RexelPdfParser::parseTextContent(const std::string &text) {
         return false;
       };
 
-      // Parcourir les tokens après "P" et reconstruire toutes les combinaisons
-      // plausibles (token seul ou token précédent + token courant)
-      for (size_t t =
-               (pIndex == tokens.size() ? refTokenIndex + 1 : pIndex + 1);
-           t < tokens.size(); ++t) {
-        const std::string &tok = tokens[t];
-
-        // Candidat direct
+      auto tryTokenAt = [&](size_t idx) -> bool {
+        const std::string &tok = tokens[idx];
         if (tok.find(',') != std::string::npos) {
           if (pushCandidate(tok))
-            break;
-        }
+            return true;
 
-        // Candidat combiné avec le token précédent si 100% numérique
-        if (tok.find(',') != std::string::npos && t > 0) {
-          const std::string &prev = tokens[t - 1];
-          bool prevNumeric = std::all_of(prev.begin(), prev.end(),
-                                         [](unsigned char c) {
-                                           return std::isdigit(c);
-                                         });
-          if (prevNumeric) {
-            if (pushCandidate(prev + tok))
-              break;
+          if (idx > 0) {
+            const std::string &prev = tokens[idx - 1];
+            bool prevNumeric =
+                std::all_of(prev.begin(), prev.end(), [](unsigned char c) {
+                  return std::isdigit(c);
+                });
+            if (prevNumeric) {
+              if (pushCandidate(prev + tok))
+                return true;
+            }
           }
+        }
+        return false;
+      };
+
+      // 1) parcourir en arrière avant "P" (le prix unitaire se situe
+      // généralement juste avant la colonne quantité)
+      size_t backStart = (pIndex == tokens.size() ? tokens.size() : pIndex);
+      while (backStart > refTokenIndex + 1) {
+        --backStart;
+        if (tryTokenAt(backStart))
+          break;
+      }
+
+      // 2) si rien trouvé, continuer après "P"
+      if (priceCandidate.empty() && pIndex < tokens.size()) {
+        for (size_t t = pIndex + 1; t < tokens.size(); ++t) {
+          if (tryTokenAt(t))
+            break;
         }
       }
 
