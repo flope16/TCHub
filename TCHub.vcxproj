@@ -123,7 +123,12 @@ xcopy /Y /Q "C:\Dev\vcpkg\installed\x64-windows\bin\minizip.dll" "$(OutDir)" 2&g
       <Message>Copie préventive des DLL Poppler et minizip critiques avant le build...</Message>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>echo Copie des DLL Poppler et dependances...
+      <Command>echo Copie des DLL Qt (Debug)...
+xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Cored.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Guid.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Widgetsd.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Concurrentd.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+echo Copie des DLL Poppler et dependances...
 xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\poppler-cpp.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\poppler.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\freetype.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
@@ -190,7 +195,12 @@ xcopy /Y /Q "C:\Dev\vcpkg\installed\x64-windows\bin\minizip.dll" "$(OutDir)" 2&g
       <Message>Copie préventive des DLL Poppler et minizip critiques avant le build...</Message>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>echo Copie des DLL Poppler et dependances...
+      <Command>echo Copie des DLL Qt (Release)...
+xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Core.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Gui.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Widgets.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Concurrent.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+echo Copie des DLL Poppler et dependances...
 xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\poppler-cpp.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\poppler.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\freetype.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
