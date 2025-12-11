@@ -25,6 +25,9 @@
     <Filter Include="Modules\ExcelCracker">
       <UniqueIdentifier>{fbfefc33-18b3-4d9a-b749-bf459269e97b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Modules\HydraulicCalculations">
+      <UniqueIdentifier>{8c6d2f41-3b9e-4f8a-a7d5-1e8f3c9a5b2d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="TCHub.rc">
@@ -64,6 +67,12 @@
     <ClCompile Include="Modules\ExcelCracker\ExcelCrackerWindow.cpp">
       <Filter>Modules\ExcelCracker</Filter>
     </ClCompile>
+    <ClCompile Include="Modules\HydraulicCalculations\PipeCalculator.cpp">
+      <Filter>Modules\HydraulicCalculations</Filter>
+    </ClCompile>
+    <ClCompile Include="Modules\HydraulicCalculations\HydraulicCalculationsWindow.cpp">
+      <Filter>Modules\HydraulicCalculations</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="TCHub.h">
@@ -89,6 +98,12 @@
     </ClInclude>
     <ClInclude Include="Modules\ExcelCracker\ExcelCrackerWindow.h">
       <Filter>Modules\ExcelCracker</Filter>
+    </ClInclude>
+    <ClInclude Include="Modules\HydraulicCalculations\PipeCalculator.h">
+      <Filter>Modules\HydraulicCalculations</Filter>
+    </ClInclude>
+    <ClInclude Include="Modules\HydraulicCalculations\HydraulicCalculationsWindow.h">
+      <Filter>Modules\HydraulicCalculations</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
