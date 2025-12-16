@@ -285,12 +285,16 @@ void HydraulicCalculationsWindow::setupUi()
 void HydraulicCalculationsWindow::applyStyle()
 {
     QString style = R"(
+        QDialog {
+            background-color: #ffffff;
+        }
         QGroupBox {
             font-weight: bold;
             border: 2px solid #bdc3c7;
             border-radius: 6px;
             margin-top: 10px;
             padding-top: 10px;
+            background-color: #ffffff;
         }
         QGroupBox::title {
             subcontrol-origin: margin;
@@ -316,10 +320,54 @@ void HydraulicCalculationsWindow::applyStyle()
             background-color: #bdc3c7;
             color: #7f8c8d;
         }
-        QComboBox, QSpinBox, QDoubleSpinBox {
+        QComboBox, QSpinBox, QDoubleSpinBox, QLineEdit {
             padding: 5px;
             border: 1px solid #bdc3c7;
             border-radius: 4px;
+            background-color: #ffffff;
+        }
+        QTabWidget::pane {
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            background-color: #ffffff;
+        }
+        QTabBar::tab {
+            background-color: #ecf0f1;
+            color: #2c3e50;
+            padding: 8px 16px;
+            margin-right: 2px;
+            border-top-left-radius: 4px;
+            border-top-right-radius: 4px;
+        }
+        QTabBar::tab:selected {
+            background-color: #4472C4;
+            color: white;
+        }
+        QTabBar::tab:hover:!selected {
+            background-color: #d5dbdb;
+        }
+        QTableWidget {
+            background-color: #ffffff;
+            alternate-background-color: #f8f9fa;
+            gridline-color: #dee2e6;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+        }
+        QHeaderView::section {
+            background-color: #ecf0f1;
+            color: #2c3e50;
+            padding: 5px;
+            border: 1px solid #bdc3c7;
+            font-weight: bold;
+        }
+        QTextEdit {
+            background-color: #ffffff;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            padding: 5px;
+        }
+        QLabel {
+            color: #2c3e50;
         }
     )";
     setStyleSheet(style);
