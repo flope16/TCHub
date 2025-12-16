@@ -352,6 +352,7 @@ void HydraulicCalculationsWindow::applyStyle()
     QString style = R"(
         QDialog {
             background-color: #ffffff;
+            color: #2c3e50;
         }
         QGroupBox {
             font-weight: bold;
@@ -360,6 +361,7 @@ void HydraulicCalculationsWindow::applyStyle()
             margin-top: 10px;
             padding-top: 10px;
             background-color: #ffffff;
+            color: #2c3e50;
         }
         QGroupBox::title {
             subcontrol-origin: margin;
@@ -390,6 +392,28 @@ void HydraulicCalculationsWindow::applyStyle()
             border: 1px solid #bdc3c7;
             border-radius: 4px;
             background-color: #ffffff;
+            color: #2c3e50;
+        }
+        QComboBox QAbstractItemView {
+            background-color: #ffffff;
+            color: #2c3e50;
+            selection-background-color: #4472C4;
+            selection-color: white;
+        }
+        QCheckBox {
+            color: #2c3e50;
+            spacing: 5px;
+        }
+        QCheckBox::indicator {
+            width: 18px;
+            height: 18px;
+            border: 2px solid #bdc3c7;
+            border-radius: 3px;
+            background-color: #ffffff;
+        }
+        QCheckBox::indicator:checked {
+            background-color: #4472C4;
+            border-color: #4472C4;
         }
         QTabWidget::pane {
             border: 1px solid #bdc3c7;
@@ -413,10 +437,19 @@ void HydraulicCalculationsWindow::applyStyle()
         }
         QTableWidget {
             background-color: #ffffff;
+            color: #2c3e50;
             alternate-background-color: #f8f9fa;
             gridline-color: #dee2e6;
             border: 1px solid #bdc3c7;
             border-radius: 4px;
+        }
+        QTableWidget::item {
+            color: #2c3e50;
+            padding: 5px;
+        }
+        QTableWidget::item:selected {
+            background-color: #4472C4;
+            color: white;
         }
         QHeaderView::section {
             background-color: #ecf0f1;
@@ -427,6 +460,7 @@ void HydraulicCalculationsWindow::applyStyle()
         }
         QTextEdit {
             background-color: #ffffff;
+            color: #2c3e50;
             border: 1px solid #bdc3c7;
             border-radius: 4px;
             padding: 5px;
