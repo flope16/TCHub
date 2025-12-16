@@ -1,9 +1,11 @@
 #include "MainWindow.h"
 #include "Modules/PDFParser/PDFParserWindow.h"
 #include "Modules/ExcelCracker/ExcelCrackerWindow.h"
+#include "Modules/HydraulicCalculations/HydraulicCalculationsWindow.h"
 #include <QApplication>
 #include <QScreen>
 #include <QIcon>
+#include <QScrollArea>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -26,8 +28,8 @@ MainWindow::~MainWindow()
 void MainWindow::setupUi()
 {
     setWindowTitle("TC Hub - Centre de modules");
-    setMinimumSize(500, 400);
-    resize(600, 450);
+    setMinimumSize(600, 600);
+    resize(700, 700);
 
     centralWidget = new QWidget(this);
     setCentralWidget(centralWidget);
@@ -42,7 +44,6 @@ void MainWindow::setupUi()
     logoLabel = new QLabel(this);
     logoLabel->setFixedSize(64, 64);
     logoLabel->setScaledContents(true);
-    // Le logo sera chargé depuis les ressources
     logoLabel->setPixmap(QPixmap(":/Resources/TCHub_logo.png"));
     if (logoLabel->pixmap().isNull()) {
         logoLabel->setText("TC");
@@ -74,9 +75,55 @@ void MainWindow::setupUi()
     line->setStyleSheet("QFrame { color: #bdc3c7; }");
     mainLayout->addWidget(line);
 
-    // Groupe de modules
-    modulesGroup = new QGroupBox("Modules disponibles", this);
-    modulesGroup->setStyleSheet(
+    // Zone scrollable pour les catégories
+    QScrollArea *scrollArea = new QScrollArea(this);
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setFrameShape(QFrame::NoFrame);
+    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+    QWidget *scrollWidget = new QWidget();
+    QVBoxLayout *scrollLayout = new QVBoxLayout(scrollWidget);
+    scrollLayout->setSpacing(20);
+    scrollLayout->setContentsMargins(0, 0, 0, 0);
+
+    // Catégorie: Calculs de dimensionnement
+    calculationsGroup = new QGroupBox("⚙️ Calculs de dimensionnement", this);
+    calculationsGroup->setStyleSheet(
+        "QGroupBox { "
+        "   font-size: 14px; "
+        "   font-weight: bold; "
+        "   border: 2px solid #28a745; "
+        "   border-radius: 8px; "
+        "   margin-top: 10px; "
+        "   padding-top: 15px; "
+        "   background-color: #f8fff9; "
+        "} "
+        "QGroupBox::title { "
+        "   subcontrol-origin: margin; "
+        "   subcontrol-position: top left; "
+        "   padding: 5px 10px; "
+        "   color: #28a745; "
+        "}"
+    );
+
+    QVBoxLayout *calculationsLayout = new QVBoxLayout(calculationsGroup);
+    calculationsLayout->setSpacing(10);
+
+    // Module Calculs Hydrauliques
+    QFrame *hydraulicFrame = createModuleCard(
+        "💧",
+        "Calculs Hydrauliques",
+        "Dimensionnement des réseaux d'eau froide et eau chaude sanitaire avec bouclage",
+        &hydraulicCalculationsButton
+    );
+    connect(hydraulicCalculationsButton, &QPushButton::clicked, this, &MainWindow::onHydraulicCalculationsClicked);
+    calculationsLayout->addWidget(hydraulicFrame);
+
+    scrollLayout->addWidget(calculationsGroup);
+
+    // Catégorie: Divers
+    diversGroup = new QGroupBox("🔧 Divers", this);
+    diversGroup->setStyleSheet(
         "QGroupBox { "
         "   font-size: 14px; "
         "   font-weight: bold; "
@@ -93,94 +140,34 @@ void MainWindow::setupUi()
         "}"
     );
 
-    QVBoxLayout *modulesLayout = new QVBoxLayout(modulesGroup);
-    modulesLayout->setSpacing(10);
+    QVBoxLayout *diversLayout = new QVBoxLayout(diversGroup);
+    diversLayout->setSpacing(10);
 
     // Module PDF Parser
-    QFrame *pdfParserFrame = new QFrame(this);
-    pdfParserFrame->setStyleSheet(
-        "QFrame { "
-        "   background-color: #f8f9fa; "
-        "   border: 1px solid #dee2e6; "
-        "   border-radius: 6px; "
-        "   padding: 10px; "
-        "}"
+    QFrame *pdfParserFrame = createModuleCard(
+        "📄",
+        "PDF Parser",
+        "Convertit les fichiers PDF fournisseurs en fichiers Excel structurés",
+        &pdfParserButton
     );
-
-    QHBoxLayout *pdfParserLayout = new QHBoxLayout(pdfParserFrame);
-
-    QLabel *pdfIcon = new QLabel(this);
-    pdfIcon->setText("📄");
-    pdfIcon->setStyleSheet("QLabel { font-size: 32px; background: transparent; border: none; }");
-    pdfParserLayout->addWidget(pdfIcon);
-
-    QVBoxLayout *pdfInfoLayout = new QVBoxLayout();
-    QLabel *pdfTitle = new QLabel("PDF Parser", this);
-    pdfTitle->setStyleSheet("QLabel { font-size: 14px; font-weight: bold; color: #2c3e50; background: transparent; border: none; }");
-
-    QLabel *pdfDesc = new QLabel("Convertit les fichiers PDF fournisseurs en fichiers Excel structurés", this);
-    pdfDesc->setStyleSheet("QLabel { font-size: 11px; color: #6c757d; background: transparent; border: none; }");
-    pdfDesc->setWordWrap(true);
-
-    pdfInfoLayout->addWidget(pdfTitle);
-    pdfInfoLayout->addWidget(pdfDesc);
-    pdfParserLayout->addLayout(pdfInfoLayout, 1);
-
-    pdfParserButton = new QPushButton("Ouvrir", this);
-    pdfParserButton->setFixedSize(100, 35);
-    pdfParserButton->setCursor(Qt::PointingHandCursor);
     connect(pdfParserButton, &QPushButton::clicked, this, &MainWindow::onPdfParserClicked);
-    pdfParserLayout->addWidget(pdfParserButton);
-
-    modulesLayout->addWidget(pdfParserFrame);
+    diversLayout->addWidget(pdfParserFrame);
 
     // Module Excel Cracker
-    QFrame *excelCrackerFrame = new QFrame(this);
-    excelCrackerFrame->setStyleSheet(
-        "QFrame { "
-        "   background-color: #f8f9fa; "
-        "   border: 1px solid #dee2e6; "
-        "   border-radius: 6px; "
-        "   padding: 10px; "
-        "}"
+    QFrame *excelCrackerFrame = createModuleCard(
+        "🔓",
+        "Excel Cracker",
+        "Supprime la protection des feuilles Excel ou force le mot de passe par brute-force",
+        &excelCrackerButton
     );
-
-    QHBoxLayout *excelCrackerLayout = new QHBoxLayout(excelCrackerFrame);
-
-    QLabel *excelIcon = new QLabel(this);
-    excelIcon->setText("🔓");
-    excelIcon->setStyleSheet("QLabel { font-size: 32px; background: transparent; border: none; }");
-    excelCrackerLayout->addWidget(excelIcon);
-
-    QVBoxLayout *excelInfoLayout = new QVBoxLayout();
-    QLabel *excelTitle = new QLabel("Excel Cracker", this);
-    excelTitle->setStyleSheet("QLabel { font-size: 14px; font-weight: bold; color: #2c3e50; background: transparent; border: none; }");
-
-    QLabel *excelDesc = new QLabel("Supprime la protection des feuilles Excel ou force le mot de passe par brute-force", this);
-    excelDesc->setStyleSheet("QLabel { font-size: 11px; color: #6c757d; background: transparent; border: none; }");
-    excelDesc->setWordWrap(true);
-
-    excelInfoLayout->addWidget(excelTitle);
-    excelInfoLayout->addWidget(excelDesc);
-    excelCrackerLayout->addLayout(excelInfoLayout, 1);
-
-    excelCrackerButton = new QPushButton("Ouvrir", this);
-    excelCrackerButton->setFixedSize(100, 35);
-    excelCrackerButton->setCursor(Qt::PointingHandCursor);
     connect(excelCrackerButton, &QPushButton::clicked, this, &MainWindow::onExcelCrackerClicked);
-    excelCrackerLayout->addWidget(excelCrackerButton);
+    diversLayout->addWidget(excelCrackerFrame);
 
-    modulesLayout->addWidget(excelCrackerFrame);
+    scrollLayout->addWidget(diversGroup);
+    scrollLayout->addStretch();
 
-    // Placeholder pour futurs modules
-    QLabel *futureModules = new QLabel("D'autres modules seront ajoutés ici...", this);
-    futureModules->setAlignment(Qt::AlignCenter);
-    futureModules->setStyleSheet("QLabel { color: #95a5a6; font-style: italic; margin: 20px; }");
-    modulesLayout->addWidget(futureModules);
-
-    modulesLayout->addStretch();
-
-    mainLayout->addWidget(modulesGroup, 1);
+    scrollArea->setWidget(scrollWidget);
+    mainLayout->addWidget(scrollArea, 1);
 
     // Bouton Quitter
     QHBoxLayout *footerLayout = new QHBoxLayout();
@@ -193,6 +180,45 @@ void MainWindow::setupUi()
 
     footerLayout->addWidget(quitButton);
     mainLayout->addLayout(footerLayout);
+}
+
+QFrame* MainWindow::createModuleCard(const QString& icon, const QString& title, const QString& description, QPushButton** button)
+{
+    QFrame *frame = new QFrame(this);
+    frame->setStyleSheet(
+        "QFrame { "
+        "   background-color: #f8f9fa; "
+        "   border: 1px solid #dee2e6; "
+        "   border-radius: 6px; "
+        "   padding: 10px; "
+        "}"
+    );
+
+    QHBoxLayout *layout = new QHBoxLayout(frame);
+
+    QLabel *iconLabel = new QLabel(this);
+    iconLabel->setText(icon);
+    iconLabel->setStyleSheet("QLabel { font-size: 32px; background: transparent; border: none; }");
+    layout->addWidget(iconLabel);
+
+    QVBoxLayout *infoLayout = new QVBoxLayout();
+    QLabel *titleLabel = new QLabel(title, this);
+    titleLabel->setStyleSheet("QLabel { font-size: 14px; font-weight: bold; color: #2c3e50; background: transparent; border: none; }");
+
+    QLabel *descLabel = new QLabel(description, this);
+    descLabel->setStyleSheet("QLabel { font-size: 11px; color: #6c757d; background: transparent; border: none; }");
+    descLabel->setWordWrap(true);
+
+    infoLayout->addWidget(titleLabel);
+    infoLayout->addWidget(descLabel);
+    layout->addLayout(infoLayout, 1);
+
+    *button = new QPushButton("Ouvrir", this);
+    (*button)->setFixedSize(100, 35);
+    (*button)->setCursor(Qt::PointingHandCursor);
+    layout->addWidget(*button);
+
+    return frame;
 }
 
 void MainWindow::applyModernStyle()
@@ -242,4 +268,11 @@ void MainWindow::onExcelCrackerClicked()
     ExcelCrackerWindow *excelWindow = new ExcelCrackerWindow(this);
     excelWindow->exec();
     delete excelWindow;
+}
+
+void MainWindow::onHydraulicCalculationsClicked()
+{
+    HydraulicCalculationsWindow *hydraulicWindow = new HydraulicCalculationsWindow(this);
+    hydraulicWindow->exec();
+    delete hydraulicWindow;
 }

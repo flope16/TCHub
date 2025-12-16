@@ -100,17 +100,17 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_WINDOWS;QT_WIDGETS_LIB;QT_GUI_LIB;QT_CORE_LIB;QT_CONCURRENT_LIB;USE_POPPLER;USE_MINIZIP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_WINDOWS;QT_WIDGETS_LIB;QT_GUI_LIB;QT_CORE_LIB;QT_CONCURRENT_LIB;QT_PRINTSUPPORT_LIB;USE_POPPLER;USE_MINIZIP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>C:\Qt\6.10.1\msvc2022_64\include;C:\Qt\6.10.1\msvc2022_64\include\QtWidgets;C:\Qt\6.10.1\msvc2022_64\include\QtGui;C:\Qt\6.10.1\msvc2022_64\include\QtCore;C:\Qt\6.10.1\msvc2022_64\include\QtConcurrent;C:\Dev\vcpkg\installed\x64-windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Qt\6.10.1\msvc2022_64\include;C:\Qt\6.10.1\msvc2022_64\include\QtWidgets;C:\Qt\6.10.1\msvc2022_64\include\QtGui;C:\Qt\6.10.1\msvc2022_64\include\QtCore;C:\Qt\6.10.1\msvc2022_64\include\QtConcurrent;C:\Qt\6.10.1\msvc2022_64\include\QtPrintSupport;C:\Dev\vcpkg\installed\x64-windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>C:\Qt\6.10.1\msvc2022_64\lib;C:\Dev\vcpkg\installed\x64-windows\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Qt6Cored.lib;Qt6Guid.lib;Qt6Widgetsd.lib;Qt6Concurrentd.lib;poppler-cpp.lib;zlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Qt6Cored.lib;Qt6Guid.lib;Qt6Widgetsd.lib;Qt6Concurrentd.lib;Qt6PrintSupportd.lib;poppler-cpp.lib;zlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
       <Command>echo Pre-copie des DLL critiques Poppler et minizip...
@@ -128,6 +128,7 @@ xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Cored.dll" "$(OutDir)" 2&gt;nul || 
 xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Guid.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Widgetsd.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Concurrentd.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6PrintSupportd.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 echo Copie des DLL Poppler et dependances...
 xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\poppler-cpp.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\poppler.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
@@ -173,17 +174,17 @@ exit /b 0</Command>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_WINDOWS;QT_WIDGETS_LIB;QT_GUI_LIB;QT_CORE_LIB;QT_CONCURRENT_LIB;USE_POPPLER;USE_MINIZIP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_WINDOWS;QT_WIDGETS_LIB;QT_GUI_LIB;QT_CORE_LIB;QT_CONCURRENT_LIB;QT_PRINTSUPPORT_LIB;USE_POPPLER;USE_MINIZIP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>C:\Qt\6.10.1\msvc2022_64\include;C:\Qt\6.10.1\msvc2022_64\include\QtWidgets;C:\Qt\6.10.1\msvc2022_64\include\QtGui;C:\Qt\6.10.1\msvc2022_64\include\QtCore;C:\Qt\6.10.1\msvc2022_64\include\QtConcurrent;C:\Dev\vcpkg\installed\x64-windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Qt\6.10.1\msvc2022_64\include;C:\Qt\6.10.1\msvc2022_64\include\QtWidgets;C:\Qt\6.10.1\msvc2022_64\include\QtGui;C:\Qt\6.10.1\msvc2022_64\include\QtCore;C:\Qt\6.10.1\msvc2022_64\include\QtConcurrent;C:\Qt\6.10.1\msvc2022_64\include\QtPrintSupport;C:\Dev\vcpkg\installed\x64-windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>C:\Qt\6.10.1\msvc2022_64\lib;C:\Dev\vcpkg\installed\x64-windows\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Qt6Core.lib;Qt6Gui.lib;Qt6Widgets.lib;Qt6Concurrent.lib;poppler-cpp.lib;zlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Qt6Core.lib;Qt6Gui.lib;Qt6Widgets.lib;Qt6Concurrent.lib;Qt6PrintSupport.lib;poppler-cpp.lib;zlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
       <Command>echo Pre-copie des DLL critiques Poppler et minizip...
@@ -201,6 +202,7 @@ xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Core.dll" "$(OutDir)" 2&gt;nul || V
 xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Gui.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Widgets.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6Concurrent.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
+xcopy /Y /D "C:\Qt\6.10.1\msvc2022_64\bin\Qt6PrintSupport.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 echo Copie des DLL Poppler et dependances...
 xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\poppler-cpp.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
 xcopy /Y /D "C:\Dev\vcpkg\installed\x64-windows\bin\poppler.dll" "$(OutDir)" 2&gt;nul || VER&gt;NUL
@@ -290,6 +292,8 @@ exit /b 0</Command>
     <ClCompile Include="Modules\ExcelCracker\ExcelProtectionRemover.cpp" />
     <ClCompile Include="Modules\ExcelCracker\ExcelBruteForce.cpp" />
     <ClCompile Include="Modules\ExcelCracker\ExcelCrackerWindow.cpp" />
+    <ClCompile Include="Modules\HydraulicCalculations\PipeCalculator.cpp" />
+    <ClCompile Include="Modules\HydraulicCalculations\HydraulicCalculationsWindow.cpp" />
     <ClCompile Include="GeneratedFiles\Debug\moc_MainWindow.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
@@ -306,6 +310,12 @@ exit /b 0</Command>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="GeneratedFiles\Release\moc_ExcelCrackerWindow.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_HydraulicCalculationsWindow.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_HydraulicCalculationsWindow.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="GeneratedFiles\Debug\moc_UpdateDialog.cpp">
@@ -334,6 +344,12 @@ exit /b 0</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Qt\6.10.1\msvc2022_64\bin\moc.exe "%(FullPath)" -o "GeneratedFiles\Release\moc_%(Filename).cpp" -DNDEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB "-IC:\Qt\6.10.1\msvc2022_64\include" "-IC:\Qt\6.10.1\msvc2022_64\include\QtWidgets" "-IC:\Qt\6.10.1\msvc2022_64\include\QtGui" "-IC:\Qt\6.10.1\msvc2022_64\include\QtCore"</Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">GeneratedFiles\Release\moc_%(Filename).cpp</Outputs>
     </CustomBuild>
+    <CustomBuild Include="Modules\HydraulicCalculations\HydraulicCalculationsWindow.h">
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Qt\6.10.1\msvc2022_64\bin\moc.exe "%(FullPath)" -o "GeneratedFiles\Debug\moc_%(Filename).cpp" -D_DEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB "-IC:\Qt\6.10.1\msvc2022_64\include" "-IC:\Qt\6.10.1\msvc2022_64\include\QtWidgets" "-IC:\Qt\6.10.1\msvc2022_64\include\QtGui" "-IC:\Qt\6.10.1\msvc2022_64\include\QtCore"</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">GeneratedFiles\Debug\moc_%(Filename).cpp</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Qt\6.10.1\msvc2022_64\bin\moc.exe "%(FullPath)" -o "GeneratedFiles\Release\moc_%(Filename).cpp" -DNDEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB "-IC:\Qt\6.10.1\msvc2022_64\include" "-IC:\Qt\6.10.1\msvc2022_64\include\QtWidgets" "-IC:\Qt\6.10.1\msvc2022_64\include\QtGui" "-IC:\Qt\6.10.1\msvc2022_64\include\QtCore"</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">GeneratedFiles\Release\moc_%(Filename).cpp</Outputs>
+    </CustomBuild>
     <CustomBuild Include="UpdateDialog.h">
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Qt\6.10.1\msvc2022_64\bin\moc.exe "%(FullPath)" -o "GeneratedFiles\Debug\moc_%(Filename).cpp" -D_DEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB "-IC:\Qt\6.10.1\msvc2022_64\include" "-IC:\Qt\6.10.1\msvc2022_64\include\QtWidgets" "-IC:\Qt\6.10.1\msvc2022_64\include\QtGui" "-IC:\Qt\6.10.1\msvc2022_64\include\QtCore"</Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">GeneratedFiles\Debug\moc_%(Filename).cpp</Outputs>
@@ -353,6 +369,7 @@ exit /b 0</Command>
     <ClInclude Include="Modules\PDFParser\XlsxWriter.h" />
     <ClInclude Include="Modules\ExcelCracker\ExcelProtectionRemover.h" />
     <ClInclude Include="Modules\ExcelCracker\ExcelBruteForce.h" />
+    <ClInclude Include="Modules\HydraulicCalculations\PipeCalculator.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

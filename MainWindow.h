@@ -19,17 +19,21 @@ public:
 private slots:
     void onPdfParserClicked();
     void onExcelCrackerClicked();
+    void onHydraulicCalculationsClicked();
 
 private:
     void setupUi();
     void applyModernStyle();
+    QFrame* createModuleCard(const QString& icon, const QString& title, const QString& description, QPushButton** button);
 
     // Widgets
     QWidget *centralWidget;
     QLabel *titleLabel;
     QLabel *logoLabel;
-    QGroupBox *modulesGroup;
+    QGroupBox *diversGroup;
+    QGroupBox *calculationsGroup;
     QPushButton *pdfParserButton;
     QPushButton *excelCrackerButton;
+    QPushButton *hydraulicCalculationsButton;
     QPushButton *quitButton;
 };
