@@ -25,12 +25,12 @@ HydraulicCalculationsWindow::HydraulicCalculationsWindow(QWidget *parent)
 {
     // Configuration globale de la palette pour tous les widgets (y compris les dialogues)
     QPalette palette;
-    palette.setColor(QPalette::WindowText, QColor("#000000"));        // Texte sur fond de fenêtre
-    palette.setColor(QPalette::Text, QColor("#000000"));              // Texte dans les champs de saisie
-    palette.setColor(QPalette::ButtonText, QColor("#000000"));        // Texte sur les boutons
-    palette.setColor(QPalette::Window, QColor("#ffffff"));            // Fond de fenêtre
+    palette.setColor(QPalette::WindowText, QColor("#2c3e50"));        // Texte sur fond de fenêtre
+    palette.setColor(QPalette::Text, QColor("#2c3e50"));              // Texte dans les champs de saisie
+    palette.setColor(QPalette::ButtonText, QColor("#ffffff"));        // Texte sur les boutons
+    palette.setColor(QPalette::Window, QColor("#f5f6fa"));            // Fond de fenêtre
     palette.setColor(QPalette::Base, QColor("#ffffff"));              // Fond des champs de saisie
-    palette.setColor(QPalette::Button, QColor("#ecf0f1"));            // Fond des boutons
+    palette.setColor(QPalette::Button, QColor("#3498db"));            // Fond des boutons
     qApp->setPalette(palette);
 
     setupUi();
@@ -314,86 +314,101 @@ void HydraulicCalculationsWindow::applyStyle()
 {
     QString style = R"(
         QDialog {
-            background-color: #ffffff;
-            color: #000000;
+            background-color: #f5f6fa;
+            color: #2c3e50;
         }
         QGroupBox {
             font-weight: bold;
-            border: 2px solid #bdc3c7;
-            border-radius: 6px;
-            margin-top: 10px;
-            padding-top: 10px;
+            font-size: 11pt;
+            border: 2px solid #dfe6e9;
+            border-radius: 8px;
+            margin-top: 15px;
+            padding-top: 15px;
             background-color: #ffffff;
-            color: #000000;
+            color: #2c3e50;
         }
         QGroupBox::title {
             subcontrol-origin: margin;
             subcontrol-position: top left;
-            padding: 5px 10px;
-            color: #000000;
+            padding: 5px 15px;
+            background-color: #ffffff;
+            color: #2c3e50;
         }
         QLabel {
-            color: #000000;
+            color: #2c3e50;
             background-color: transparent;
+            font-size: 10pt;
         }
         QPushButton {
-            background-color: #4472C4;
+            background-color: #3498db;
             color: white;
             border: none;
-            border-radius: 4px;
-            padding: 8px 16px;
+            border-radius: 6px;
+            padding: 10px 18px;
             font-weight: bold;
             font-size: 11pt;
         }
         QPushButton:hover {
-            background-color: #5a8fd1;
+            background-color: #2980b9;
         }
         QPushButton:pressed {
-            background-color: #365a9e;
+            background-color: #21618c;
         }
         QPushButton:disabled {
             background-color: #bdc3c7;
             color: #7f8c8d;
         }
         QToolButton {
-            background-color: #4472C4;
+            background-color: #3498db;
             color: white;
-            border: 2px solid #2d4a82;
+            border: none;
             border-radius: 6px;
-            padding: 8px 12px;
+            padding: 10px 15px;
             text-align: left;
             font-weight: bold;
             font-size: 11pt;
-            min-height: 35px;
+            min-height: 40px;
         }
         QToolButton:checked {
-            background-color: #2d4a82;
+            background-color: #1e3799;
             color: white;
-            border-color: #1e3a5f;
-            border-width: 3px;
         }
         QToolButton:hover:!checked {
-            background-color: #5a8fd1;
-            border-color: #4472C4;
+            background-color: #5dade2;
         }
         QComboBox, QDoubleSpinBox, QLineEdit {
-            padding: 5px;
-            border: 1px solid #bdc3c7;
-            border-radius: 4px;
+            padding: 8px;
+            border: 2px solid #dfe6e9;
+            border-radius: 6px;
             background-color: #ffffff;
-            color: #000000;
+            color: #2c3e50;
+            font-size: 10pt;
+        }
+        QComboBox:focus, QDoubleSpinBox:focus, QLineEdit:focus {
+            border: 2px solid #3498db;
+        }
+        QComboBox::drop-down {
+            border: none;
+            width: 30px;
+        }
+        QComboBox::down-arrow {
+            image: none;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 5px solid #2c3e50;
+            margin-right: 10px;
         }
         QScrollArea {
             border: none;
-            background-color: #ffffff;
+            background-color: #f5f6fa;
         }
         QWidget#leftPanel {
-            background-color: #ffffff;
+            background-color: #f5f6fa;
             border: none;
         }
         QSplitter::handle {
-            background-color: #ecf0f1;
-            width: 1px;
+            background-color: #dfe6e9;
+            width: 2px;
         }
     )";
     setStyleSheet(style);
@@ -401,10 +416,10 @@ void HydraulicCalculationsWindow::applyStyle()
     // Forcer la couleur du panneau gauche et de la scroll area
     if (leftPanel) {
         leftPanel->setObjectName("leftPanel");
-        leftPanel->setStyleSheet("background-color: #ffffff; border: none;");
+        leftPanel->setStyleSheet("background-color: #f5f6fa; border: none;");
     }
     if (leftScrollArea) {
-        leftScrollArea->setStyleSheet("QScrollArea { background-color: #ffffff; border: none; }");
+        leftScrollArea->setStyleSheet("QScrollArea { background-color: #f5f6fa; border: none; }");
         leftScrollArea->setFrameShape(QFrame::NoFrame);
     }
 }

@@ -26,7 +26,7 @@ HydraulicSchemaView::HydraulicSchemaView(QWidget* parent)
     setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
 
     // Style de fond
-    setBackgroundBrush(QBrush(QColor("#f8f9fa")));
+    setBackgroundBrush(QBrush(QColor("#ecf0f1")));
 }
 
 HydraulicSchemaView::~HydraulicSchemaView()
