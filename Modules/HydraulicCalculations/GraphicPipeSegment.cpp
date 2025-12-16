@@ -87,23 +87,23 @@ void GraphicPipeSegment::createVisuals()
 
     // Label du nom
     nameLabel = new QGraphicsTextItem(this);
-    QFont nameFont("Arial", 9, QFont::Bold);
+    QFont nameFont("Arial", 10, QFont::Bold);
     nameLabel->setFont(nameFont);
-    nameLabel->setDefaultTextColor(QColor("#2c3e50"));
+    nameLabel->setDefaultTextColor(QColor("#000000"));  // Noir
     addToGroup(nameLabel);
 
     // Label des résultats
     resultsLabel = new QGraphicsTextItem(this);
-    QFont resultsFont("Courier New", 8);
+    QFont resultsFont("Courier New", 9);
     resultsLabel->setFont(resultsFont);
-    resultsLabel->setDefaultTextColor(QColor("#2c3e50"));
+    resultsLabel->setDefaultTextColor(QColor("#000000"));  // Noir
     addToGroup(resultsLabel);
 
     // Label des dimensions
     dimensionsLabel = new QGraphicsTextItem(this);
-    QFont dimFont("Arial", 7);
+    QFont dimFont("Arial", 8);
     dimensionsLabel->setFont(dimFont);
-    dimensionsLabel->setDefaultTextColor(QColor("#6c757d"));
+    dimensionsLabel->setDefaultTextColor(QColor("#555555"));  // Gris foncé
     addToGroup(dimensionsLabel);
 }
 
@@ -189,7 +189,7 @@ void GraphicPipeSegment::updateResultsDisplay()
     // Vérifier si le segment a été calculé
     if (result.nominalDiameter == 0) {
         resultsLabel->setPlainText("(Non calculé)");
-        resultsLabel->setDefaultTextColor(QColor("#95a5a6"));
+        resultsLabel->setDefaultTextColor(QColor("#666666"));  // Gris foncé visible
         hasReturn = false;
         updatePipeVisual();
         return;
@@ -225,9 +225,9 @@ void GraphicPipeSegment::updateResultsDisplay()
 
     // Couleur selon les alertes
     if (result.velocity > 2.0 || result.velocity < 0.3) {
-        resultsLabel->setDefaultTextColor(QColor("#e74c3c"));  // Rouge si problème
+        resultsLabel->setDefaultTextColor(QColor("#cc0000"));  // Rouge vif si problème
     } else {
-        resultsLabel->setDefaultTextColor(QColor("#27ae60"));  // Vert si OK
+        resultsLabel->setDefaultTextColor(QColor("#006600"));  // Vert foncé si OK
     }
 
     updatePipeVisual();

@@ -36,6 +36,7 @@ private slots:
     void onAddFixtureModeActivated(HydraulicCalc::FixtureType type);
 
     // Gestion des segments
+    void onSegmentDrawingComplete(const QPointF& start, const QPointF& end);
     void onSegmentAdded(GraphicPipeSegment* segment);
     void onSegmentSelected(GraphicPipeSegment* segment);
     void onSegmentRemoved(GraphicPipeSegment* segment);

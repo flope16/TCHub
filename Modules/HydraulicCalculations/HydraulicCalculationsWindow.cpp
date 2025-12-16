@@ -8,6 +8,7 @@
 #include <QPainter>
 #include <QPixmap>
 #include <QSplitter>
+#include <cmath>
 
 HydraulicCalculationsWindow::HydraulicCalculationsWindow(QWidget *parent)
     : QDialog(parent)
@@ -33,6 +34,7 @@ HydraulicCalculationsWindow::HydraulicCalculationsWindow(QWidget *parent)
     connect(panToolButton, &QToolButton::clicked, [this]() { schemaView->setInteractionMode(InteractionMode::Pan); });
 
     // Connexions de la vue schéma
+    connect(schemaView, &HydraulicSchemaView::segmentDrawingComplete, this, &HydraulicCalculationsWindow::onSegmentDrawingComplete);
     connect(schemaView, &HydraulicSchemaView::segmentAdded, this, &HydraulicCalculationsWindow::onSegmentAdded);
     connect(schemaView, &HydraulicSchemaView::segmentSelected, this, &HydraulicCalculationsWindow::onSegmentSelected);
     connect(schemaView, &HydraulicSchemaView::segmentRemoved, this, &HydraulicCalculationsWindow::onSegmentRemoved);
@@ -379,23 +381,42 @@ void HydraulicCalculationsWindow::onSelectModeActivated()
 
 void HydraulicCalculationsWindow::onAddSegmentModeActivated()
 {
-    // Créer un dialogue pour saisir les paramètres du segment
+    // Activer le mode dessin de segment
+    schemaView->setInteractionMode(InteractionMode::AddSegment);
+    addSegmentToolButton->setChecked(true);
+
+    QMessageBox::information(this, "Mode dessin",
+                           "Cliquez 2 fois pour dessiner un tronçon :\n"
+                           "1er clic = début du tronçon\n"
+                           "2ème clic = fin du tronçon");
+}
+
+void HydraulicCalculationsWindow::onSegmentDrawingComplete(const QPointF& start, const QPointF& end)
+{
+    // L'utilisateur a terminé de dessiner le segment
+    // Demander les paramètres du segment
     HydraulicCalc::NetworkSegment newSegment;
+
+    // Calculer automatiquement la longueur et la hauteur d'après les points
+    QPointF delta = end - start;
+    double length = std::sqrt(delta.x() * delta.x() + delta.y() * delta.y()) / 2.0;  // échelle : 1m = 2 pixels
+    double heightDiff = -delta.y() / 2.0;  // Négatif car Y augmente vers le bas
+
+    newSegment.length = std::max(0.1, length);
+    newSegment.heightDifference = heightDiff;
 
     if (showSegmentDialog(newSegment, false)) {
         // Ajouter le segment aux données
         newSegment.id = "seg_" + std::to_string(networkSegments.size() + 1);
         networkSegments.push_back(newSegment);
 
-        // Demander à l'utilisateur de dessiner le segment sur le schéma
-        // Par défaut, on crée un segment vertical
-        QPointF startPos(100, 100 + networkSegments.size() * 150);
-        QPointF endPos = startPos + QPointF(0, newSegment.length * 2);  // Échelle approximative
-
-        // Créer le segment graphique
-        GraphicPipeSegment* graphicSegment = schemaView->addSegment(&networkSegments.back(), startPos, endPos);
+        // Créer le segment graphique avec les points dessinés
+        GraphicPipeSegment* graphicSegment = schemaView->addSegment(&networkSegments.back(), start, end);
 
         // Retourner en mode sélection
+        onSelectModeActivated();
+    } else {
+        // L'utilisateur a annulé, retourner en mode sélection
         onSelectModeActivated();
     }
 }
