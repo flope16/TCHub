@@ -174,10 +174,38 @@ void GraphicPipeSegment::updateLabels()
     }
 }
 
+void GraphicPipeSegment::updateJunctionPoints()
+{
+    // Supprimer les anciens cercles de jonction
+    for (auto* circle : junctionCircles) {
+        removeFromGroup(circle);
+        delete circle;
+    }
+    junctionCircles.clear();
+
+    // Créer un cercle de jonction pour chaque fixture
+    for (auto* fixture : fixturePoints) {
+        if (fixture) {
+            QPointF fixturePos = fixture->getPositionOnSegment();
+
+            // Créer un petit cercle de jonction sur le segment
+            QGraphicsEllipseItem* junctionCircle = new QGraphicsEllipseItem(-4, -4, 8, 8, this);
+            junctionCircle->setPos(fixturePos);
+            junctionCircle->setBrush(QBrush(QColor("#e74c3c")));  // Rouge vif pour visibilité
+            junctionCircle->setPen(QPen(Qt::white, 2));
+            junctionCircle->setZValue(10);  // Au-dessus du segment
+
+            addToGroup(junctionCircle);
+            junctionCircles.push_back(junctionCircle);
+        }
+    }
+}
+
 void GraphicPipeSegment::updateDisplay()
 {
     updatePipeVisual();
     updateLabels();
+    updateJunctionPoints();
 }
 
 void GraphicPipeSegment::updateResultsDisplay()

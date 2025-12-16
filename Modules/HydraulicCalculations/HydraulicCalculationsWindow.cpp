@@ -8,6 +8,8 @@
 #include <QPainter>
 #include <QPixmap>
 #include <QSplitter>
+#include <QPalette>
+#include <QApplication>
 #include <cmath>
 
 HydraulicCalculationsWindow::HydraulicCalculationsWindow(QWidget *parent)
@@ -21,6 +23,16 @@ HydraulicCalculationsWindow::HydraulicCalculationsWindow(QWidget *parent)
     , currentSelectedFixture(nullptr)
     , hasCalculated(false)
 {
+    // Configuration globale de la palette pour tous les widgets (y compris les dialogues)
+    QPalette palette;
+    palette.setColor(QPalette::WindowText, QColor("#000000"));        // Texte sur fond de fenêtre
+    palette.setColor(QPalette::Text, QColor("#000000"));              // Texte dans les champs de saisie
+    palette.setColor(QPalette::ButtonText, QColor("#000000"));        // Texte sur les boutons
+    palette.setColor(QPalette::Window, QColor("#ffffff"));            // Fond de fenêtre
+    palette.setColor(QPalette::Base, QColor("#ffffff"));              // Fond des champs de saisie
+    palette.setColor(QPalette::Button, QColor("#ecf0f1"));            // Fond des boutons
+    qApp->setPalette(palette);
+
     setupUi();
     applyStyle();
 
@@ -303,6 +315,7 @@ void HydraulicCalculationsWindow::applyStyle()
     QString style = R"(
         QDialog {
             background-color: #ffffff;
+            color: #000000;
         }
         QGroupBox {
             font-weight: bold;
@@ -311,12 +324,17 @@ void HydraulicCalculationsWindow::applyStyle()
             margin-top: 10px;
             padding-top: 10px;
             background-color: #ffffff;
-            color: #2c3e50;
+            color: #000000;
         }
         QGroupBox::title {
             subcontrol-origin: margin;
             subcontrol-position: top left;
             padding: 5px 10px;
+            color: #000000;
+        }
+        QLabel {
+            color: #000000;
+            background-color: transparent;
         }
         QPushButton {
             background-color: #4472C4;
@@ -338,7 +356,7 @@ void HydraulicCalculationsWindow::applyStyle()
         }
         QToolButton {
             background-color: #ecf0f1;
-            color: #2c3e50;
+            color: #000000;
             border: 2px solid #bdc3c7;
             border-radius: 4px;
             padding: 5px 10px;
@@ -352,18 +370,37 @@ void HydraulicCalculationsWindow::applyStyle()
         QToolButton:hover:!checked {
             background-color: #d5dbdb;
         }
-        QComboBox, QDoubleSpinBox {
+        QComboBox, QDoubleSpinBox, QLineEdit {
             padding: 5px;
             border: 1px solid #bdc3c7;
             border-radius: 4px;
             background-color: #ffffff;
+            color: #000000;
         }
         QScrollArea {
             border: none;
-            background-color: #f8f9fa;
+            background-color: #ffffff;
+        }
+        QWidget#leftPanel {
+            background-color: #ffffff;
+            border: none;
+        }
+        QSplitter::handle {
+            background-color: #ecf0f1;
+            width: 1px;
         }
     )";
     setStyleSheet(style);
+
+    // Forcer la couleur du panneau gauche et de la scroll area
+    if (leftPanel) {
+        leftPanel->setObjectName("leftPanel");
+        leftPanel->setStyleSheet("background-color: #ffffff; border: none;");
+    }
+    if (leftScrollArea) {
+        leftScrollArea->setStyleSheet("QScrollArea { background-color: #ffffff; border: none; }");
+        leftScrollArea->setFrameShape(QFrame::NoFrame);
+    }
 }
 
 // ===== SLOTS =====

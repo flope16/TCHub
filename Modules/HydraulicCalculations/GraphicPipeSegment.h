@@ -52,6 +52,7 @@ private:
     void createVisuals();
     void updatePipeVisual();
     void updateLabels();
+    void updateJunctionPoints();
     QColor getSegmentColor() const;
 
     // Données du segment
@@ -70,6 +71,7 @@ private:
     QGraphicsTextItem* nameLabel;           // Nom du segment
     QGraphicsTextItem* resultsLabel;        // Résultats (DN, vitesse, etc.)
     QGraphicsTextItem* dimensionsLabel;     // Longueur et hauteur
+    std::vector<QGraphicsEllipseItem*> junctionCircles;  // Cercles de jonction pour les fixtures
 
     // Points de puisage sur ce segment
     std::vector<FixturePoint*> fixturePoints;
