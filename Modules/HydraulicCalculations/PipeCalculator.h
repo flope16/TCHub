@@ -58,7 +58,24 @@ struct PipeSegmentResult {
     double pressureDrop;     // Perte de charge en mCE (mètres de colonne d'eau)
     int nominalDiameter;     // Diamètre nominal en mm
     double actualDiameter;   // Diamètre intérieur réel en mm
+
+    // Pour ECS avec bouclage uniquement
+    bool hasReturn;          // Indique si un retour de bouclage existe
+    double returnFlowRate;   // Débit de retour en L/min
+    double returnVelocity;   // Vitesse de retour en m/s
+    int returnNominalDiameter;   // Diamètre nominal retour en mm
+    double returnActualDiameter; // Diamètre intérieur réel retour en mm
+    double heatLoss;         // Pertes thermiques en W
+
     std::string recommendation; // Recommandation
+
+    PipeSegmentResult()
+        : flowRate(0), velocity(0), pressureDrop(0)
+        , nominalDiameter(0), actualDiameter(0)
+        , hasReturn(false), returnFlowRate(0), returnVelocity(0)
+        , returnNominalDiameter(0), returnActualDiameter(0)
+        , heatLoss(0)
+    {}
 };
 
 // Paramètres de calcul

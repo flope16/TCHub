@@ -73,6 +73,11 @@ private:
     QLabel *pressureDropLabel;
     QLabel *diameterLabel;
     QLabel *availablePressureLabel;
+    QGroupBox *returnResultsGroup;  // Groupe pour résultats bouclage
+    QLabel *returnDiameterLabel;
+    QLabel *returnFlowRateLabel;
+    QLabel *returnVelocityLabel;
+    QLabel *heatLossLabel;
     QTextEdit *recommendationsText;
 
     // Boutons d'action

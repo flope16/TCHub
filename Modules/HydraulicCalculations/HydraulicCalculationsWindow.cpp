@@ -243,6 +243,29 @@ void HydraulicCalculationsWindow::setupUi()
 
     resultsLayout->addWidget(resultsGroup);
 
+    // Groupe résultats bouclage (masqué par défaut)
+    returnResultsGroup = new QGroupBox("Résultats du retour de bouclage", this);
+    returnResultsGroup->setVisible(false);
+    QFormLayout *returnFormLayout = new QFormLayout(returnResultsGroup);
+
+    returnDiameterLabel = new QLabel("-", this);
+    returnDiameterLabel->setStyleSheet("font-weight: bold; color: #28a745;");
+    returnFormLayout->addRow("Diamètre retour:", returnDiameterLabel);
+
+    returnFlowRateLabel = new QLabel("-", this);
+    returnFlowRateLabel->setStyleSheet("font-weight: bold; color: #28a745;");
+    returnFormLayout->addRow("Débit retour:", returnFlowRateLabel);
+
+    returnVelocityLabel = new QLabel("-", this);
+    returnVelocityLabel->setStyleSheet("font-weight: bold; color: #28a745;");
+    returnFormLayout->addRow("Vitesse retour:", returnVelocityLabel);
+
+    heatLossLabel = new QLabel("-", this);
+    heatLossLabel->setStyleSheet("font-weight: bold; color: #28a745;");
+    returnFormLayout->addRow("Pertes thermiques:", heatLossLabel);
+
+    resultsLayout->addWidget(returnResultsGroup);
+
     QGroupBox *recommendationsGroup = new QGroupBox("Recommandations", this);
     QVBoxLayout *recommendationsLayout = new QVBoxLayout(recommendationsGroup);
 
@@ -474,6 +497,7 @@ void HydraulicCalculationsWindow::onCalculate()
 
 void HydraulicCalculationsWindow::displayResults(const HydraulicCalc::PipeSegmentResult& result)
 {
+    // Résultats aller (ou réseau simple)
     flowRateLabel->setText(QString::number(result.flowRate, 'f', 2) + " L/min");
     diameterLabel->setText("DN " + QString::number(result.nominalDiameter) +
                           " (Ø int. " + QString::number(result.actualDiameter, 'f', 1) + " mm)");
@@ -482,6 +506,18 @@ void HydraulicCalculationsWindow::displayResults(const HydraulicCalc::PipeSegmen
 
     double availablePressure = lastParams.supplyPressure - (result.pressureDrop / 10.0);
     availablePressureLabel->setText(QString::number(availablePressure, 'f', 2) + " bar");
+
+    // Résultats retour bouclage (si applicable)
+    if (result.hasReturn) {
+        returnResultsGroup->setVisible(true);
+        returnDiameterLabel->setText("DN " + QString::number(result.returnNominalDiameter) +
+                                    " (Ø int. " + QString::number(result.returnActualDiameter, 'f', 1) + " mm)");
+        returnFlowRateLabel->setText(QString::number(result.returnFlowRate, 'f', 2) + " L/min");
+        returnVelocityLabel->setText(QString::number(result.returnVelocity, 'f', 2) + " m/s");
+        heatLossLabel->setText(QString::number(result.heatLoss, 'f', 0) + " W");
+    } else {
+        returnResultsGroup->setVisible(false);
+    }
 
     recommendationsText->setPlainText(QString::fromStdString(result.recommendation));
 }
@@ -568,6 +604,19 @@ void HydraulicCalculationsWindow::onExportPDF()
     html += "<tr><td>Pression disponible</td><td>" + QString::number(availablePressure, 'f', 2) + " bar</td></tr>";
     html += "</table>";
 
+    // Résultats du retour de bouclage si applicable
+    if (lastResult.hasReturn) {
+        html += "<h2>Résultats du retour de bouclage</h2>";
+        html += "<table>";
+        html += "<tr><th>Résultat</th><th>Valeur</th></tr>";
+        html += "<tr class='result'><td>Diamètre retour</td><td>DN " + QString::number(lastResult.returnNominalDiameter) +
+                " (Ø int. " + QString::number(lastResult.returnActualDiameter, 'f', 1) + " mm)</td></tr>";
+        html += "<tr><td>Débit de retour</td><td>" + QString::number(lastResult.returnFlowRate, 'f', 2) + " L/min</td></tr>";
+        html += "<tr><td>Vitesse de retour</td><td>" + QString::number(lastResult.returnVelocity, 'f', 2) + " m/s</td></tr>";
+        html += "<tr><td>Pertes thermiques</td><td>" + QString::number(lastResult.heatLoss, 'f', 0) + " W</td></tr>";
+        html += "</table>";
+    }
+
     html += "<h2>Recommandations</h2>";
     html += "<p>" + QString::fromStdString(lastResult.recommendation) + "</p>";
 
@@ -604,6 +653,11 @@ void HydraulicCalculationsWindow::onClearResults()
     velocityLabel->setText("-");
     pressureDropLabel->setText("-");
     availablePressureLabel->setText("-");
+    returnResultsGroup->setVisible(false);
+    returnDiameterLabel->setText("-");
+    returnFlowRateLabel->setText("-");
+    returnVelocityLabel->setText("-");
+    heatLossLabel->setText("-");
     recommendationsText->clear();
 
     exportButton->setEnabled(false);
