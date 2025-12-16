@@ -50,6 +50,9 @@ public:
     // Réinitialisation de la vue
     void resetView();
 
+    // Accès à la scène
+    QGraphicsScene* getScene() { return scene; }
+
 signals:
     void segmentAdded(GraphicPipeSegment* segment);
     void segmentSelected(GraphicPipeSegment* segment);

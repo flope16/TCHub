@@ -207,7 +207,7 @@ void GraphicPipeSegment::updateResultsDisplay()
     resultsText += QString("V=%1 m/s\n")
         .arg(result.velocity, 0, 'f', 2);
 
-    resultsText += QString("\u0394P=%1 mCE\n")
+    resultsText += QString("DP=%1 mCE\n")
         .arg(result.pressureDrop, 0, 'f', 2);
 
     // Si retour de bouclage

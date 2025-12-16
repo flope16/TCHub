@@ -525,7 +525,7 @@ void HydraulicCalculationsWindow::onDeleteSelectedFixture()
         segment->removeFixturePoint(currentSelectedFixture);
     }
 
-    schemaView->scene()->removeItem(currentSelectedFixture);
+    schemaView->getScene()->removeItem(currentSelectedFixture);
     delete currentSelectedFixture;
     currentSelectedFixture = nullptr;
     editButton->setEnabled(false);
