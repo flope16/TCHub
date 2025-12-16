@@ -362,11 +362,11 @@ void HydraulicSchemaView::handleAddFixtureMode(QMouseEvent* event)
         fixture->setPositionOnSegment(scenePos);
         scene->addItem(fixture);
 
-        // Ajouter au segment
+        // Ajouter au segment graphique
         targetSegment->addFixturePoint(fixture);
 
-        // Ajouter aussi aux données du segment
-        targetSegment->getSegmentData()->fixtures.push_back(fixture->toFixture());
+        // Note : Les données du segment seront synchronisées lors du calcul via updateNetworkSegmentsData()
+        // Ne pas accéder directement à getSegmentData()->fixtures ici car le pointeur peut être invalide
 
         emit fixtureAdded(fixture, targetSegment);
 
