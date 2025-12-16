@@ -3,6 +3,7 @@
 #include <QDialog>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QFormLayout>
 #include <QTabWidget>
 #include <QGroupBox>
 #include <QLabel>
