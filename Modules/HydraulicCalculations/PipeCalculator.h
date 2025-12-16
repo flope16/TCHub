@@ -58,10 +58,27 @@ struct PipeSegmentResult {
     double pressureDrop;     // Perte de charge en mCE (mètres de colonne d'eau)
     int nominalDiameter;     // Diamètre nominal en mm
     double actualDiameter;   // Diamètre intérieur réel en mm
+
+    // Pour ECS avec bouclage uniquement
+    bool hasReturn;          // Indique si un retour de bouclage existe
+    double returnFlowRate;   // Débit de retour en L/min
+    double returnVelocity;   // Vitesse de retour en m/s
+    int returnNominalDiameter;   // Diamètre nominal retour en mm
+    double returnActualDiameter; // Diamètre intérieur réel retour en mm
+    double heatLoss;         // Pertes thermiques en W
+
     std::string recommendation; // Recommandation
+
+    PipeSegmentResult()
+        : flowRate(0), velocity(0), pressureDrop(0)
+        , nominalDiameter(0), actualDiameter(0)
+        , hasReturn(false), returnFlowRate(0), returnVelocity(0)
+        , returnNominalDiameter(0), returnActualDiameter(0)
+        , heatLoss(0)
+    {}
 };
 
-// Paramètres de calcul
+// Paramètres de calcul (pour un segment unique)
 struct CalculationParameters {
     NetworkType networkType;
     PipeMaterial material;
@@ -91,14 +108,67 @@ struct CalculationParameters {
     {}
 };
 
+// Segment de réseau pour calcul multi-tronçons
+struct NetworkSegment {
+    std::string id;              // Identifiant unique du segment
+    std::string name;            // Nom descriptif (ex: "Branche principale", "Cuisine")
+    std::string parentId;        // ID du segment parent (vide si segment racine)
+
+    // Paramètres du segment
+    double length;               // Longueur en m
+    double heightDifference;     // Différence de hauteur en m
+    std::vector<Fixture> fixtures; // Appareils desservis par ce segment
+
+    // Résultats de calcul
+    PipeSegmentResult result;
+    double inletPressure;        // Pression en entrée (bar) - calculée
+    double outletPressure;       // Pression en sortie (bar) - calculée
+
+    NetworkSegment(const std::string& segId = "", const std::string& segName = "Segment principal")
+        : id(segId), name(segName), parentId("")
+        , length(0.0), heightDifference(0.0)
+        , inletPressure(0.0), outletPressure(0.0)
+    {}
+};
+
+// Paramètres pour calcul multi-segments
+struct NetworkCalculationParameters {
+    NetworkType networkType;
+    PipeMaterial material;
+    double supplyPressure;       // Pression d'alimentation initiale en bar
+    double requiredPressure;     // Pression minimale requise aux appareils en bar
+
+    // Paramètres spécifiques pour ECS avec bouclage
+    double loopLength;           // Longueur totale de la boucle en m
+    double ambientTemperature;   // Température ambiante en °C
+    double waterTemperature;     // Température de l'eau en °C
+    double insulationThickness;  // Épaisseur d'isolation en mm
+
+    std::vector<NetworkSegment> segments; // Liste de tous les segments du réseau
+
+    NetworkCalculationParameters()
+        : networkType(NetworkType::ColdWater)
+        , material(PipeMaterial::Copper)
+        , supplyPressure(3.0)
+        , requiredPressure(1.0)
+        , loopLength(0.0)
+        , ambientTemperature(20.0)
+        , waterTemperature(60.0)
+        , insulationThickness(13.0)
+    {}
+};
+
 // Classe principale de calcul
 class PipeCalculator {
 public:
     PipeCalculator();
     ~PipeCalculator();
 
-    // Calcul du dimensionnement
+    // Calcul du dimensionnement d'un segment unique
     PipeSegmentResult calculate(const CalculationParameters& params);
+
+    // Calcul du dimensionnement multi-segments
+    void calculateNetwork(NetworkCalculationParameters& networkParams);
 
     // Méthodes utilitaires
     static double getSimultaneityCoefficient(int numberOfFixtures);

@@ -2,6 +2,7 @@
 #include <cmath>
 #include "PipeCalculator.h"
 #include <algorithm>
+#include <functional>
 
 namespace HydraulicCalc {
 
@@ -124,11 +125,52 @@ PipeSegmentResult PipeCalculator::calculate(const CalculationParameters& params)
     }
 
     if (params.networkType == NetworkType::HotWaterWithLoop) {
-        double heatLoss = calculateHeatLoss(params.loopLength, result.actualDiameter,
+        result.hasReturn = true;
+
+        // Calcul des pertes thermiques
+        result.heatLoss = calculateHeatLoss(params.loopLength, result.actualDiameter,
                                            params.insulationThickness,
                                            params.waterTemperature, params.ambientTemperature);
-        result.recommendation += "Pertes thermiques estimées: " +
-            std::to_string(static_cast<int>(heatLoss)) + " W. ";
+
+        // Calcul du débit de retour (bouclage)
+        // Formule: Q (L/h) = Pertes (W) / (1.16 * ΔT)
+        // ΔT typique = 5°C pour maintenir la température
+        double deltaT = 5.0; // Différence de température aller-retour en °C
+        double returnFlowRateLh = result.heatLoss / (1.16 * deltaT); // L/h
+        result.returnFlowRate = returnFlowRateLh / 60.0; // Conversion en L/min
+
+        // Vitesse minimale recommandée pour éviter stagnation : 0.2-0.3 m/s
+        double minReturnVelocity = 0.2;
+        double maxReturnVelocity = 0.5;
+
+        // Sélection du diamètre de retour
+        result.returnNominalDiameter = selectOptimalDiameter(result.returnFlowRate, params.material, maxReturnVelocity);
+        result.returnActualDiameter = getInternalDiameter(result.returnNominalDiameter, params.material);
+        result.returnVelocity = calculateVelocity(result.returnFlowRate, result.returnActualDiameter);
+
+        // Ajustement si vitesse trop faible
+        while (result.returnVelocity < minReturnVelocity && result.returnNominalDiameter > 10) {
+            // Réduire le diamètre pour augmenter la vitesse
+            std::vector<int> diameters = getAvailableDiameters(params.material);
+            auto it = std::find(diameters.begin(), diameters.end(), result.returnNominalDiameter);
+            if (it != diameters.begin()) {
+                --it;
+                result.returnNominalDiameter = *it;
+                result.returnActualDiameter = getInternalDiameter(result.returnNominalDiameter, params.material);
+                result.returnVelocity = calculateVelocity(result.returnFlowRate, result.returnActualDiameter);
+            } else {
+                break;
+            }
+        }
+
+        result.recommendation += "Pertes thermiques: " +
+            std::to_string(static_cast<int>(result.heatLoss)) + " W. ";
+
+        if (result.returnVelocity < minReturnVelocity) {
+            result.recommendation += "⚠️ Vitesse retour faible (" +
+                std::to_string(static_cast<int>(result.returnVelocity * 100) / 100.0) +
+                " m/s). Risque de stagnation sur le retour. ";
+        }
     }
 
     if (result.recommendation.empty()) {
@@ -136,6 +178,61 @@ PipeSegmentResult PipeCalculator::calculate(const CalculationParameters& params)
     }
 
     return result;
+}
+
+void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParams) {
+    // Fonction récursive pour calculer un segment et tous ses enfants
+    std::function<void(NetworkSegment&, double)> calculateSegmentRecursive;
+
+    calculateSegmentRecursive = [&](NetworkSegment& segment, double inletPressure) {
+        segment.inletPressure = inletPressure;
+
+        // Collecter tous les appareils de ce segment et de ses descendants
+        std::vector<Fixture> allFixtures = segment.fixtures;
+
+        for (auto& otherSegment : networkParams.segments) {
+            if (otherSegment.parentId == segment.id) {
+                // Ajouter les appareils des segments enfants
+                allFixtures.insert(allFixtures.end(),
+                                 otherSegment.fixtures.begin(),
+                                 otherSegment.fixtures.end());
+            }
+        }
+
+        // Créer les paramètres de calcul pour ce segment
+        CalculationParameters params;
+        params.networkType = networkParams.networkType;
+        params.material = networkParams.material;
+        params.length = segment.length;
+        params.heightDifference = segment.heightDifference;
+        params.supplyPressure = inletPressure;
+        params.requiredPressure = networkParams.requiredPressure;
+        params.fixtures = allFixtures;
+        params.loopLength = networkParams.loopLength;
+        params.ambientTemperature = networkParams.ambientTemperature;
+        params.waterTemperature = networkParams.waterTemperature;
+        params.insulationThickness = networkParams.insulationThickness;
+
+        // Calculer ce segment
+        segment.result = calculate(params);
+
+        // Calculer la pression de sortie
+        segment.outletPressure = segment.inletPressure - (segment.result.pressureDrop / 10.0);
+
+        // Calculer récursivement les segments enfants
+        for (auto& childSegment : networkParams.segments) {
+            if (childSegment.parentId == segment.id) {
+                calculateSegmentRecursive(childSegment, segment.outletPressure);
+            }
+        }
+    };
+
+    // Trouver et calculer tous les segments racines (sans parent)
+    for (auto& segment : networkParams.segments) {
+        if (segment.parentId.empty()) {
+            calculateSegmentRecursive(segment, networkParams.supplyPressure);
+        }
+    }
 }
 
 double PipeCalculator::calculateVelocity(double flowRate, double diameter) {

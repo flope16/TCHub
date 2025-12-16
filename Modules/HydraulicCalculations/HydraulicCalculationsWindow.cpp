@@ -9,6 +9,8 @@
 
 HydraulicCalculationsWindow::HydraulicCalculationsWindow(QWidget *parent)
     : QDialog(parent)
+    , multiSegmentMode(false)
+    , selectedSegmentIndex(-1)
 {
     setupUi();
     applyStyle();
@@ -16,6 +18,13 @@ HydraulicCalculationsWindow::HydraulicCalculationsWindow(QWidget *parent)
     // Connexions
     connect(networkTypeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &HydraulicCalculationsWindow::onNetworkTypeChanged);
+    connect(multiSegmentCheckbox, &QCheckBox::stateChanged,
+            this, &HydraulicCalculationsWindow::onMultiSegmentModeChanged);
+    connect(addSegmentButton, &QPushButton::clicked, this, &HydraulicCalculationsWindow::onAddSegment);
+    connect(editSegmentButton, &QPushButton::clicked, this, &HydraulicCalculationsWindow::onEditSegment);
+    connect(removeSegmentButton, &QPushButton::clicked, this, &HydraulicCalculationsWindow::onRemoveSegment);
+    connect(segmentsTable, &QTableWidget::currentRowChanged,
+            this, &HydraulicCalculationsWindow::onSegmentSelectionChanged);
     connect(addFixtureButton, &QPushButton::clicked, this, &HydraulicCalculationsWindow::onAddFixture);
     connect(removeFixtureButton, &QPushButton::clicked, this, &HydraulicCalculationsWindow::onRemoveFixture);
     connect(calculateButton, &QPushButton::clicked, this, &HydraulicCalculationsWindow::onCalculate);
@@ -25,6 +34,7 @@ HydraulicCalculationsWindow::HydraulicCalculationsWindow(QWidget *parent)
 
     // Initialisation
     onNetworkTypeChanged(0);
+    updateSegmentParametersVisibility();
 }
 
 HydraulicCalculationsWindow::~HydraulicCalculationsWindow()
@@ -79,9 +89,14 @@ void HydraulicCalculationsWindow::setupUi()
 
     paramsLayout->addWidget(materialGroup);
 
-    // Dimensions du tronçon
-    QGroupBox *dimensionsGroup = new QGroupBox("Dimensions du tronçon", this);
-    QFormLayout *dimensionsLayout = new QFormLayout(dimensionsGroup);
+    // Mode multi-segments
+    multiSegmentCheckbox = new QCheckBox("Mode multi-segments (réseau avec plusieurs tronçons)", this);
+    multiSegmentCheckbox->setStyleSheet("font-weight: bold; margin: 10px 0;");
+    paramsLayout->addWidget(multiSegmentCheckbox);
+
+    // ===== MODE SEGMENT UNIQUE =====
+    singleSegmentGroup = new QGroupBox("Dimensions du tronçon", this);
+    QFormLayout *dimensionsLayout = new QFormLayout(singleSegmentGroup);
 
     lengthSpin = new QDoubleSpinBox(this);
     lengthSpin->setRange(0.1, 1000.0);
@@ -97,7 +112,34 @@ void HydraulicCalculationsWindow::setupUi()
     heightDiffSpin->setDecimals(1);
     dimensionsLayout->addRow("Différence de hauteur:", heightDiffSpin);
 
-    paramsLayout->addWidget(dimensionsGroup);
+    paramsLayout->addWidget(singleSegmentGroup);
+
+    // ===== MODE MULTI-SEGMENTS =====
+    multiSegmentGroup = new QGroupBox("Gestion des segments du réseau", this);
+    QVBoxLayout *segmentsLayout = new QVBoxLayout(multiSegmentGroup);
+
+    segmentsTable = new QTableWidget(this);
+    segmentsTable->setColumnCount(5);
+    segmentsTable->setHorizontalHeaderLabels({"Nom", "Parent", "Longueur (m)", "Hauteur (m)", "Appareils"});
+    segmentsTable->horizontalHeader()->setStretchLastSection(true);
+    segmentsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    segmentsTable->setSelectionMode(QAbstractItemView::SingleSelection);
+    segmentsTable->setAlternatingRowColors(true);
+    segmentsTable->setMinimumHeight(150);
+    segmentsLayout->addWidget(segmentsTable);
+
+    QHBoxLayout *segmentButtonsLayout = new QHBoxLayout();
+    addSegmentButton = new QPushButton("➕ Ajouter un segment", this);
+    editSegmentButton = new QPushButton("✏️ Modifier", this);
+    removeSegmentButton = new QPushButton("❌ Supprimer", this);
+    segmentButtonsLayout->addWidget(addSegmentButton);
+    segmentButtonsLayout->addWidget(editSegmentButton);
+    segmentButtonsLayout->addWidget(removeSegmentButton);
+    segmentButtonsLayout->addStretch();
+    segmentsLayout->addLayout(segmentButtonsLayout);
+
+    paramsLayout->addWidget(multiSegmentGroup);
+    multiSegmentGroup->setVisible(false);
 
     // Pressions
     QGroupBox *pressuresGroup = new QGroupBox("Pressions", this);
@@ -243,6 +285,29 @@ void HydraulicCalculationsWindow::setupUi()
 
     resultsLayout->addWidget(resultsGroup);
 
+    // Groupe résultats bouclage (masqué par défaut)
+    returnResultsGroup = new QGroupBox("Résultats du retour de bouclage", this);
+    returnResultsGroup->setVisible(false);
+    QFormLayout *returnFormLayout = new QFormLayout(returnResultsGroup);
+
+    returnDiameterLabel = new QLabel("-", this);
+    returnDiameterLabel->setStyleSheet("font-weight: bold; color: #28a745;");
+    returnFormLayout->addRow("Diamètre retour:", returnDiameterLabel);
+
+    returnFlowRateLabel = new QLabel("-", this);
+    returnFlowRateLabel->setStyleSheet("font-weight: bold; color: #28a745;");
+    returnFormLayout->addRow("Débit retour:", returnFlowRateLabel);
+
+    returnVelocityLabel = new QLabel("-", this);
+    returnVelocityLabel->setStyleSheet("font-weight: bold; color: #28a745;");
+    returnFormLayout->addRow("Vitesse retour:", returnVelocityLabel);
+
+    heatLossLabel = new QLabel("-", this);
+    heatLossLabel->setStyleSheet("font-weight: bold; color: #28a745;");
+    returnFormLayout->addRow("Pertes thermiques:", heatLossLabel);
+
+    resultsLayout->addWidget(returnResultsGroup);
+
     QGroupBox *recommendationsGroup = new QGroupBox("Recommandations", this);
     QVBoxLayout *recommendationsLayout = new QVBoxLayout(recommendationsGroup);
 
@@ -285,12 +350,16 @@ void HydraulicCalculationsWindow::setupUi()
 void HydraulicCalculationsWindow::applyStyle()
 {
     QString style = R"(
+        QDialog {
+            background-color: #ffffff;
+        }
         QGroupBox {
             font-weight: bold;
             border: 2px solid #bdc3c7;
             border-radius: 6px;
             margin-top: 10px;
             padding-top: 10px;
+            background-color: #ffffff;
         }
         QGroupBox::title {
             subcontrol-origin: margin;
@@ -316,10 +385,54 @@ void HydraulicCalculationsWindow::applyStyle()
             background-color: #bdc3c7;
             color: #7f8c8d;
         }
-        QComboBox, QSpinBox, QDoubleSpinBox {
+        QComboBox, QSpinBox, QDoubleSpinBox, QLineEdit {
             padding: 5px;
             border: 1px solid #bdc3c7;
             border-radius: 4px;
+            background-color: #ffffff;
+        }
+        QTabWidget::pane {
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            background-color: #ffffff;
+        }
+        QTabBar::tab {
+            background-color: #ecf0f1;
+            color: #2c3e50;
+            padding: 8px 16px;
+            margin-right: 2px;
+            border-top-left-radius: 4px;
+            border-top-right-radius: 4px;
+        }
+        QTabBar::tab:selected {
+            background-color: #4472C4;
+            color: white;
+        }
+        QTabBar::tab:hover:!selected {
+            background-color: #d5dbdb;
+        }
+        QTableWidget {
+            background-color: #ffffff;
+            alternate-background-color: #f8f9fa;
+            gridline-color: #dee2e6;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+        }
+        QHeaderView::section {
+            background-color: #ecf0f1;
+            color: #2c3e50;
+            padding: 5px;
+            border: 1px solid #bdc3c7;
+            font-weight: bold;
+        }
+        QTextEdit {
+            background-color: #ffffff;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            padding: 5px;
+        }
+        QLabel {
+            color: #2c3e50;
         }
     )";
     setStyleSheet(style);
@@ -340,6 +453,13 @@ void HydraulicCalculationsWindow::onAddFixture()
     fixtures.push_back(HydraulicCalc::Fixture(type, quantity));
 
     updateFixtureTable();
+
+    // Sauvegarder les appareils dans le segment sélectionné (mode multi-segments)
+    if (multiSegmentMode && selectedSegmentIndex >= 0 &&
+        selectedSegmentIndex < static_cast<int>(networkSegments.size())) {
+        networkSegments[selectedSegmentIndex].fixtures = fixtures;
+        updateSegmentTable();
+    }
 }
 
 void HydraulicCalculationsWindow::onRemoveFixture()
@@ -348,6 +468,13 @@ void HydraulicCalculationsWindow::onRemoveFixture()
     if (currentRow >= 0 && currentRow < static_cast<int>(fixtures.size())) {
         fixtures.erase(fixtures.begin() + currentRow);
         updateFixtureTable();
+
+        // Sauvegarder les appareils dans le segment sélectionné (mode multi-segments)
+        if (multiSegmentMode && selectedSegmentIndex >= 0 &&
+            selectedSegmentIndex < static_cast<int>(networkSegments.size())) {
+            networkSegments[selectedSegmentIndex].fixtures = fixtures;
+            updateSegmentTable();
+        }
     }
 }
 
@@ -370,52 +497,94 @@ void HydraulicCalculationsWindow::updateFixtureTable()
 
 void HydraulicCalculationsWindow::onCalculate()
 {
-    if (fixtures.empty()) {
-        QMessageBox::warning(this, "Attention",
-            "Veuillez ajouter au moins un appareil sanitaire.");
-        return;
-    }
-
-    // Préparation des paramètres
-    HydraulicCalc::CalculationParameters params;
-
-    // Type de réseau
-    int networkIndex = networkTypeCombo->currentIndex();
-    params.networkType = static_cast<HydraulicCalc::NetworkType>(networkIndex);
-
-    // Matériau
-    int materialIndex = materialCombo->currentIndex();
-    params.material = static_cast<HydraulicCalc::PipeMaterial>(materialIndex);
-
-    // Dimensions
-    params.length = lengthSpin->value();
-    params.heightDifference = heightDiffSpin->value();
-
-    // Pressions
-    params.supplyPressure = supplyPressureSpin->value();
-    params.requiredPressure = requiredPressureSpin->value();
-
-    // Appareils
-    params.fixtures = fixtures;
-
-    // Paramètres bouclage si nécessaire
-    if (networkIndex == 2) {
-        params.loopLength = loopLengthSpin->value();
-        params.waterTemperature = waterTempSpin->value();
-        params.ambientTemperature = ambientTempSpin->value();
-        params.insulationThickness = insulationSpin->value();
-    }
-
-    // Calcul
     HydraulicCalc::PipeCalculator calculator;
-    HydraulicCalc::PipeSegmentResult result = calculator.calculate(params);
+    int networkIndex = networkTypeCombo->currentIndex();
+    int materialIndex = materialCombo->currentIndex();
 
-    // Sauvegarde pour export
-    lastResult = result;
-    lastParams = params;
+    if (multiSegmentMode) {
+        // ===== MODE MULTI-SEGMENTS =====
+        if (networkSegments.empty()) {
+            QMessageBox::warning(this, "Attention",
+                "Veuillez ajouter au moins un segment.");
+            return;
+        }
 
-    // Affichage des résultats
-    displayResults(result);
+        // Vérifier qu'au moins un segment a des appareils
+        bool hasFixtures = false;
+        for (const auto& segment : networkSegments) {
+            if (!segment.fixtures.empty()) {
+                hasFixtures = true;
+                break;
+            }
+        }
+
+        if (!hasFixtures) {
+            QMessageBox::warning(this, "Attention",
+                "Veuillez ajouter des appareils à au moins un segment.");
+            return;
+        }
+
+        // Préparation des paramètres réseau
+        HydraulicCalc::NetworkCalculationParameters networkParams;
+        networkParams.networkType = static_cast<HydraulicCalc::NetworkType>(networkIndex);
+        networkParams.material = static_cast<HydraulicCalc::PipeMaterial>(materialIndex);
+        networkParams.supplyPressure = supplyPressureSpin->value();
+        networkParams.requiredPressure = requiredPressureSpin->value();
+        networkParams.segments = networkSegments;
+
+        // Paramètres bouclage si nécessaire
+        if (networkIndex == 2) {
+            networkParams.loopLength = loopLengthSpin->value();
+            networkParams.waterTemperature = waterTempSpin->value();
+            networkParams.ambientTemperature = ambientTempSpin->value();
+            networkParams.insulationThickness = insulationSpin->value();
+        }
+
+        // Calcul du réseau complet
+        calculator.calculateNetwork(networkParams);
+
+        // Sauvegarde pour export
+        lastNetworkParams = networkParams;
+
+        // Affichage des résultats
+        displayMultiSegmentResults(networkParams);
+
+    } else {
+        // ===== MODE SEGMENT UNIQUE =====
+        if (fixtures.empty()) {
+            QMessageBox::warning(this, "Attention",
+                "Veuillez ajouter au moins un appareil sanitaire.");
+            return;
+        }
+
+        // Préparation des paramètres
+        HydraulicCalc::CalculationParameters params;
+        params.networkType = static_cast<HydraulicCalc::NetworkType>(networkIndex);
+        params.material = static_cast<HydraulicCalc::PipeMaterial>(materialIndex);
+        params.length = lengthSpin->value();
+        params.heightDifference = heightDiffSpin->value();
+        params.supplyPressure = supplyPressureSpin->value();
+        params.requiredPressure = requiredPressureSpin->value();
+        params.fixtures = fixtures;
+
+        // Paramètres bouclage si nécessaire
+        if (networkIndex == 2) {
+            params.loopLength = loopLengthSpin->value();
+            params.waterTemperature = waterTempSpin->value();
+            params.ambientTemperature = ambientTempSpin->value();
+            params.insulationThickness = insulationSpin->value();
+        }
+
+        // Calcul
+        HydraulicCalc::PipeSegmentResult result = calculator.calculate(params);
+
+        // Sauvegarde pour export
+        lastResult = result;
+        lastParams = params;
+
+        // Affichage des résultats
+        displayResults(result);
+    }
 
     // Activer le bouton d'export
     exportButton->setEnabled(true);
@@ -426,6 +595,7 @@ void HydraulicCalculationsWindow::onCalculate()
 
 void HydraulicCalculationsWindow::displayResults(const HydraulicCalc::PipeSegmentResult& result)
 {
+    // Résultats aller (ou réseau simple)
     flowRateLabel->setText(QString::number(result.flowRate, 'f', 2) + " L/min");
     diameterLabel->setText("DN " + QString::number(result.nominalDiameter) +
                           " (Ø int. " + QString::number(result.actualDiameter, 'f', 1) + " mm)");
@@ -434,6 +604,18 @@ void HydraulicCalculationsWindow::displayResults(const HydraulicCalc::PipeSegmen
 
     double availablePressure = lastParams.supplyPressure - (result.pressureDrop / 10.0);
     availablePressureLabel->setText(QString::number(availablePressure, 'f', 2) + " bar");
+
+    // Résultats retour bouclage (si applicable)
+    if (result.hasReturn) {
+        returnResultsGroup->setVisible(true);
+        returnDiameterLabel->setText("DN " + QString::number(result.returnNominalDiameter) +
+                                    " (Ø int. " + QString::number(result.returnActualDiameter, 'f', 1) + " mm)");
+        returnFlowRateLabel->setText(QString::number(result.returnFlowRate, 'f', 2) + " L/min");
+        returnVelocityLabel->setText(QString::number(result.returnVelocity, 'f', 2) + " m/s");
+        heatLossLabel->setText(QString::number(result.heatLoss, 'f', 0) + " W");
+    } else {
+        returnResultsGroup->setVisible(false);
+    }
 
     recommendationsText->setPlainText(QString::fromStdString(result.recommendation));
 }
@@ -457,71 +639,181 @@ void HydraulicCalculationsWindow::onExportPDF()
         "body { font-family: Arial, sans-serif; margin: 40px; }"
         "h1 { color: #2c3e50; border-bottom: 3px solid #4472C4; padding-bottom: 10px; }"
         "h2 { color: #4472C4; margin-top: 30px; }"
+        "h3 { color: #5a8fd1; margin-top: 20px; border-left: 4px solid #4472C4; padding-left: 10px; }"
         "table { border-collapse: collapse; width: 100%; margin: 20px 0; }"
         "th, td { border: 1px solid #bdc3c7; padding: 10px; text-align: left; }"
         "th { background-color: #ecf0f1; font-weight: bold; }"
         ".result { background-color: #e8f5e9; font-weight: bold; }"
+        ".segment-header { background-color: #d1e7fd; font-weight: bold; }"
         ".info { color: #6c757d; font-size: 0.9em; margin-top: 30px; }"
+        ".page-break { page-break-after: always; }"
         "</style></head><body>";
 
     html += "<h1>Fiche de calcul - Dimensionnement hydraulique</h1>";
     html += "<p><strong>Date:</strong> " + QDateTime::currentDateTime().toString("dd/MM/yyyy hh:mm") + "</p>";
 
-    html += "<h2>Paramètres du projet</h2>";
-    html += "<table>";
-    html += "<tr><th>Paramètre</th><th>Valeur</th></tr>";
-    html += "<tr><td>Type de réseau</td><td>" + networkTypeCombo->currentText() + "</td></tr>";
-    html += "<tr><td>Matériau</td><td>" + materialCombo->currentText() + "</td></tr>";
-    html += "<tr><td>Longueur du tronçon</td><td>" + QString::number(lastParams.length, 'f', 1) + " m</td></tr>";
-    html += "<tr><td>Différence de hauteur</td><td>" + QString::number(lastParams.heightDifference, 'f', 1) + " m</td></tr>";
-    html += "<tr><td>Pression d'alimentation</td><td>" + QString::number(lastParams.supplyPressure, 'f', 1) + " bar</td></tr>";
-    html += "<tr><td>Pression minimale requise</td><td>" + QString::number(lastParams.requiredPressure, 'f', 1) + " bar</td></tr>";
-    html += "</table>";
-
-    if (lastParams.networkType == HydraulicCalc::NetworkType::HotWaterWithLoop) {
-        html += "<h2>Paramètres du bouclage ECS</h2>";
+    if (multiSegmentMode) {
+        // ===== EXPORT MULTI-SEGMENTS =====
+        html += "<h2>Paramètres généraux</h2>";
         html += "<table>";
         html += "<tr><th>Paramètre</th><th>Valeur</th></tr>";
-        html += "<tr><td>Longueur de la boucle</td><td>" + QString::number(lastParams.loopLength, 'f', 1) + " m</td></tr>";
-        html += "<tr><td>Température de l'eau</td><td>" + QString::number(lastParams.waterTemperature, 'f', 1) + " °C</td></tr>";
-        html += "<tr><td>Température ambiante</td><td>" + QString::number(lastParams.ambientTemperature, 'f', 1) + " °C</td></tr>";
-        html += "<tr><td>Épaisseur d'isolation</td><td>" + QString::number(lastParams.insulationThickness, 'f', 0) + " mm</td></tr>";
+        html += "<tr><td>Mode de calcul</td><td>Multi-segments</td></tr>";
+        html += "<tr><td>Type de réseau</td><td>" + networkTypeCombo->currentText() + "</td></tr>";
+        html += "<tr><td>Matériau</td><td>" + materialCombo->currentText() + "</td></tr>";
+        html += "<tr><td>Pression d'alimentation</td><td>" + QString::number(lastNetworkParams.supplyPressure, 'f', 1) + " bar</td></tr>";
+        html += "<tr><td>Pression minimale requise</td><td>" + QString::number(lastNetworkParams.requiredPressure, 'f', 1) + " bar</td></tr>";
+        html += "<tr><td>Nombre de segments</td><td>" + QString::number(lastNetworkParams.segments.size()) + "</td></tr>";
         html += "</table>";
+
+        if (lastNetworkParams.networkType == HydraulicCalc::NetworkType::HotWaterWithLoop) {
+            html += "<h2>Paramètres du bouclage ECS</h2>";
+            html += "<table>";
+            html += "<tr><th>Paramètre</th><th>Valeur</th></tr>";
+            html += "<tr><td>Longueur de la boucle</td><td>" + QString::number(lastNetworkParams.loopLength, 'f', 1) + " m</td></tr>";
+            html += "<tr><td>Température de l'eau</td><td>" + QString::number(lastNetworkParams.waterTemperature, 'f', 1) + " °C</td></tr>";
+            html += "<tr><td>Température ambiante</td><td>" + QString::number(lastNetworkParams.ambientTemperature, 'f', 1) + " °C</td></tr>";
+            html += "<tr><td>Épaisseur d'isolation</td><td>" + QString::number(lastNetworkParams.insulationThickness, 'f', 0) + " mm</td></tr>";
+            html += "</table>";
+        }
+
+        // Résultats pour chaque segment
+        for (const auto& segment : lastNetworkParams.segments) {
+            html += "<div class='page-break'></div>";
+            html += "<h2>Segment: " + QString::fromStdString(segment.name) + "</h2>";
+
+            // Info segment
+            html += "<table>";
+            html += "<tr><th>Paramètre</th><th>Valeur</th></tr>";
+            QString parentName = "(Segment racine)";
+            if (!segment.parentId.empty()) {
+                for (const auto& ps : lastNetworkParams.segments) {
+                    if (ps.id == segment.parentId) {
+                        parentName = QString::fromStdString(ps.name);
+                        break;
+                    }
+                }
+            }
+            html += "<tr><td>Segment parent</td><td>" + parentName + "</td></tr>";
+            html += "<tr><td>Longueur</td><td>" + QString::number(segment.length, 'f', 1) + " m</td></tr>";
+            html += "<tr><td>Différence de hauteur</td><td>" + QString::number(segment.heightDifference, 'f', 1) + " m</td></tr>";
+            html += "<tr><td>Pression en entrée</td><td>" + QString::number(segment.inletPressure, 'f', 2) + " bar</td></tr>";
+            html += "<tr><td>Pression en sortie</td><td>" + QString::number(segment.outletPressure, 'f', 2) + " bar</td></tr>";
+            html += "</table>";
+
+            // Appareils du segment
+            if (!segment.fixtures.empty()) {
+                html += "<h3>Appareils sanitaires</h3>";
+                html += "<table>";
+                html += "<tr><th>Type d'appareil</th><th>Quantité</th><th>Débit unitaire (L/min)</th></tr>";
+                for (const auto& fixture : segment.fixtures) {
+                    html += "<tr>";
+                    html += "<td>" + QString::fromStdString(HydraulicCalc::PipeCalculator::getFixtureName(fixture.type)) + "</td>";
+                    html += "<td>" + QString::number(fixture.quantity) + "</td>";
+                    html += "<td>" + QString::number(fixture.flowRate, 'f', 1) + "</td>";
+                    html += "</tr>";
+                }
+                html += "</table>";
+            }
+
+            // Résultats du segment
+            html += "<h3>Résultats du dimensionnement</h3>";
+            html += "<table>";
+            html += "<tr><th>Résultat</th><th>Valeur</th></tr>";
+            html += "<tr class='result'><td>Débit de calcul</td><td>" + QString::number(segment.result.flowRate, 'f', 2) + " L/min</td></tr>";
+            html += "<tr class='result'><td>Diamètre nominal</td><td>DN " + QString::number(segment.result.nominalDiameter) +
+                    " (Ø int. " + QString::number(segment.result.actualDiameter, 'f', 1) + " mm)</td></tr>";
+            html += "<tr><td>Vitesse de l'eau</td><td>" + QString::number(segment.result.velocity, 'f', 2) + " m/s</td></tr>";
+            html += "<tr><td>Perte de charge</td><td>" + QString::number(segment.result.pressureDrop, 'f', 2) + " mCE</td></tr>";
+            html += "</table>";
+
+            // Retour bouclage si applicable
+            if (segment.result.hasReturn) {
+                html += "<h3>Retour de bouclage</h3>";
+                html += "<table>";
+                html += "<tr><th>Résultat</th><th>Valeur</th></tr>";
+                html += "<tr class='result'><td>Diamètre retour</td><td>DN " + QString::number(segment.result.returnNominalDiameter) +
+                        " (Ø int. " + QString::number(segment.result.returnActualDiameter, 'f', 1) + " mm)</td></tr>";
+                html += "<tr><td>Débit de retour</td><td>" + QString::number(segment.result.returnFlowRate, 'f', 2) + " L/min</td></tr>";
+                html += "<tr><td>Vitesse de retour</td><td>" + QString::number(segment.result.returnVelocity, 'f', 2) + " m/s</td></tr>";
+                html += "<tr><td>Pertes thermiques</td><td>" + QString::number(segment.result.heatLoss, 'f', 0) + " W</td></tr>";
+                html += "</table>";
+            }
+
+            html += "<h3>Recommandations</h3>";
+            html += "<p>" + QString::fromStdString(segment.result.recommendation) + "</p>";
+        }
+
+    } else {
+        // ===== EXPORT SEGMENT UNIQUE =====
+        html += "<h2>Paramètres du projet</h2>";
+        html += "<table>";
+        html += "<tr><th>Paramètre</th><th>Valeur</th></tr>";
+        html += "<tr><td>Type de réseau</td><td>" + networkTypeCombo->currentText() + "</td></tr>";
+        html += "<tr><td>Matériau</td><td>" + materialCombo->currentText() + "</td></tr>";
+        html += "<tr><td>Longueur du tronçon</td><td>" + QString::number(lastParams.length, 'f', 1) + " m</td></tr>";
+        html += "<tr><td>Différence de hauteur</td><td>" + QString::number(lastParams.heightDifference, 'f', 1) + " m</td></tr>";
+        html += "<tr><td>Pression d'alimentation</td><td>" + QString::number(lastParams.supplyPressure, 'f', 1) + " bar</td></tr>";
+        html += "<tr><td>Pression minimale requise</td><td>" + QString::number(lastParams.requiredPressure, 'f', 1) + " bar</td></tr>";
+        html += "</table>";
+
+        if (lastParams.networkType == HydraulicCalc::NetworkType::HotWaterWithLoop) {
+            html += "<h2>Paramètres du bouclage ECS</h2>";
+            html += "<table>";
+            html += "<tr><th>Paramètre</th><th>Valeur</th></tr>";
+            html += "<tr><td>Longueur de la boucle</td><td>" + QString::number(lastParams.loopLength, 'f', 1) + " m</td></tr>";
+            html += "<tr><td>Température de l'eau</td><td>" + QString::number(lastParams.waterTemperature, 'f', 1) + " °C</td></tr>";
+            html += "<tr><td>Température ambiante</td><td>" + QString::number(lastParams.ambientTemperature, 'f', 1) + " °C</td></tr>";
+            html += "<tr><td>Épaisseur d'isolation</td><td>" + QString::number(lastParams.insulationThickness, 'f', 0) + " mm</td></tr>";
+            html += "</table>";
+        }
+
+        html += "<h2>Appareils sanitaires</h2>";
+        html += "<table>";
+        html += "<tr><th>Type d'appareil</th><th>Quantité</th><th>Débit unitaire (L/min)</th></tr>";
+        for (const auto& fixture : fixtures) {
+            html += "<tr>";
+            html += "<td>" + QString::fromStdString(HydraulicCalc::PipeCalculator::getFixtureName(fixture.type)) + "</td>";
+            html += "<td>" + QString::number(fixture.quantity) + "</td>";
+            html += "<td>" + QString::number(fixture.flowRate, 'f', 1) + "</td>";
+            html += "</tr>";
+        }
+        html += "</table>";
+
+        int totalFixtures = 0;
+        for (const auto& f : fixtures) totalFixtures += f.quantity;
+        double simCoeff = HydraulicCalc::PipeCalculator::getSimultaneityCoefficient(totalFixtures);
+        html += "<p><strong>Nombre total d'appareils:</strong> " + QString::number(totalFixtures) + "</p>";
+        html += "<p><strong>Coefficient de simultanéité:</strong> " + QString::number(simCoeff, 'f', 3) + "</p>";
+
+        html += "<h2>Résultats du dimensionnement</h2>";
+        html += "<table>";
+        html += "<tr><th>Résultat</th><th>Valeur</th></tr>";
+        html += "<tr class='result'><td>Débit de calcul</td><td>" + QString::number(lastResult.flowRate, 'f', 2) + " L/min</td></tr>";
+        html += "<tr class='result'><td>Diamètre nominal</td><td>DN " + QString::number(lastResult.nominalDiameter) +
+                " (Ø int. " + QString::number(lastResult.actualDiameter, 'f', 1) + " mm)</td></tr>";
+        html += "<tr><td>Vitesse de l'eau</td><td>" + QString::number(lastResult.velocity, 'f', 2) + " m/s</td></tr>";
+        html += "<tr><td>Perte de charge</td><td>" + QString::number(lastResult.pressureDrop, 'f', 2) + " mCE</td></tr>";
+
+        double availablePressure = lastParams.supplyPressure - (lastResult.pressureDrop / 10.0);
+        html += "<tr><td>Pression disponible</td><td>" + QString::number(availablePressure, 'f', 2) + " bar</td></tr>";
+        html += "</table>";
+
+        // Résultats du retour de bouclage si applicable
+        if (lastResult.hasReturn) {
+            html += "<h2>Résultats du retour de bouclage</h2>";
+            html += "<table>";
+            html += "<tr><th>Résultat</th><th>Valeur</th></tr>";
+            html += "<tr class='result'><td>Diamètre retour</td><td>DN " + QString::number(lastResult.returnNominalDiameter) +
+                    " (Ø int. " + QString::number(lastResult.returnActualDiameter, 'f', 1) + " mm)</td></tr>";
+            html += "<tr><td>Débit de retour</td><td>" + QString::number(lastResult.returnFlowRate, 'f', 2) + " L/min</td></tr>";
+            html += "<tr><td>Vitesse de retour</td><td>" + QString::number(lastResult.returnVelocity, 'f', 2) + " m/s</td></tr>";
+            html += "<tr><td>Pertes thermiques</td><td>" + QString::number(lastResult.heatLoss, 'f', 0) + " W</td></tr>";
+            html += "</table>";
+        }
+
+        html += "<h2>Recommandations</h2>";
+        html += "<p>" + QString::fromStdString(lastResult.recommendation) + "</p>";
     }
-
-    html += "<h2>Appareils sanitaires</h2>";
-    html += "<table>";
-    html += "<tr><th>Type d'appareil</th><th>Quantité</th><th>Débit unitaire (L/min)</th></tr>";
-    for (const auto& fixture : fixtures) {
-        html += "<tr>";
-        html += "<td>" + QString::fromStdString(HydraulicCalc::PipeCalculator::getFixtureName(fixture.type)) + "</td>";
-        html += "<td>" + QString::number(fixture.quantity) + "</td>";
-        html += "<td>" + QString::number(fixture.flowRate, 'f', 1) + "</td>";
-        html += "</tr>";
-    }
-    html += "</table>";
-
-    int totalFixtures = 0;
-    for (const auto& f : fixtures) totalFixtures += f.quantity;
-    double simCoeff = HydraulicCalc::PipeCalculator::getSimultaneityCoefficient(totalFixtures);
-    html += "<p><strong>Nombre total d'appareils:</strong> " + QString::number(totalFixtures) + "</p>";
-    html += "<p><strong>Coefficient de simultanéité:</strong> " + QString::number(simCoeff, 'f', 3) + "</p>";
-
-    html += "<h2>Résultats du dimensionnement</h2>";
-    html += "<table>";
-    html += "<tr><th>Résultat</th><th>Valeur</th></tr>";
-    html += "<tr class='result'><td>Débit de calcul</td><td>" + QString::number(lastResult.flowRate, 'f', 2) + " L/min</td></tr>";
-    html += "<tr class='result'><td>Diamètre nominal</td><td>DN " + QString::number(lastResult.nominalDiameter) +
-            " (Ø int. " + QString::number(lastResult.actualDiameter, 'f', 1) + " mm)</td></tr>";
-    html += "<tr><td>Vitesse de l'eau</td><td>" + QString::number(lastResult.velocity, 'f', 2) + " m/s</td></tr>";
-    html += "<tr><td>Perte de charge</td><td>" + QString::number(lastResult.pressureDrop, 'f', 2) + " mCE</td></tr>";
-
-    double availablePressure = lastParams.supplyPressure - (lastResult.pressureDrop / 10.0);
-    html += "<tr><td>Pression disponible</td><td>" + QString::number(availablePressure, 'f', 2) + " bar</td></tr>";
-    html += "</table>";
-
-    html += "<h2>Recommandations</h2>";
-    html += "<p>" + QString::fromStdString(lastResult.recommendation) + "</p>";
 
     html += "<div class='info'>";
     html += "<p><em>Calculs réalisés selon les normes DTU 60.11 et formules de Darcy-Weisbach.</em></p>";
@@ -556,9 +848,318 @@ void HydraulicCalculationsWindow::onClearResults()
     velocityLabel->setText("-");
     pressureDropLabel->setText("-");
     availablePressureLabel->setText("-");
+    returnResultsGroup->setVisible(false);
+    returnDiameterLabel->setText("-");
+    returnFlowRateLabel->setText("-");
+    returnVelocityLabel->setText("-");
+    heatLossLabel->setText("-");
     recommendationsText->clear();
 
     exportButton->setEnabled(false);
 
     tabWidget->setCurrentWidget(parametersTab);
+}
+
+void HydraulicCalculationsWindow::onMultiSegmentModeChanged(int state)
+{
+    multiSegmentMode = (state == Qt::Checked);
+    updateSegmentParametersVisibility();
+
+    if (multiSegmentMode && networkSegments.empty()) {
+        // Créer un segment par défaut
+        HydraulicCalc::NetworkSegment defaultSegment("seg_1", "Branche principale");
+        defaultSegment.length = 10.0;
+        defaultSegment.heightDifference = 3.0;
+        networkSegments.push_back(defaultSegment);
+        updateSegmentTable();
+    }
+}
+
+void HydraulicCalculationsWindow::updateSegmentParametersVisibility()
+{
+    singleSegmentGroup->setVisible(!multiSegmentMode);
+    multiSegmentGroup->setVisible(multiSegmentMode);
+
+    // En mode multi-segments, les appareils sont gérés par segment
+    if (multiSegmentMode) {
+        fixturesTab->setEnabled(selectedSegmentIndex >= 0);
+    } else {
+        fixturesTab->setEnabled(true);
+    }
+}
+
+void HydraulicCalculationsWindow::onAddSegment()
+{
+    // Créer un dialogue pour saisir les informations du nouveau segment
+    QDialog dialog(this);
+    dialog.setWindowTitle("Ajouter un segment");
+    dialog.setMinimumWidth(400);
+
+    QVBoxLayout *layout = new QVBoxLayout(&dialog);
+    QFormLayout *formLayout = new QFormLayout();
+
+    QLineEdit *nameEdit = new QLineEdit(&dialog);
+    nameEdit->setText("Segment " + QString::number(networkSegments.size() + 1));
+    formLayout->addRow("Nom:", nameEdit);
+
+    QComboBox *parentCombo = new QComboBox(&dialog);
+    parentCombo->addItem("(Aucun - Segment racine)", "");
+    for (const auto& seg : networkSegments) {
+        parentCombo->addItem(QString::fromStdString(seg.name), QString::fromStdString(seg.id));
+    }
+    formLayout->addRow("Segment parent:", parentCombo);
+
+    QDoubleSpinBox *lengthSpin = new QDoubleSpinBox(&dialog);
+    lengthSpin->setRange(0.1, 1000.0);
+    lengthSpin->setValue(10.0);
+    lengthSpin->setSuffix(" m");
+    lengthSpin->setDecimals(1);
+    formLayout->addRow("Longueur:", lengthSpin);
+
+    QDoubleSpinBox *heightSpin = new QDoubleSpinBox(&dialog);
+    heightSpin->setRange(-100.0, 100.0);
+    heightSpin->setValue(0.0);
+    heightSpin->setSuffix(" m");
+    heightSpin->setDecimals(1);
+    formLayout->addRow("Différence de hauteur:", heightSpin);
+
+    layout->addLayout(formLayout);
+
+    QHBoxLayout *buttonsLayout = new QHBoxLayout();
+    QPushButton *okButton = new QPushButton("OK", &dialog);
+    QPushButton *cancelButton = new QPushButton("Annuler", &dialog);
+    connect(okButton, &QPushButton::clicked, &dialog, &QDialog::accept);
+    connect(cancelButton, &QPushButton::clicked, &dialog, &QDialog::reject);
+    buttonsLayout->addStretch();
+    buttonsLayout->addWidget(okButton);
+    buttonsLayout->addWidget(cancelButton);
+    layout->addLayout(buttonsLayout);
+
+    if (dialog.exec() == QDialog::Accepted) {
+        HydraulicCalc::NetworkSegment newSegment;
+        newSegment.id = "seg_" + std::to_string(networkSegments.size() + 1);
+        newSegment.name = nameEdit->text().toStdString();
+        newSegment.parentId = parentCombo->currentData().toString().toStdString();
+        newSegment.length = lengthSpin->value();
+        newSegment.heightDifference = heightSpin->value();
+
+        networkSegments.push_back(newSegment);
+        updateSegmentTable();
+    }
+}
+
+void HydraulicCalculationsWindow::onEditSegment()
+{
+    int row = segmentsTable->currentRow();
+    if (row < 0 || row >= static_cast<int>(networkSegments.size())) {
+        QMessageBox::warning(this, "Aucune sélection", "Veuillez sélectionner un segment à modifier.");
+        return;
+    }
+
+    HydraulicCalc::NetworkSegment& segment = networkSegments[row];
+
+    // Créer un dialogue pour modifier les informations du segment
+    QDialog dialog(this);
+    dialog.setWindowTitle("Modifier le segment");
+    dialog.setMinimumWidth(400);
+
+    QVBoxLayout *layout = new QVBoxLayout(&dialog);
+    QFormLayout *formLayout = new QFormLayout();
+
+    QLineEdit *nameEdit = new QLineEdit(&dialog);
+    nameEdit->setText(QString::fromStdString(segment.name));
+    formLayout->addRow("Nom:", nameEdit);
+
+    QComboBox *parentCombo = new QComboBox(&dialog);
+    parentCombo->addItem("(Aucun - Segment racine)", "");
+    for (size_t i = 0; i < networkSegments.size(); ++i) {
+        if (i != static_cast<size_t>(row)) { // Ne pas pouvoir se choisir comme parent
+            parentCombo->addItem(QString::fromStdString(networkSegments[i].name),
+                               QString::fromStdString(networkSegments[i].id));
+        }
+    }
+    // Sélectionner le parent actuel
+    int parentIndex = parentCombo->findData(QString::fromStdString(segment.parentId));
+    if (parentIndex >= 0) {
+        parentCombo->setCurrentIndex(parentIndex);
+    }
+    formLayout->addRow("Segment parent:", parentCombo);
+
+    QDoubleSpinBox *lengthSpin = new QDoubleSpinBox(&dialog);
+    lengthSpin->setRange(0.1, 1000.0);
+    lengthSpin->setValue(segment.length);
+    lengthSpin->setSuffix(" m");
+    lengthSpin->setDecimals(1);
+    formLayout->addRow("Longueur:", lengthSpin);
+
+    QDoubleSpinBox *heightSpin = new QDoubleSpinBox(&dialog);
+    heightSpin->setRange(-100.0, 100.0);
+    heightSpin->setValue(segment.heightDifference);
+    heightSpin->setSuffix(" m");
+    heightSpin->setDecimals(1);
+    formLayout->addRow("Différence de hauteur:", heightSpin);
+
+    layout->addLayout(formLayout);
+
+    QHBoxLayout *buttonsLayout = new QHBoxLayout();
+    QPushButton *okButton = new QPushButton("OK", &dialog);
+    QPushButton *cancelButton = new QPushButton("Annuler", &dialog);
+    connect(okButton, &QPushButton::clicked, &dialog, &QDialog::accept);
+    connect(cancelButton, &QPushButton::clicked, &dialog, &QDialog::reject);
+    buttonsLayout->addStretch();
+    buttonsLayout->addWidget(okButton);
+    buttonsLayout->addWidget(cancelButton);
+    layout->addLayout(buttonsLayout);
+
+    if (dialog.exec() == QDialog::Accepted) {
+        segment.name = nameEdit->text().toStdString();
+        segment.parentId = parentCombo->currentData().toString().toStdString();
+        segment.length = lengthSpin->value();
+        segment.heightDifference = heightSpin->value();
+
+        updateSegmentTable();
+    }
+}
+
+void HydraulicCalculationsWindow::onRemoveSegment()
+{
+    int row = segmentsTable->currentRow();
+    if (row < 0 || row >= static_cast<int>(networkSegments.size())) {
+        QMessageBox::warning(this, "Aucune sélection", "Veuillez sélectionner un segment à supprimer.");
+        return;
+    }
+
+    // Vérifier si d'autres segments dépendent de celui-ci
+    std::string segmentId = networkSegments[row].id;
+    bool hasChildren = false;
+    for (const auto& seg : networkSegments) {
+        if (seg.parentId == segmentId) {
+            hasChildren = true;
+            break;
+        }
+    }
+
+    if (hasChildren) {
+        QMessageBox::warning(this, "Suppression impossible",
+            "Ce segment ne peut pas être supprimé car d'autres segments en dépendent.\n"
+            "Veuillez d'abord supprimer ou modifier les segments enfants.");
+        return;
+    }
+
+    auto reply = QMessageBox::question(this, "Confirmation",
+        "Êtes-vous sûr de vouloir supprimer ce segment ?",
+        QMessageBox::Yes | QMessageBox::No);
+
+    if (reply == QMessageBox::Yes) {
+        networkSegments.erase(networkSegments.begin() + row);
+        updateSegmentTable();
+        selectedSegmentIndex = -1;
+    }
+}
+
+void HydraulicCalculationsWindow::onSegmentSelectionChanged()
+{
+    int row = segmentsTable->currentRow();
+    selectedSegmentIndex = row;
+
+    if (row >= 0 && row < static_cast<int>(networkSegments.size())) {
+        // Charger les appareils du segment sélectionné
+        fixtures = networkSegments[row].fixtures;
+        updateFixtureTable();
+        fixturesTab->setEnabled(true);
+    } else {
+        fixturesTab->setEnabled(false);
+    }
+}
+
+void HydraulicCalculationsWindow::updateSegmentTable()
+{
+    segmentsTable->setRowCount(0);
+
+    for (const auto& segment : networkSegments) {
+        int row = segmentsTable->rowCount();
+        segmentsTable->insertRow(row);
+
+        segmentsTable->setItem(row, 0, new QTableWidgetItem(QString::fromStdString(segment.name)));
+
+        // Trouver le nom du parent
+        QString parentName = "(Racine)";
+        if (!segment.parentId.empty()) {
+            for (const auto& parentSeg : networkSegments) {
+                if (parentSeg.id == segment.parentId) {
+                    parentName = QString::fromStdString(parentSeg.name);
+                    break;
+                }
+            }
+        }
+        segmentsTable->setItem(row, 1, new QTableWidgetItem(parentName));
+
+        segmentsTable->setItem(row, 2, new QTableWidgetItem(QString::number(segment.length, 'f', 1)));
+        segmentsTable->setItem(row, 3, new QTableWidgetItem(QString::number(segment.heightDifference, 'f', 1)));
+
+        int fixtureCount = 0;
+        for (const auto& fixture : segment.fixtures) {
+            fixtureCount += fixture.quantity;
+        }
+        segmentsTable->setItem(row, 4, new QTableWidgetItem(QString::number(fixtureCount)));
+    }
+
+    // Ajuster la taille des colonnes
+    segmentsTable->resizeColumnsToContents();
+}
+
+void HydraulicCalculationsWindow::displayMultiSegmentResults(const HydraulicCalc::NetworkCalculationParameters& networkParams)
+{
+    // Créer un texte résumé des résultats pour chaque segment
+    QString resultsText;
+
+    for (const auto& segment : networkParams.segments) {
+        resultsText += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        resultsText += QString::fromStdString("📍 " + segment.name) + "\n";
+        resultsText += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+
+        resultsText += QString("Longueur: %1 m | Hauteur: %2 m\n")
+            .arg(segment.length, 0, 'f', 1)
+            .arg(segment.heightDifference, 0, 'f', 1);
+
+        resultsText += QString("Pression entrée: %1 bar → Pression sortie: %2 bar\n\n")
+            .arg(segment.inletPressure, 0, 'f', 2)
+            .arg(segment.outletPressure, 0, 'f', 2);
+
+        resultsText += QString("Débit: %1 L/min\n")
+            .arg(segment.result.flowRate, 0, 'f', 2);
+        resultsText += QString("Diamètre: DN %1 (Ø int. %2 mm)\n")
+            .arg(segment.result.nominalDiameter)
+            .arg(segment.result.actualDiameter, 0, 'f', 1);
+        resultsText += QString("Vitesse: %1 m/s\n")
+            .arg(segment.result.velocity, 0, 'f', 2);
+        resultsText += QString("Perte de charge: %1 mCE\n")
+            .arg(segment.result.pressureDrop, 0, 'f', 2);
+
+        if (segment.result.hasReturn) {
+            resultsText += QString("\n🔄 Retour de bouclage:\n");
+            resultsText += QString("  Diamètre retour: DN %1 (Ø int. %2 mm)\n")
+                .arg(segment.result.returnNominalDiameter)
+                .arg(segment.result.returnActualDiameter, 0, 'f', 1);
+            resultsText += QString("  Débit retour: %1 L/min\n")
+                .arg(segment.result.returnFlowRate, 0, 'f', 2);
+            resultsText += QString("  Vitesse retour: %1 m/s\n")
+                .arg(segment.result.returnVelocity, 0, 'f', 2);
+            resultsText += QString("  Pertes thermiques: %1 W\n")
+                .arg(segment.result.heatLoss, 0, 'f', 0);
+        }
+
+        resultsText += QString("\n💡 %1\n\n")
+            .arg(QString::fromStdString(segment.result.recommendation));
+    }
+
+    recommendationsText->setPlainText(resultsText);
+
+    // Masquer les labels de résultats uniques qui ne sont plus pertinents
+    flowRateLabel->setText("-");
+    diameterLabel->setText("-");
+    velocityLabel->setText("-");
+    pressureDropLabel->setText("-");
+    availablePressureLabel->setText("-");
+    returnResultsGroup->setVisible(false);
 }
