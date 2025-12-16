@@ -345,30 +345,31 @@ void HydraulicCalculationsWindow::applyStyle()
             font-weight: bold;
         }
         QPushButton:hover {
-            background-color: #365a9e;
+            background-color: #5a8fd1;
         }
         QPushButton:pressed {
-            background-color: #2d4a82;
+            background-color: #365a9e;
         }
         QPushButton:disabled {
             background-color: #bdc3c7;
             color: #7f8c8d;
         }
         QToolButton {
-            background-color: #ecf0f1;
-            color: #000000;
-            border: 2px solid #bdc3c7;
+            background-color: #6c8ec9;
+            color: white;
+            border: 2px solid #4472C4;
             border-radius: 4px;
             padding: 5px 10px;
             text-align: left;
+            font-weight: bold;
         }
         QToolButton:checked {
-            background-color: #4472C4;
+            background-color: #365a9e;
             color: white;
-            border-color: #365a9e;
+            border-color: #2d4a82;
         }
         QToolButton:hover:!checked {
-            background-color: #d5dbdb;
+            background-color: #5a8fd1;
         }
         QComboBox, QDoubleSpinBox, QLineEdit {
             padding: 5px;

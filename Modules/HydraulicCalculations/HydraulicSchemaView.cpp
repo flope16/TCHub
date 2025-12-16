@@ -10,6 +10,7 @@ HydraulicSchemaView::HydraulicSchemaView(QWidget* parent)
     , currentMode(InteractionMode::Select)
     , isDrawingSegment(false)
     , temporaryLine(nullptr)
+    , snapIndicator(nullptr)
     , fixtureTypeToPlace(HydraulicCalc::FixtureType::WashBasin)
     , fixtureQuantityToPlace(1)
     , isPanning(false)
@@ -201,10 +202,34 @@ void HydraulicSchemaView::mousePressEvent(QMouseEvent* event)
 void HydraulicSchemaView::mouseMoveEvent(QMouseEvent* event)
 {
     if (currentMode == InteractionMode::AddSegment && isDrawingSegment) {
-        // Mise à jour de la ligne temporaire avec snapping horizontal/vertical
+        // Mise à jour de la ligne temporaire avec snapping
         QPointF scenePos = mapToScene(event->pos());
-        QPointF snappedPos = snapToHorizontalOrVertical(segmentStartPoint, scenePos);
+
+        // Essayer d'abord le snapping aux extrémités existantes
+        bool snappedToEndpoint = false;
+        QPointF snappedPos = snapToNearestEndpoint(scenePos, 30.0, &snappedToEndpoint);
+
+        if (snappedToEndpoint) {
+            // Accroché à un point d'extrémité - afficher l'indicateur
+            drawSnapIndicator(snappedPos);
+        } else {
+            // Pas accroché - utiliser le snapping horizontal/vertical
+            snappedPos = snapToHorizontalOrVertical(segmentStartPoint, scenePos);
+            clearSnapIndicator();
+        }
+
         drawTemporaryLine(segmentStartPoint, snappedPos);
+    } else if (currentMode == InteractionMode::AddSegment && !isDrawingSegment) {
+        // Afficher l'indicateur de snap même avant de commencer à dessiner
+        QPointF scenePos = mapToScene(event->pos());
+        bool snappedToEndpoint = false;
+        QPointF snappedPos = snapToNearestEndpoint(scenePos, 30.0, &snappedToEndpoint);
+
+        if (snappedToEndpoint) {
+            drawSnapIndicator(snappedPos);
+        } else {
+            clearSnapIndicator();
+        }
     } else if (currentMode == InteractionMode::Pan && isPanning) {
         // Déplacement de la vue
         QPointF delta = mapToScene(event->pos()) - mapToScene(lastPanPoint);
@@ -212,6 +237,8 @@ void HydraulicSchemaView::mouseMoveEvent(QMouseEvent* event)
 
         horizontalScrollBar()->setValue(horizontalScrollBar()->value() - delta.x());
         verticalScrollBar()->setValue(verticalScrollBar()->value() - delta.y());
+    } else {
+        clearSnapIndicator();
     }
 
     QGraphicsView::mouseMoveEvent(event);
@@ -292,17 +319,31 @@ void HydraulicSchemaView::handleAddSegmentMode(QMouseEvent* event)
     QPointF scenePos = mapToScene(event->pos());
 
     if (!isDrawingSegment) {
-        // Premier clic : début du segment
-        segmentStartPoint = scenePos;
+        // Premier clic : début du segment - essayer de snapper à une extrémité
+        bool snappedToEndpoint = false;
+        segmentStartPoint = snapToNearestEndpoint(scenePos, 30.0, &snappedToEndpoint);
+
+        if (!snappedToEndpoint) {
+            segmentStartPoint = scenePos;
+        }
+
         isDrawingSegment = true;
-        drawTemporaryLine(segmentStartPoint, scenePos);
+        drawTemporaryLine(segmentStartPoint, segmentStartPoint);
+        clearSnapIndicator();
     } else {
-        // Deuxième clic : fin du segment avec snapping horizontal/vertical
+        // Deuxième clic : fin du segment avec snapping
         clearTemporaryLine();
+        clearSnapIndicator();
         isDrawingSegment = false;
 
-        // Snapper au horizontal ou vertical
-        QPointF snappedEndPos = snapToHorizontalOrVertical(segmentStartPoint, scenePos);
+        // Essayer d'abord le snapping aux extrémités
+        bool snappedToEndpoint = false;
+        QPointF snappedEndPos = snapToNearestEndpoint(scenePos, 30.0, &snappedToEndpoint);
+
+        if (!snappedToEndpoint) {
+            // Pas accroché - utiliser le snapping horizontal/vertical
+            snappedEndPos = snapToHorizontalOrVertical(segmentStartPoint, scenePos);
+        }
 
         // Émettre le signal pour que la fenêtre parente crée le segment
         emit segmentDrawingComplete(segmentStartPoint, snappedEndPos);
@@ -392,5 +433,64 @@ QPointF HydraulicSchemaView::snapToHorizontalOrVertical(const QPointF& start, co
     } else {
         // Plus vertical : garder Y, aligner X
         return QPointF(start.x(), end.y());
+    }
+}
+
+QPointF HydraulicSchemaView::snapToNearestEndpoint(const QPointF& pos, double tolerance, bool* snapped)
+{
+    double minDistance = tolerance;
+    QPointF nearestPoint = pos;
+    bool foundSnap = false;
+
+    // Parcourir tous les segments et vérifier leurs extrémités
+    for (auto* segment : segments) {
+        QPointF startPoint = segment->getStartPoint();
+        QPointF endPoint = segment->getEndPoint();
+
+        // Distance au point de début
+        QPointF deltaStart = pos - startPoint;
+        double distStart = std::sqrt(deltaStart.x() * deltaStart.x() + deltaStart.y() * deltaStart.y());
+
+        // Distance au point de fin
+        QPointF deltaEnd = pos - endPoint;
+        double distEnd = std::sqrt(deltaEnd.x() * deltaEnd.x() + deltaEnd.y() * deltaEnd.y());
+
+        // Trouver le plus proche
+        if (distStart < minDistance) {
+            minDistance = distStart;
+            nearestPoint = startPoint;
+            foundSnap = true;
+        }
+        if (distEnd < minDistance) {
+            minDistance = distEnd;
+            nearestPoint = endPoint;
+            foundSnap = true;
+        }
+    }
+
+    if (snapped) {
+        *snapped = foundSnap;
+    }
+
+    return nearestPoint;
+}
+
+void HydraulicSchemaView::drawSnapIndicator(const QPointF& pos)
+{
+    if (!snapIndicator) {
+        snapIndicator = new QGraphicsEllipseItem(-10, -10, 20, 20);
+        snapIndicator->setPen(QPen(QColor("#27ae60"), 3));
+        snapIndicator->setBrush(QBrush(QColor(39, 174, 96, 80)));
+        snapIndicator->setZValue(1000);
+        scene->addItem(snapIndicator);
+    }
+    snapIndicator->setPos(pos);
+    snapIndicator->setVisible(true);
+}
+
+void HydraulicSchemaView::clearSnapIndicator()
+{
+    if (snapIndicator) {
+        snapIndicator->setVisible(false);
     }
 }

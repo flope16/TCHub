@@ -17,6 +17,7 @@ GraphicPipeSegment::GraphicPipeSegment(HydraulicCalc::NetworkSegment* segment, Q
     , nameLabel(nullptr)
     , resultsLabel(nullptr)
     , dimensionsLabel(nullptr)
+    , mainBadge(nullptr)
     , isHighlighted(false)
     , hasReturn(false)
 {
@@ -105,6 +106,14 @@ void GraphicPipeSegment::createVisuals()
     dimensionsLabel->setFont(dimFont);
     dimensionsLabel->setDefaultTextColor(QColor("#555555"));  // Gris foncé
     addToGroup(dimensionsLabel);
+
+    // Badge "PRINCIPAL" pour les segments racines
+    mainBadge = new QGraphicsTextItem(this);
+    QFont badgeFont("Arial", 9, QFont::Bold);
+    mainBadge->setFont(badgeFont);
+    mainBadge->setDefaultTextColor(QColor("#ffffff"));  // Blanc
+    mainBadge->setVisible(false);
+    addToGroup(mainBadge);
 }
 
 void GraphicPipeSegment::updatePipeVisual()
@@ -206,6 +215,7 @@ void GraphicPipeSegment::updateDisplay()
     updatePipeVisual();
     updateLabels();
     updateJunctionPoints();
+    updateMainSegmentDisplay();
 }
 
 void GraphicPipeSegment::updateResultsDisplay()
@@ -351,4 +361,56 @@ void GraphicPipeSegment::mousePressEvent(QGraphicsSceneMouseEvent* event)
 void GraphicPipeSegment::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
 {
     QGraphicsItemGroup::mouseReleaseEvent(event);
+}
+
+bool GraphicPipeSegment::isMainSegment() const
+{
+    // Un segment est principal s'il n'a pas de parent
+    return segmentData && segmentData->parentId.empty();
+}
+
+void GraphicPipeSegment::updateMainSegmentDisplay()
+{
+    if (!mainBadge) return;
+
+    if (isMainSegment()) {
+        // Afficher le badge "PRINCIPAL"
+        mainBadge->setPlainText("⭐ PRINCIPAL");
+        mainBadge->setVisible(true);
+
+        // Positionner le badge en haut du segment
+        QPointF midPoint = (startPoint + endPoint) / 2.0;
+        mainBadge->setPos(midPoint.x() - 40, midPoint.y() - 40);
+
+        // Ajouter un fond coloré au badge
+        QRectF badgeRect = mainBadge->boundingRect();
+        QGraphicsRectItem* badgeBg = new QGraphicsRectItem(
+            mainBadge->x() - 5, mainBadge->y() - 2,
+            badgeRect.width() + 10, badgeRect.height() + 4, this);
+        badgeBg->setBrush(QBrush(QColor("#e74c3c")));  // Rouge vif
+        badgeBg->setPen(QPen(Qt::white, 2));
+        badgeBg->setZValue(-1);
+        addToGroup(badgeBg);
+
+        // Rendre les cercles d'extrémité plus visibles pour le segment principal
+        startCircle->setBrush(QBrush(QColor("#e74c3c")));
+        startCircle->setPen(QPen(Qt::white, 3));
+        startCircle->setRect(-8, -8, 16, 16);  // Plus grand
+
+        endCircle->setBrush(QBrush(QColor("#e74c3c")));
+        endCircle->setPen(QPen(Qt::white, 3));
+        endCircle->setRect(-8, -8, 16, 16);  // Plus grand
+    } else {
+        // Masquer le badge pour les segments non-principaux
+        mainBadge->setVisible(false);
+
+        // Restaurer la taille normale des cercles
+        startCircle->setBrush(QBrush(QColor("#4472C4")));
+        startCircle->setPen(QPen(Qt::white, 2));
+        startCircle->setRect(-6, -6, 12, 12);
+
+        endCircle->setBrush(QBrush(QColor("#4472C4")));
+        endCircle->setPen(QPen(Qt::white, 2));
+        endCircle->setRect(-6, -6, 12, 12);
+    }
 }
