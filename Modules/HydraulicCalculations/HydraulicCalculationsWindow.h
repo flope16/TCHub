@@ -28,7 +28,7 @@ public:
 
 private slots:
     void onNetworkTypeChanged(int index);
-    void onMultiSegmentModeChanged(int state);
+    void onMultiSegmentModeChanged(Qt::CheckState state);
     void onAddSegment();
     void onEditSegment();
     void onRemoveSegment();
