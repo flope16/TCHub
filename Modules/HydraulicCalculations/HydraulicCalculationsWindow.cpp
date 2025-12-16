@@ -153,14 +153,14 @@ void HydraulicCalculationsWindow::createParametersPanel()
     waterTempSpin = new QDoubleSpinBox();
     waterTempSpin->setRange(40.0, 80.0);
     waterTempSpin->setValue(60.0);
-    waterTempSpin->setSuffix(" °C");
+    waterTempSpin->setSuffix(" C");
     waterTempSpin->setDecimals(1);
     loopLayout->addRow("Température eau:", waterTempSpin);
 
     ambientTempSpin = new QDoubleSpinBox();
     ambientTempSpin->setRange(5.0, 35.0);
     ambientTempSpin->setValue(20.0);
-    ambientTempSpin->setSuffix(" °C");
+    ambientTempSpin->setSuffix(" C");
     ambientTempSpin->setDecimals(1);
     loopLayout->addRow("Température ambiante:", ambientTempSpin);
 
@@ -525,7 +525,7 @@ void HydraulicCalculationsWindow::onDeleteSelectedFixture()
         segment->removeFixturePoint(currentSelectedFixture);
     }
 
-    schemaView->scene()->removeItem(currentSelectedFixture);
+    schemaView->getScene()->removeItem(currentSelectedFixture);
     delete currentSelectedFixture;
     currentSelectedFixture = nullptr;
     editButton->setEnabled(false);
@@ -673,8 +673,8 @@ QString HydraulicCalculationsWindow::generatePDFHtml()
         html += "<table>";
         html += "<tr><th>Paramètre</th><th>Valeur</th></tr>";
         html += "<tr><td>Longueur boucle</td><td>" + QString::number(loopLengthSpin->value(), 'f', 1) + " m</td></tr>";
-        html += "<tr><td>Température eau</td><td>" + QString::number(waterTempSpin->value(), 'f', 1) + " °C</td></tr>";
-        html += "<tr><td>Température ambiante</td><td>" + QString::number(ambientTempSpin->value(), 'f', 1) + " °C</td></tr>";
+        html += "<tr><td>Température eau</td><td>" + QString::number(waterTempSpin->value(), 'f', 1) + " C</td></tr>";
+        html += "<tr><td>Température ambiante</td><td>" + QString::number(ambientTempSpin->value(), 'f', 1) + " C</td></tr>";
         html += "<tr><td>Isolation</td><td>" + QString::number(insulationSpin->value(), 'f', 0) + " mm</td></tr>";
         html += "</table>";
     }
@@ -714,7 +714,7 @@ QString HydraulicCalculationsWindow::generatePDFHtml()
         html += "<tr><th>Résultat</th><th>Valeur</th></tr>";
         html += "<tr class='result'><td>Débit</td><td>" + QString::number(segment.result.flowRate, 'f', 2) + " L/min</td></tr>";
         html += "<tr class='result'><td>Diamètre nominal</td><td>DN " + QString::number(segment.result.nominalDiameter) +
-                " (Ø " + QString::number(segment.result.actualDiameter, 'f', 1) + " mm)</td></tr>";
+                " (D=" + QString::number(segment.result.actualDiameter, 'f', 1) + " mm)</td></tr>";
         html += "<tr><td>Vitesse</td><td>" + QString::number(segment.result.velocity, 'f', 2) + " m/s</td></tr>";
         html += "<tr><td>Perte de charge</td><td>" + QString::number(segment.result.pressureDrop, 'f', 2) + " mCE</td></tr>";
         html += "</table>";
@@ -725,11 +725,11 @@ QString HydraulicCalculationsWindow::generatePDFHtml()
             html += "<table>";
             html += "<tr><th>Résultat</th><th>Valeur</th></tr>";
             html += "<tr class='result'><td>Diamètre retour</td><td>DN " + QString::number(segment.result.returnNominalDiameter) +
-                    " (Ø " + QString::number(segment.result.returnActualDiameter, 'f', 1) + " mm)</td></tr>";
+                    " (D=" + QString::number(segment.result.returnActualDiameter, 'f', 1) + " mm)</td></tr>";
             html += "<tr><td>Débit retour</td><td>" + QString::number(segment.result.returnFlowRate, 'f', 2) + " L/min</td></tr>";
             html += "<tr><td>Vitesse retour</td><td>" + QString::number(segment.result.returnVelocity, 'f', 2) + " m/s</td></tr>";
             html += "<tr><td>Pertes thermiques</td><td>" + QString::number(segment.result.heatLoss, 'f', 0) + " W</td></tr>";
-            html += "<tr><td>Température retour</td><td>" + QString::number(segment.result.returnTemperature, 'f', 1) + " °C</td></tr>";
+            html += "<tr><td>Température retour</td><td>" + QString::number(segment.result.returnTemperature, 'f', 1) + " C</td></tr>";
             html += "</table>";
         }
 

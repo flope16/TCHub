@@ -197,7 +197,7 @@ void GraphicPipeSegment::updateResultsDisplay()
 
     // Construire le texte des résultats
     QString resultsText;
-    resultsText += QString("DN %1 (\u00D8%2mm)\n")
+    resultsText += QString("DN %1 (D=%2mm)\n")
         .arg(result.nominalDiameter)
         .arg(result.actualDiameter, 0, 'f', 1);
 
@@ -207,7 +207,7 @@ void GraphicPipeSegment::updateResultsDisplay()
     resultsText += QString("V=%1 m/s\n")
         .arg(result.velocity, 0, 'f', 2);
 
-    resultsText += QString("\u0394P=%1 mCE\n")
+    resultsText += QString("DP=%1 mCE\n")
         .arg(result.pressureDrop, 0, 'f', 2);
 
     // Si retour de bouclage
