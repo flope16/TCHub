@@ -18,12 +18,12 @@ HydraulicCalculationsWindow::HydraulicCalculationsWindow(QWidget *parent)
     // Connexions
     connect(networkTypeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &HydraulicCalculationsWindow::onNetworkTypeChanged);
-    connect(multiSegmentCheckbox, &QCheckBox::stateChanged,
+    connect(multiSegmentCheckbox, &QCheckBox::checkStateChanged,
             this, &HydraulicCalculationsWindow::onMultiSegmentModeChanged);
     connect(addSegmentButton, &QPushButton::clicked, this, &HydraulicCalculationsWindow::onAddSegment);
     connect(editSegmentButton, &QPushButton::clicked, this, &HydraulicCalculationsWindow::onEditSegment);
     connect(removeSegmentButton, &QPushButton::clicked, this, &HydraulicCalculationsWindow::onRemoveSegment);
-    connect(segmentsTable, &QTableWidget::currentRowChanged,
+    connect(segmentsTable, &QTableWidget::itemSelectionChanged,
             this, &HydraulicCalculationsWindow::onSegmentSelectionChanged);
     connect(addFixtureButton, &QPushButton::clicked, this, &HydraulicCalculationsWindow::onAddFixture);
     connect(removeFixtureButton, &QPushButton::clicked, this, &HydraulicCalculationsWindow::onRemoveFixture);
@@ -860,7 +860,7 @@ void HydraulicCalculationsWindow::onClearResults()
     tabWidget->setCurrentWidget(parametersTab);
 }
 
-void HydraulicCalculationsWindow::onMultiSegmentModeChanged(int state)
+void HydraulicCalculationsWindow::onMultiSegmentModeChanged(Qt::CheckState state)
 {
     multiSegmentMode = (state == Qt::Checked);
     updateSegmentParametersVisibility();
