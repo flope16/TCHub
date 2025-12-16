@@ -201,9 +201,10 @@ void HydraulicSchemaView::mousePressEvent(QMouseEvent* event)
 void HydraulicSchemaView::mouseMoveEvent(QMouseEvent* event)
 {
     if (currentMode == InteractionMode::AddSegment && isDrawingSegment) {
-        // Mise à jour de la ligne temporaire
+        // Mise à jour de la ligne temporaire avec snapping horizontal/vertical
         QPointF scenePos = mapToScene(event->pos());
-        drawTemporaryLine(segmentStartPoint, scenePos);
+        QPointF snappedPos = snapToHorizontalOrVertical(segmentStartPoint, scenePos);
+        drawTemporaryLine(segmentStartPoint, snappedPos);
     } else if (currentMode == InteractionMode::Pan && isPanning) {
         // Déplacement de la vue
         QPointF delta = mapToScene(event->pos()) - mapToScene(lastPanPoint);
@@ -296,12 +297,15 @@ void HydraulicSchemaView::handleAddSegmentMode(QMouseEvent* event)
         isDrawingSegment = true;
         drawTemporaryLine(segmentStartPoint, scenePos);
     } else {
-        // Deuxième clic : fin du segment
+        // Deuxième clic : fin du segment avec snapping horizontal/vertical
         clearTemporaryLine();
         isDrawingSegment = false;
 
+        // Snapper au horizontal ou vertical
+        QPointF snappedEndPos = snapToHorizontalOrVertical(segmentStartPoint, scenePos);
+
         // Émettre le signal pour que la fenêtre parente crée le segment
-        emit segmentDrawingComplete(segmentStartPoint, scenePos);
+        emit segmentDrawingComplete(segmentStartPoint, snappedEndPos);
     }
 }
 
@@ -371,5 +375,22 @@ void HydraulicSchemaView::clearTemporaryLine()
         scene->removeItem(temporaryLine);
         delete temporaryLine;
         temporaryLine = nullptr;
+    }
+}
+
+QPointF HydraulicSchemaView::snapToHorizontalOrVertical(const QPointF& start, const QPointF& end)
+{
+    // Calculer le delta
+    QPointF delta = end - start;
+    double dx = std::abs(delta.x());
+    double dy = std::abs(delta.y());
+
+    // Snapper au plus proche : horizontal ou vertical
+    if (dx > dy) {
+        // Plus horizontal : garder X, aligner Y
+        return QPointF(end.x(), start.y());
+    } else {
+        // Plus vertical : garder Y, aligner X
+        return QPointF(start.x(), end.y());
     }
 }
