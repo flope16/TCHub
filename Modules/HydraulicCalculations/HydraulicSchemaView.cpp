@@ -300,9 +300,8 @@ void HydraulicSchemaView::handleAddSegmentMode(QMouseEvent* event)
         clearTemporaryLine();
         isDrawingSegment = false;
 
-        // Le segment sera créé par la fenêtre parente qui demandera les paramètres
-        // On émet juste un signal avec les coordonnées
-        // Pour l'instant, on crée un segment par défaut (sera géré par HydraulicCalculationsWindow)
+        // Émettre le signal pour que la fenêtre parente crée le segment
+        emit segmentDrawingComplete(segmentStartPoint, scenePos);
     }
 }
 

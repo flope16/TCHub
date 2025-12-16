@@ -54,6 +54,7 @@ public:
     QGraphicsScene* getScene() { return scene; }
 
 signals:
+    void segmentDrawingComplete(const QPointF& start, const QPointF& end);
     void segmentAdded(GraphicPipeSegment* segment);
     void segmentSelected(GraphicPipeSegment* segment);
     void segmentRemoved(GraphicPipeSegment* segment);
