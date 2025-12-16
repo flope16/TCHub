@@ -14,6 +14,7 @@
 #include <QPushButton>
 #include <QTableWidget>
 #include <QTextEdit>
+#include <QCheckBox>
 #include <vector>
 #include "PipeCalculator.h"
 
@@ -27,6 +28,11 @@ public:
 
 private slots:
     void onNetworkTypeChanged(int index);
+    void onMultiSegmentModeChanged(int state);
+    void onAddSegment();
+    void onEditSegment();
+    void onRemoveSegment();
+    void onSegmentSelectionChanged();
     void onAddFixture();
     void onRemoveFixture();
     void onCalculate();
@@ -37,19 +43,33 @@ private:
     void setupUi();
     void applyStyle();
     void updateFixtureTable();
+    void updateSegmentTable();
+    void updateSegmentParametersVisibility();
     void displayResults(const HydraulicCalc::PipeSegmentResult& result);
+    void displayMultiSegmentResults(const HydraulicCalc::NetworkCalculationParameters& networkParams);
 
     // Widgets principaux
     QTabWidget *tabWidget;
 
     // Onglet Paramètres
     QWidget *parametersTab;
+    QCheckBox *multiSegmentCheckbox;
     QComboBox *networkTypeCombo;
     QComboBox *materialCombo;
-    QDoubleSpinBox *lengthSpin;
-    QDoubleSpinBox *heightDiffSpin;
     QDoubleSpinBox *supplyPressureSpin;
     QDoubleSpinBox *requiredPressureSpin;
+
+    // Paramètres pour mode segment unique (masqués en mode multi-segment)
+    QGroupBox *singleSegmentGroup;
+    QDoubleSpinBox *lengthSpin;
+    QDoubleSpinBox *heightDiffSpin;
+
+    // Gestion multi-segments (masqués en mode segment unique)
+    QGroupBox *multiSegmentGroup;
+    QTableWidget *segmentsTable;
+    QPushButton *addSegmentButton;
+    QPushButton *editSegmentButton;
+    QPushButton *removeSegmentButton;
 
     // Paramètres spécifiques ECS avec bouclage
     QGroupBox *loopParametersGroup;
@@ -90,4 +110,10 @@ private:
     std::vector<HydraulicCalc::Fixture> fixtures;
     HydraulicCalc::PipeSegmentResult lastResult;
     HydraulicCalc::CalculationParameters lastParams;
+
+    // Données multi-segments
+    bool multiSegmentMode;
+    std::vector<HydraulicCalc::NetworkSegment> networkSegments;
+    HydraulicCalc::NetworkCalculationParameters lastNetworkParams;
+    int selectedSegmentIndex;
 };

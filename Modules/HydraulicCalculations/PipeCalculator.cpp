@@ -2,6 +2,7 @@
 #include <cmath>
 #include "PipeCalculator.h"
 #include <algorithm>
+#include <functional>
 
 namespace HydraulicCalc {
 
@@ -177,6 +178,61 @@ PipeSegmentResult PipeCalculator::calculate(const CalculationParameters& params)
     }
 
     return result;
+}
+
+void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParams) {
+    // Fonction récursive pour calculer un segment et tous ses enfants
+    std::function<void(NetworkSegment&, double)> calculateSegmentRecursive;
+
+    calculateSegmentRecursive = [&](NetworkSegment& segment, double inletPressure) {
+        segment.inletPressure = inletPressure;
+
+        // Collecter tous les appareils de ce segment et de ses descendants
+        std::vector<Fixture> allFixtures = segment.fixtures;
+
+        for (auto& otherSegment : networkParams.segments) {
+            if (otherSegment.parentId == segment.id) {
+                // Ajouter les appareils des segments enfants
+                allFixtures.insert(allFixtures.end(),
+                                 otherSegment.fixtures.begin(),
+                                 otherSegment.fixtures.end());
+            }
+        }
+
+        // Créer les paramètres de calcul pour ce segment
+        CalculationParameters params;
+        params.networkType = networkParams.networkType;
+        params.material = networkParams.material;
+        params.length = segment.length;
+        params.heightDifference = segment.heightDifference;
+        params.supplyPressure = inletPressure;
+        params.requiredPressure = networkParams.requiredPressure;
+        params.fixtures = allFixtures;
+        params.loopLength = networkParams.loopLength;
+        params.ambientTemperature = networkParams.ambientTemperature;
+        params.waterTemperature = networkParams.waterTemperature;
+        params.insulationThickness = networkParams.insulationThickness;
+
+        // Calculer ce segment
+        segment.result = calculate(params);
+
+        // Calculer la pression de sortie
+        segment.outletPressure = segment.inletPressure - (segment.result.pressureDrop / 10.0);
+
+        // Calculer récursivement les segments enfants
+        for (auto& childSegment : networkParams.segments) {
+            if (childSegment.parentId == segment.id) {
+                calculateSegmentRecursive(childSegment, segment.outletPressure);
+            }
+        }
+    };
+
+    // Trouver et calculer tous les segments racines (sans parent)
+    for (auto& segment : networkParams.segments) {
+        if (segment.parentId.empty()) {
+            calculateSegmentRecursive(segment, networkParams.supplyPressure);
+        }
+    }
 }
 
 double PipeCalculator::calculateVelocity(double flowRate, double diameter) {
