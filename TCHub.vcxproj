@@ -293,6 +293,9 @@ exit /b 0</Command>
     <ClCompile Include="Modules\ExcelCracker\ExcelBruteForce.cpp" />
     <ClCompile Include="Modules\ExcelCracker\ExcelCrackerWindow.cpp" />
     <ClCompile Include="Modules\HydraulicCalculations\PipeCalculator.cpp" />
+    <ClCompile Include="Modules\HydraulicCalculations\GraphicPipeSegment.cpp" />
+    <ClCompile Include="Modules\HydraulicCalculations\FixturePoint.cpp" />
+    <ClCompile Include="Modules\HydraulicCalculations\HydraulicSchemaView.cpp" />
     <ClCompile Include="Modules\HydraulicCalculations\HydraulicCalculationsWindow.cpp" />
     <ClCompile Include="GeneratedFiles\Debug\moc_MainWindow.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
@@ -316,6 +319,12 @@ exit /b 0</Command>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="GeneratedFiles\Release\moc_HydraulicCalculationsWindow.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_HydraulicSchemaView.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_HydraulicSchemaView.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="GeneratedFiles\Debug\moc_UpdateChecker.cpp">
@@ -356,6 +365,12 @@ exit /b 0</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Qt\6.10.1\msvc2022_64\bin\moc.exe "%(FullPath)" -o "GeneratedFiles\Release\moc_%(Filename).cpp" -DNDEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB "-IC:\Qt\6.10.1\msvc2022_64\include" "-IC:\Qt\6.10.1\msvc2022_64\include\QtWidgets" "-IC:\Qt\6.10.1\msvc2022_64\include\QtGui" "-IC:\Qt\6.10.1\msvc2022_64\include\QtCore"</Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">GeneratedFiles\Release\moc_%(Filename).cpp</Outputs>
     </CustomBuild>
+    <CustomBuild Include="Modules\HydraulicCalculations\HydraulicSchemaView.h">
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Qt\6.10.1\msvc2022_64\bin\moc.exe "%(FullPath)" -o "GeneratedFiles\Debug\moc_%(Filename).cpp" -D_DEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB "-IC:\Qt\6.10.1\msvc2022_64\include" "-IC:\Qt\6.10.1\msvc2022_64\include\QtWidgets" "-IC:\Qt\6.10.1\msvc2022_64\include\QtGui" "-IC:\Qt\6.10.1\msvc2022_64\include\QtCore"</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">GeneratedFiles\Debug\moc_%(Filename).cpp</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Qt\6.10.1\msvc2022_64\bin\moc.exe "%(FullPath)" -o "GeneratedFiles\Release\moc_%(Filename).cpp" -DNDEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB "-IC:\Qt\6.10.1\msvc2022_64\include" "-IC:\Qt\6.10.1\msvc2022_64\include\QtWidgets" "-IC:\Qt\6.10.1\msvc2022_64\include\QtGui" "-IC:\Qt\6.10.1\msvc2022_64\include\QtCore"</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">GeneratedFiles\Release\moc_%(Filename).cpp</Outputs>
+    </CustomBuild>
     <CustomBuild Include="UpdateChecker.h">
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Qt\6.10.1\msvc2022_64\bin\moc.exe "%(FullPath)" -o "GeneratedFiles\Debug\moc_%(Filename).cpp" -D_DEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB "-IC:\Qt\6.10.1\msvc2022_64\include" "-IC:\Qt\6.10.1\msvc2022_64\include\QtWidgets" "-IC:\Qt\6.10.1\msvc2022_64\include\QtGui" "-IC:\Qt\6.10.1\msvc2022_64\include\QtCore"</Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">GeneratedFiles\Debug\moc_%(Filename).cpp</Outputs>
@@ -381,6 +396,9 @@ exit /b 0</Command>
     <ClInclude Include="Modules\ExcelCracker\ExcelProtectionRemover.h" />
     <ClInclude Include="Modules\ExcelCracker\ExcelBruteForce.h" />
     <ClInclude Include="Modules\HydraulicCalculations\PipeCalculator.h" />
+    <ClInclude Include="Modules\HydraulicCalculations\GraphicPipeSegment.h" />
+    <ClInclude Include="Modules\HydraulicCalculations\FixturePoint.h" />
+    <ClInclude Include="Modules\HydraulicCalculations\HydraulicSchemaView.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

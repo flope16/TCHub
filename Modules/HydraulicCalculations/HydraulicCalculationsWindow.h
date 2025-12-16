@@ -4,19 +4,19 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
-#include <QTabWidget>
 #include <QGroupBox>
 #include <QLabel>
-#include <QLineEdit>
 #include <QComboBox>
-#include <QSpinBox>
 #include <QDoubleSpinBox>
 #include <QPushButton>
-#include <QTableWidget>
-#include <QTextEdit>
-#include <QCheckBox>
+#include <QToolButton>
+#include <QButtonGroup>
+#include <QScrollArea>
 #include <vector>
 #include "PipeCalculator.h"
+#include "HydraulicSchemaView.h"
+#include "GraphicPipeSegment.h"
+#include "FixturePoint.h"
 
 class HydraulicCalculationsWindow : public QDialog
 {
@@ -27,95 +27,107 @@ public:
     ~HydraulicCalculationsWindow();
 
 private slots:
+    // Changements de paramètres
     void onNetworkTypeChanged(int index);
-    void onMultiSegmentModeChanged(Qt::CheckState state);
-    void onAddSegment();
-    void onEditSegment();
-    void onRemoveSegment();
-    void onSegmentSelectionChanged();
-    void onAddFixture();
-    void onRemoveFixture();
+
+    // Modes d'interaction
+    void onSelectModeActivated();
+    void onAddSegmentModeActivated();
+    void onAddFixtureModeActivated(HydraulicCalc::FixtureType type);
+
+    // Gestion des segments
+    void onSegmentAdded(GraphicPipeSegment* segment);
+    void onSegmentSelected(GraphicPipeSegment* segment);
+    void onSegmentRemoved(GraphicPipeSegment* segment);
+    void onEditSelectedSegment();
+    void onDeleteSelectedSegment();
+
+    // Gestion des fixtures
+    void onFixtureAdded(FixturePoint* fixture, GraphicPipeSegment* segment);
+    void onFixtureSelected(FixturePoint* fixture);
+    void onFixtureRemoved(FixturePoint* fixture);
+    void onEditSelectedFixture();
+    void onDeleteSelectedFixture();
+
+    // Actions principales
     void onCalculate();
     void onExportPDF();
-    void onClearResults();
+    void onClear();
+    void onResetView();
 
 private:
     void setupUi();
     void applyStyle();
-    void updateFixtureTable();
-    void updateSegmentTable();
-    void updateSegmentParametersVisibility();
-    void displayResults(const HydraulicCalc::PipeSegmentResult& result);
-    void displayMultiSegmentResults(const HydraulicCalc::NetworkCalculationParameters& networkParams);
-    int countTotalFixtures(const std::string& segmentId) const;
+    void createToolsPanel();
+    void createParametersPanel();
+    void createFixturePalette();
+    void createSchemaView();
 
-    // Widgets principaux
-    QTabWidget *tabWidget;
+    // Dialogues
+    bool showSegmentDialog(HydraulicCalc::NetworkSegment& segment, bool isEdit = false);
+    bool showFixtureDialog(FixturePoint* fixture);
 
-    // Onglet Paramètres
-    QWidget *parametersTab;
-    QCheckBox *multiSegmentCheckbox;
+    // Calculs
+    void performCalculations();
+    void updateNetworkSegmentsData();
+
+    // Export
+    QString generatePDFHtml();
+
+    // Layout principal
+    QHBoxLayout *mainLayout;
+
+    // Panneau latéral gauche
+    QWidget *leftPanel;
+    QVBoxLayout *leftPanelLayout;
+    QScrollArea *leftScrollArea;
+
+    // Vue schéma (droite)
+    HydraulicSchemaView *schemaView;
+
+    // Paramètres généraux
+    QGroupBox *parametersGroup;
     QComboBox *networkTypeCombo;
     QComboBox *materialCombo;
     QDoubleSpinBox *supplyPressureSpin;
     QDoubleSpinBox *requiredPressureSpin;
 
-    // Paramètres pour mode segment unique (masqués en mode multi-segment)
-    QGroupBox *singleSegmentGroup;
-    QDoubleSpinBox *lengthSpin;
-    QDoubleSpinBox *heightDiffSpin;
-
-    // Gestion multi-segments (masqués en mode segment unique)
-    QGroupBox *multiSegmentGroup;
-    QTableWidget *segmentsTable;
-    QPushButton *addSegmentButton;
-    QPushButton *editSegmentButton;
-    QPushButton *removeSegmentButton;
-
-    // Paramètres spécifiques ECS avec bouclage
+    // Paramètres bouclage ECS
     QGroupBox *loopParametersGroup;
     QDoubleSpinBox *loopLengthSpin;
     QDoubleSpinBox *waterTempSpin;
     QDoubleSpinBox *ambientTempSpin;
     QDoubleSpinBox *insulationSpin;
 
-    // Onglet Appareils
-    QWidget *fixturesTab;
-    QComboBox *fixtureTypeCombo;
-    QSpinBox *fixtureQuantitySpin;
-    QPushButton *addFixtureButton;
-    QPushButton *removeFixtureButton;
-    QTableWidget *fixturesTable;
+    // Outils
+    QGroupBox *toolsGroup;
+    QButtonGroup *toolsButtonGroup;
+    QToolButton *selectToolButton;
+    QToolButton *addSegmentToolButton;
+    QToolButton *panToolButton;
 
-    // Onglet Résultats
-    QWidget *resultsTab;
-    QLabel *flowRateLabel;
-    QLabel *velocityLabel;
-    QLabel *pressureDropLabel;
-    QLabel *diameterLabel;
-    QLabel *availablePressureLabel;
-    QGroupBox *returnResultsGroup;  // Groupe pour résultats bouclage
-    QLabel *returnDiameterLabel;
-    QLabel *returnFlowRateLabel;
-    QLabel *returnVelocityLabel;
-    QLabel *heatLossLabel;
-    QLabel *returnTemperatureLabel;
-    QTextEdit *recommendationsText;
+    // Palette d'appareils
+    QGroupBox *fixturesGroup;
+    std::vector<QPushButton*> fixtureButtons;
+
+    // Actions d'édition
+    QGroupBox *editGroup;
+    QPushButton *editButton;
+    QPushButton *deleteButton;
 
     // Boutons d'action
     QPushButton *calculateButton;
     QPushButton *exportButton;
+    QPushButton *resetViewButton;
     QPushButton *clearButton;
     QPushButton *closeButton;
 
     // Données
-    std::vector<HydraulicCalc::Fixture> fixtures;
-    HydraulicCalc::PipeSegmentResult lastResult;
-    HydraulicCalc::CalculationParameters lastParams;
-
-    // Données multi-segments
-    bool multiSegmentMode;
     std::vector<HydraulicCalc::NetworkSegment> networkSegments;
-    HydraulicCalc::NetworkCalculationParameters lastNetworkParams;
-    int selectedSegmentIndex;
+    HydraulicCalc::PipeCalculator calculator;
+
+    // État
+    GraphicPipeSegment* currentSelectedSegment;
+    FixturePoint* currentSelectedFixture;
+    bool hasCalculated;
 };
