@@ -18,6 +18,7 @@ GraphicPipeSegment::GraphicPipeSegment(HydraulicCalc::NetworkSegment* segment, Q
     , resultsLabel(nullptr)
     , dimensionsLabel(nullptr)
     , mainBadge(nullptr)
+    , mainBadgeBg(nullptr)
     , isHighlighted(false)
     , hasReturn(false)
 {
@@ -55,14 +56,14 @@ void GraphicPipeSegment::createVisuals()
 {
     // Ligne principale (aller)
     pipeLineAller = new QGraphicsLineItem(this);
-    QPen allerPen(QColor("#4472C4"), 6);
+    QPen allerPen(QColor("#3498db"), 6);  // Bleu moderne
     allerPen.setCapStyle(Qt::RoundCap);
     pipeLineAller->setPen(allerPen);
     addToGroup(pipeLineAller);
 
     // Ligne retour (initialement invisible)
     pipeLineRetour = new QGraphicsLineItem(this);
-    QPen retourPen(QColor("#70AD47"), 4);
+    QPen retourPen(QColor("#27ae60"), 4);  // Vert moderne
     retourPen.setCapStyle(Qt::RoundCap);
     retourPen.setStyle(Qt::DashLine);
     pipeLineRetour->setPen(retourPen);
@@ -71,12 +72,12 @@ void GraphicPipeSegment::createVisuals()
 
     // Cercles de début et fin
     startCircle = new QGraphicsEllipseItem(-6, -6, 12, 12, this);
-    startCircle->setBrush(QBrush(QColor("#4472C4")));
+    startCircle->setBrush(QBrush(QColor("#3498db")));
     startCircle->setPen(QPen(Qt::white, 2));
     addToGroup(startCircle);
 
     endCircle = new QGraphicsEllipseItem(-6, -6, 12, 12, this);
-    endCircle->setBrush(QBrush(QColor("#4472C4")));
+    endCircle->setBrush(QBrush(QColor("#3498db")));
     endCircle->setPen(QPen(Qt::white, 2));
     addToGroup(endCircle);
 
@@ -300,7 +301,7 @@ QColor GraphicPipeSegment::getSegmentColor() const
         return QColor("#e74c3c");  // Rouge si problème
     }
 
-    return QColor("#4472C4");  // Bleu si OK
+    return QColor("#3498db");  // Bleu moderne si OK
 }
 
 void GraphicPipeSegment::addFixturePoint(FixturePoint* fixture)
@@ -382,15 +383,20 @@ void GraphicPipeSegment::updateMainSegmentDisplay()
         QPointF midPoint = (startPoint + endPoint) / 2.0;
         mainBadge->setPos(midPoint.x() - 40, midPoint.y() - 40);
 
-        // Ajouter un fond coloré au badge
+        // Créer ou mettre à jour le fond coloré du badge
+        if (!mainBadgeBg) {
+            mainBadgeBg = new QGraphicsRectItem(this);
+            mainBadgeBg->setBrush(QBrush(QColor("#e74c3c")));  // Rouge vif
+            mainBadgeBg->setPen(QPen(Qt::white, 2));
+            mainBadgeBg->setZValue(-1);
+            addToGroup(mainBadgeBg);
+        }
+
         QRectF badgeRect = mainBadge->boundingRect();
-        QGraphicsRectItem* badgeBg = new QGraphicsRectItem(
+        mainBadgeBg->setRect(
             mainBadge->x() - 5, mainBadge->y() - 2,
-            badgeRect.width() + 10, badgeRect.height() + 4, this);
-        badgeBg->setBrush(QBrush(QColor("#e74c3c")));  // Rouge vif
-        badgeBg->setPen(QPen(Qt::white, 2));
-        badgeBg->setZValue(-1);
-        addToGroup(badgeBg);
+            badgeRect.width() + 10, badgeRect.height() + 4);
+        mainBadgeBg->setVisible(true);
 
         // Rendre les cercles d'extrémité plus visibles pour le segment principal
         startCircle->setBrush(QBrush(QColor("#e74c3c")));
@@ -403,13 +409,16 @@ void GraphicPipeSegment::updateMainSegmentDisplay()
     } else {
         // Masquer le badge pour les segments non-principaux
         mainBadge->setVisible(false);
+        if (mainBadgeBg) {
+            mainBadgeBg->setVisible(false);
+        }
 
         // Restaurer la taille normale des cercles
-        startCircle->setBrush(QBrush(QColor("#4472C4")));
+        startCircle->setBrush(QBrush(QColor("#3498db")));
         startCircle->setPen(QPen(Qt::white, 2));
         startCircle->setRect(-6, -6, 12, 12);
 
-        endCircle->setBrush(QBrush(QColor("#4472C4")));
+        endCircle->setBrush(QBrush(QColor("#3498db")));
         endCircle->setPen(QPen(Qt::white, 2));
         endCircle->setRect(-6, -6, 12, 12);
     }

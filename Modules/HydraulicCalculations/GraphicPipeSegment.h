@@ -76,6 +76,7 @@ private:
     QGraphicsTextItem* resultsLabel;        // Résultats (DN, vitesse, etc.)
     QGraphicsTextItem* dimensionsLabel;     // Longueur et hauteur
     QGraphicsTextItem* mainBadge;           // Badge "PRINCIPAL" pour les segments racines
+    QGraphicsRectItem* mainBadgeBg;         // Fond du badge principal
     std::vector<QGraphicsEllipseItem*> junctionCircles;  // Cercles de jonction pour les fixtures
 
     // Points de puisage sur ce segment
