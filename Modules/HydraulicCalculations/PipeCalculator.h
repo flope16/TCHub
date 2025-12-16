@@ -66,6 +66,7 @@ struct PipeSegmentResult {
     int returnNominalDiameter;   // Diamètre nominal retour en mm
     double returnActualDiameter; // Diamètre intérieur réel retour en mm
     double heatLoss;         // Pertes thermiques en W
+    double returnTemperature;    // Température de l'eau de retour en °C
 
     std::string recommendation; // Recommandation
 
@@ -74,7 +75,7 @@ struct PipeSegmentResult {
         , nominalDiameter(0), actualDiameter(0)
         , hasReturn(false), returnFlowRate(0), returnVelocity(0)
         , returnNominalDiameter(0), returnActualDiameter(0)
-        , heatLoss(0)
+        , heatLoss(0), returnTemperature(0)
     {}
 };
 

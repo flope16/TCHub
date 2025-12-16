@@ -306,6 +306,10 @@ void HydraulicCalculationsWindow::setupUi()
     heatLossLabel->setStyleSheet("font-weight: bold; color: #28a745;");
     returnFormLayout->addRow("Pertes thermiques:", heatLossLabel);
 
+    returnTemperatureLabel = new QLabel("-", this);
+    returnTemperatureLabel->setStyleSheet("font-weight: bold; color: #28a745;");
+    returnFormLayout->addRow("Température retour:", returnTemperatureLabel);
+
     resultsLayout->addWidget(returnResultsGroup);
 
     QGroupBox *recommendationsGroup = new QGroupBox("Recommandations", this);
@@ -647,6 +651,7 @@ void HydraulicCalculationsWindow::displayResults(const HydraulicCalc::PipeSegmen
         returnFlowRateLabel->setText(QString::number(result.returnFlowRate, 'f', 2) + " L/min");
         returnVelocityLabel->setText(QString::number(result.returnVelocity, 'f', 2) + " m/s");
         heatLossLabel->setText(QString::number(result.heatLoss, 'f', 0) + " W");
+        returnTemperatureLabel->setText(QString::number(result.returnTemperature, 'f', 1) + " °C");
     } else {
         returnResultsGroup->setVisible(false);
     }
@@ -671,16 +676,18 @@ void HydraulicCalculationsWindow::onExportPDF()
     // Création du document HTML
     QString html = "<html><head><style>"
         "body { font-family: Arial, sans-serif; margin: 40px; }"
-        "h1 { color: #2c3e50; border-bottom: 3px solid #4472C4; padding-bottom: 10px; }"
-        "h2 { color: #4472C4; margin-top: 30px; }"
-        "h3 { color: #5a8fd1; margin-top: 20px; border-left: 4px solid #4472C4; padding-left: 10px; }"
-        "table { border-collapse: collapse; width: 100%; margin: 20px 0; }"
+        "h1 { color: #2c3e50; border-bottom: 3px solid #4472C4; padding-bottom: 10px; page-break-after: avoid; }"
+        "h2 { color: #4472C4; margin-top: 30px; page-break-after: avoid; page-break-before: auto; }"
+        "h3 { color: #5a8fd1; margin-top: 20px; border-left: 4px solid #4472C4; padding-left: 10px; page-break-after: avoid; }"
+        "table { border-collapse: collapse; width: 100%; margin: 20px 0; page-break-inside: avoid; }"
         "th, td { border: 1px solid #bdc3c7; padding: 10px; text-align: left; }"
         "th { background-color: #ecf0f1; font-weight: bold; }"
         ".result { background-color: #e8f5e9; font-weight: bold; }"
         ".segment-header { background-color: #d1e7fd; font-weight: bold; }"
+        ".segment-section { page-break-inside: avoid; margin-bottom: 30px; }"
         ".info { color: #6c757d; font-size: 0.9em; margin-top: 30px; }"
-        ".page-break { page-break-after: always; }"
+        ".page-break { page-break-before: always; margin-top: 0; }"
+        "p { page-break-inside: avoid; }"
         "</style></head><body>";
 
     html += "<h1>Fiche de calcul - Dimensionnement hydraulique</h1>";
@@ -711,8 +718,14 @@ void HydraulicCalculationsWindow::onExportPDF()
         }
 
         // Résultats pour chaque segment
+        bool firstSegment = true;
         for (const auto& segment : lastNetworkParams.segments) {
-            html += "<div class='page-break'></div>";
+            if (!firstSegment) {
+                html += "<div class='page-break'></div>";
+            }
+            firstSegment = false;
+
+            html += "<div class='segment-section'>";
             html += "<h2>Segment: " + QString::fromStdString(segment.name) + "</h2>";
 
             // Info segment
@@ -770,11 +783,13 @@ void HydraulicCalculationsWindow::onExportPDF()
                 html += "<tr><td>Débit de retour</td><td>" + QString::number(segment.result.returnFlowRate, 'f', 2) + " L/min</td></tr>";
                 html += "<tr><td>Vitesse de retour</td><td>" + QString::number(segment.result.returnVelocity, 'f', 2) + " m/s</td></tr>";
                 html += "<tr><td>Pertes thermiques</td><td>" + QString::number(segment.result.heatLoss, 'f', 0) + " W</td></tr>";
+                html += "<tr><td>Température retour</td><td>" + QString::number(segment.result.returnTemperature, 'f', 1) + " °C</td></tr>";
                 html += "</table>";
             }
 
             html += "<h3>Recommandations</h3>";
             html += "<p>" + QString::fromStdString(segment.result.recommendation) + "</p>";
+            html += "</div>"; // Fin de segment-section
         }
 
     } else {
@@ -842,6 +857,7 @@ void HydraulicCalculationsWindow::onExportPDF()
             html += "<tr><td>Débit de retour</td><td>" + QString::number(lastResult.returnFlowRate, 'f', 2) + " L/min</td></tr>";
             html += "<tr><td>Vitesse de retour</td><td>" + QString::number(lastResult.returnVelocity, 'f', 2) + " m/s</td></tr>";
             html += "<tr><td>Pertes thermiques</td><td>" + QString::number(lastResult.heatLoss, 'f', 0) + " W</td></tr>";
+            html += "<tr><td>Température retour</td><td>" + QString::number(lastResult.returnTemperature, 'f', 1) + " °C</td></tr>";
             html += "</table>";
         }
 
@@ -887,6 +903,7 @@ void HydraulicCalculationsWindow::onClearResults()
     returnFlowRateLabel->setText("-");
     returnVelocityLabel->setText("-");
     heatLossLabel->setText("-");
+    returnTemperatureLabel->setText("-");
     recommendationsText->clear();
 
     exportButton->setEnabled(false);
@@ -1108,9 +1125,13 @@ void HydraulicCalculationsWindow::onSegmentSelectionChanged()
 
 void HydraulicCalculationsWindow::updateSegmentTable()
 {
+    // Sauvegarder la sélection actuelle
+    int currentRow = segmentsTable->currentRow();
+
     segmentsTable->setRowCount(0);
 
-    for (const auto& segment : networkSegments) {
+    for (size_t i = 0; i < networkSegments.size(); ++i) {
+        const auto& segment = networkSegments[i];
         int row = segmentsTable->rowCount();
         segmentsTable->insertRow(row);
 
@@ -1131,15 +1152,61 @@ void HydraulicCalculationsWindow::updateSegmentTable()
         segmentsTable->setItem(row, 2, new QTableWidgetItem(QString::number(segment.length, 'f', 1)));
         segmentsTable->setItem(row, 3, new QTableWidgetItem(QString::number(segment.heightDifference, 'f', 1)));
 
-        int fixtureCount = 0;
+        // Compter les appareils de ce segment ET de tous ses descendants
+        int directFixtureCount = 0;
         for (const auto& fixture : segment.fixtures) {
-            fixtureCount += fixture.quantity;
+            directFixtureCount += fixture.quantity;
         }
-        segmentsTable->setItem(row, 4, new QTableWidgetItem(QString::number(fixtureCount)));
+
+        int totalFixtureCount = countTotalFixtures(segment.id);
+
+        // Afficher: direct (total avec enfants) si différent, sinon juste le total
+        QString fixtureText;
+        if (totalFixtureCount > directFixtureCount) {
+            fixtureText = QString("%1 (%2 total)").arg(directFixtureCount).arg(totalFixtureCount);
+        } else {
+            fixtureText = QString::number(directFixtureCount);
+        }
+        segmentsTable->setItem(row, 4, new QTableWidgetItem(fixtureText));
     }
 
     // Ajuster la taille des colonnes
     segmentsTable->resizeColumnsToContents();
+
+    // Restaurer la sélection si elle était valide
+    if (currentRow >= 0 && currentRow < segmentsTable->rowCount()) {
+        segmentsTable->setCurrentCell(currentRow, 0);
+    }
+}
+
+int HydraulicCalculationsWindow::countTotalFixtures(const std::string& segmentId) const
+{
+    int total = 0;
+
+    // Trouver le segment
+    const HydraulicCalc::NetworkSegment* segment = nullptr;
+    for (const auto& seg : networkSegments) {
+        if (seg.id == segmentId) {
+            segment = &seg;
+            break;
+        }
+    }
+
+    if (!segment) return 0;
+
+    // Compter les appareils directs
+    for (const auto& fixture : segment->fixtures) {
+        total += fixture.quantity;
+    }
+
+    // Compter récursivement les appareils des enfants
+    for (const auto& child : networkSegments) {
+        if (child.parentId == segmentId) {
+            total += countTotalFixtures(child.id);
+        }
+    }
+
+    return total;
 }
 
 void HydraulicCalculationsWindow::displayMultiSegmentResults(const HydraulicCalc::NetworkCalculationParameters& networkParams)
@@ -1181,6 +1248,8 @@ void HydraulicCalculationsWindow::displayMultiSegmentResults(const HydraulicCalc
                 .arg(segment.result.returnVelocity, 0, 'f', 2);
             resultsText += QString("  Pertes thermiques: %1 W\n")
                 .arg(segment.result.heatLoss, 0, 'f', 0);
+            resultsText += QString("  Température retour: %1 °C\n")
+                .arg(segment.result.returnTemperature, 0, 'f', 1);
         }
 
         resultsText += QString("\n💡 %1\n\n")
