@@ -27,10 +27,10 @@ HydraulicCalculationsWindow::HydraulicCalculationsWindow(QWidget *parent)
     QPalette palette;
     palette.setColor(QPalette::WindowText, QColor("#2c3e50"));        // Texte sur fond de fenêtre
     palette.setColor(QPalette::Text, QColor("#2c3e50"));              // Texte dans les champs de saisie
-    palette.setColor(QPalette::ButtonText, QColor("#ffffff"));        // Texte sur les boutons
-    palette.setColor(QPalette::Window, QColor("#f5f6fa"));            // Fond de fenêtre
+    palette.setColor(QPalette::ButtonText, QColor("#2c3e50"));        // Texte sur les boutons (foncé)
+    palette.setColor(QPalette::Window, QColor("#ecf0f1"));            // Fond de fenêtre
     palette.setColor(QPalette::Base, QColor("#ffffff"));              // Fond des champs de saisie
-    palette.setColor(QPalette::Button, QColor("#3498db"));            // Fond des boutons
+    palette.setColor(QPalette::Button, QColor("#ffffff"));            // Fond des boutons (blanc)
     qApp->setPalette(palette);
 
     setupUi();
@@ -314,13 +314,13 @@ void HydraulicCalculationsWindow::applyStyle()
 {
     QString style = R"(
         QDialog {
-            background-color: #f5f6fa;
+            background-color: #ecf0f1;
             color: #2c3e50;
         }
         QGroupBox {
             font-weight: bold;
             font-size: 11pt;
-            border: 2px solid #dfe6e9;
+            border: 3px solid #34495e;
             border-radius: 8px;
             margin-top: 15px;
             padding-top: 15px;
@@ -333,6 +333,7 @@ void HydraulicCalculationsWindow::applyStyle()
             padding: 5px 15px;
             background-color: #ffffff;
             color: #2c3e50;
+            font-weight: bold;
         }
         QLabel {
             color: #2c3e50;
@@ -340,28 +341,33 @@ void HydraulicCalculationsWindow::applyStyle()
             font-size: 10pt;
         }
         QPushButton {
-            background-color: #3498db;
-            color: white;
-            border: none;
+            background-color: #ffffff;
+            color: #2c3e50;
+            border: 3px solid #34495e;
             border-radius: 6px;
             padding: 10px 18px;
             font-weight: bold;
             font-size: 11pt;
         }
         QPushButton:hover {
-            background-color: #2980b9;
-        }
-        QPushButton:pressed {
-            background-color: #21618c;
-        }
-        QPushButton:disabled {
-            background-color: #bdc3c7;
-            color: #7f8c8d;
-        }
-        QToolButton {
             background-color: #3498db;
             color: white;
-            border: none;
+            border-color: #2980b9;
+        }
+        QPushButton:pressed {
+            background-color: #2980b9;
+            color: white;
+            border-color: #21618c;
+        }
+        QPushButton:disabled {
+            background-color: #ecf0f1;
+            color: #95a5a6;
+            border-color: #bdc3c7;
+        }
+        QToolButton {
+            background-color: #ffffff;
+            color: #2c3e50;
+            border: 3px solid #34495e;
             border-radius: 6px;
             padding: 10px 15px;
             text-align: left;
@@ -370,22 +376,25 @@ void HydraulicCalculationsWindow::applyStyle()
             min-height: 40px;
         }
         QToolButton:checked {
-            background-color: #1e3799;
+            background-color: #3498db;
             color: white;
+            border-color: #2980b9;
+            border-width: 4px;
         }
         QToolButton:hover:!checked {
-            background-color: #5dade2;
+            background-color: #ecf0f1;
+            border-color: #3498db;
         }
         QComboBox, QDoubleSpinBox, QLineEdit {
             padding: 8px;
-            border: 2px solid #dfe6e9;
+            border: 2px solid #34495e;
             border-radius: 6px;
             background-color: #ffffff;
             color: #2c3e50;
             font-size: 10pt;
         }
         QComboBox:focus, QDoubleSpinBox:focus, QLineEdit:focus {
-            border: 2px solid #3498db;
+            border: 3px solid #3498db;
         }
         QComboBox::drop-down {
             border: none;
@@ -400,14 +409,14 @@ void HydraulicCalculationsWindow::applyStyle()
         }
         QScrollArea {
             border: none;
-            background-color: #f5f6fa;
+            background-color: #ecf0f1;
         }
         QWidget#leftPanel {
-            background-color: #f5f6fa;
+            background-color: #ecf0f1;
             border: none;
         }
         QSplitter::handle {
-            background-color: #dfe6e9;
+            background-color: #34495e;
             width: 2px;
         }
     )";
@@ -416,10 +425,10 @@ void HydraulicCalculationsWindow::applyStyle()
     // Forcer la couleur du panneau gauche et de la scroll area
     if (leftPanel) {
         leftPanel->setObjectName("leftPanel");
-        leftPanel->setStyleSheet("background-color: #f5f6fa; border: none;");
+        leftPanel->setStyleSheet("background-color: #ecf0f1; border: none;");
     }
     if (leftScrollArea) {
-        leftScrollArea->setStyleSheet("QScrollArea { background-color: #f5f6fa; border: none; }");
+        leftScrollArea->setStyleSheet("QScrollArea { background-color: #ecf0f1; border: none; }");
         leftScrollArea->setFrameShape(QFrame::NoFrame);
     }
 }
