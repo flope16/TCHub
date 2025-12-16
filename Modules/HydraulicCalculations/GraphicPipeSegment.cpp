@@ -197,7 +197,7 @@ void GraphicPipeSegment::updateResultsDisplay()
 
     // Construire le texte des résultats
     QString resultsText;
-    resultsText += QString("DN %1 (\u00D8%2mm)\n")
+    resultsText += QString("DN %1 (D=%2mm)\n")
         .arg(result.nominalDiameter)
         .arg(result.actualDiameter, 0, 'f', 1);
 
