@@ -81,6 +81,9 @@ private:
     void drawTemporaryLine(const QPointF& start, const QPointF& end);
     void clearTemporaryLine();
     QPointF snapToHorizontalOrVertical(const QPointF& start, const QPointF& end);
+    QPointF snapToNearestEndpoint(const QPointF& pos, double tolerance = 30.0, bool* snapped = nullptr);
+    void drawSnapIndicator(const QPointF& pos);
+    void clearSnapIndicator();
 
     // Scène graphique
     QGraphicsScene* scene;
@@ -95,6 +98,7 @@ private:
     bool isDrawingSegment;
     QPointF segmentStartPoint;
     QGraphicsLineItem* temporaryLine;
+    QGraphicsEllipseItem* snapIndicator;
 
     // Pour l'ajout de fixtures
     HydraulicCalc::FixtureType fixtureTypeToPlace;

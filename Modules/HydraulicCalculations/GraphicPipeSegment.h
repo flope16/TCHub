@@ -40,6 +40,10 @@ public:
     void updateResultsDisplay();
     void setHighlighted(bool highlighted);
 
+    // Gestion du statut de tronçon principal
+    bool isMainSegment() const;
+    void updateMainSegmentDisplay();
+
     // Vérification si un point est sur le segment
     bool containsPoint(const QPointF& point, double tolerance = 10.0) const;
 
@@ -71,6 +75,7 @@ private:
     QGraphicsTextItem* nameLabel;           // Nom du segment
     QGraphicsTextItem* resultsLabel;        // Résultats (DN, vitesse, etc.)
     QGraphicsTextItem* dimensionsLabel;     // Longueur et hauteur
+    QGraphicsTextItem* mainBadge;           // Badge "PRINCIPAL" pour les segments racines
     std::vector<QGraphicsEllipseItem*> junctionCircles;  // Cercles de jonction pour les fixtures
 
     // Points de puisage sur ce segment
