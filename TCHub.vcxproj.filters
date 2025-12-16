@@ -70,6 +70,15 @@
     <ClCompile Include="Modules\HydraulicCalculations\PipeCalculator.cpp">
       <Filter>Modules\HydraulicCalculations</Filter>
     </ClCompile>
+    <ClCompile Include="Modules\HydraulicCalculations\GraphicPipeSegment.cpp">
+      <Filter>Modules\HydraulicCalculations</Filter>
+    </ClCompile>
+    <ClCompile Include="Modules\HydraulicCalculations\FixturePoint.cpp">
+      <Filter>Modules\HydraulicCalculations</Filter>
+    </ClCompile>
+    <ClCompile Include="Modules\HydraulicCalculations\HydraulicSchemaView.cpp">
+      <Filter>Modules\HydraulicCalculations</Filter>
+    </ClCompile>
     <ClCompile Include="Modules\HydraulicCalculations\HydraulicCalculationsWindow.cpp">
       <Filter>Modules\HydraulicCalculations</Filter>
     </ClCompile>
@@ -100,6 +109,15 @@
       <Filter>Modules\ExcelCracker</Filter>
     </ClInclude>
     <ClInclude Include="Modules\HydraulicCalculations\PipeCalculator.h">
+      <Filter>Modules\HydraulicCalculations</Filter>
+    </ClInclude>
+    <ClInclude Include="Modules\HydraulicCalculations\GraphicPipeSegment.h">
+      <Filter>Modules\HydraulicCalculations</Filter>
+    </ClInclude>
+    <ClInclude Include="Modules\HydraulicCalculations\FixturePoint.h">
+      <Filter>Modules\HydraulicCalculations</Filter>
+    </ClInclude>
+    <ClInclude Include="Modules\HydraulicCalculations\HydraulicSchemaView.h">
       <Filter>Modules\HydraulicCalculations</Filter>
     </ClInclude>
     <ClInclude Include="Modules\HydraulicCalculations\HydraulicCalculationsWindow.h">
