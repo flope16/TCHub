@@ -47,6 +47,7 @@ private:
     void updateSegmentParametersVisibility();
     void displayResults(const HydraulicCalc::PipeSegmentResult& result);
     void displayMultiSegmentResults(const HydraulicCalc::NetworkCalculationParameters& networkParams);
+    int countTotalFixtures(const std::string& segmentId) const;
 
     // Widgets principaux
     QTabWidget *tabWidget;
@@ -98,6 +99,7 @@ private:
     QLabel *returnFlowRateLabel;
     QLabel *returnVelocityLabel;
     QLabel *heatLossLabel;
+    QLabel *returnTemperatureLabel;
     QTextEdit *recommendationsText;
 
     // Boutons d'action

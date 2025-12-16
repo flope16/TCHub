@@ -163,8 +163,24 @@ PipeSegmentResult PipeCalculator::calculate(const CalculationParameters& params)
             }
         }
 
+        // Calcul de la température de retour
+        // ΔT = Pertes thermiques / (Débit × Chaleur spécifique × Densité)
+        // Chaleur spécifique de l'eau = 4186 J/(kg·K)
+        // Densité de l'eau ≈ 1 kg/L
+        double flowRateKgPerS = (result.returnFlowRate / 60.0); // L/min → kg/s (densité ≈ 1 kg/L)
+        double specificHeat = 4186.0; // J/(kg·K)
+
+        if (flowRateKgPerS > 0) {
+            double temperatureDrop = result.heatLoss / (flowRateKgPerS * specificHeat);
+            result.returnTemperature = params.waterTemperature - temperatureDrop;
+        } else {
+            result.returnTemperature = params.waterTemperature - 5.0; // Valeur par défaut si débit nul
+        }
+
         result.recommendation += "Pertes thermiques: " +
             std::to_string(static_cast<int>(result.heatLoss)) + " W. ";
+        result.recommendation += "Température retour: " +
+            std::to_string(static_cast<int>(result.returnTemperature * 10) / 10.0) + " °C. ";
 
         if (result.returnVelocity < minReturnVelocity) {
             result.recommendation += "⚠️ Vitesse retour faible (" +
