@@ -202,6 +202,13 @@ PipeSegmentResult PipeCalculator::calculate(const CalculationParameters& params)
 }
 
 void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParams) {
+    // Calcul automatique de la longueur de boucle = somme des longueurs de tous les segments
+    double totalLoopLength = 0.0;
+    for (const auto& segment : networkParams.segments) {
+        totalLoopLength += segment.length;
+    }
+    networkParams.loopLength = totalLoopLength;  // Mise à jour automatique
+
     // Fonction récursive pour collecter tous les appareils d'un segment et tous ses descendants
     std::function<void(const NetworkSegment&, std::vector<Fixture>&)> collectAllFixtures;
     collectAllFixtures = [&](const NetworkSegment& seg, std::vector<Fixture>& fixtures) {

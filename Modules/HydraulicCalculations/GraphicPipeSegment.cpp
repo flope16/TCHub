@@ -256,15 +256,23 @@ void GraphicPipeSegment::updateResultsDisplay(const HydraulicCalc::NetworkSegmen
     resultsText += QString("V=%1 m/s\n")
         .arg(result.velocity, 0, 'f', 2);
 
-    resultsText += QString("DP=%1 mCE\n")
+    resultsText += QString("DP=%1 mCE")
         .arg(result.pressureDrop, 0, 'f', 2);
+
+    // Afficher les pertes thermiques si ECS (avec ou sans bouclage)
+    if (result.heatLoss > 0.0) {
+        resultsText += QString("\nPertes: %1 W")
+            .arg(result.heatLoss, 0, 'f', 1);
+    }
 
     // Si retour de bouclage
     if (result.hasReturn) {
-        resultsText += QString("\nRetour: DN %1\n")
+        resultsText += QString("\n\nRetour: DN %1\n")
             .arg(result.returnNominalDiameter);
-        resultsText += QString("Qr=%1 L/min")
+        resultsText += QString("Qr=%1 L/min\n")
             .arg(result.returnFlowRate, 0, 'f', 1);
+        resultsText += QString("Tr=%1°C")
+            .arg(result.returnTemperature, 0, 'f', 1);
         hasReturn = true;
     } else {
         hasReturn = false;
