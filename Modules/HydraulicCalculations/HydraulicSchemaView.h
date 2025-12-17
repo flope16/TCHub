@@ -79,6 +79,7 @@ private:
     void handlePanMode(QMouseEvent* event);
 
     GraphicPipeSegment* findSegmentAt(const QPointF& scenePos);
+    GraphicPipeSegment* findSegmentAtForFixture(const QPointF& scenePos);
     void drawTemporaryLine(const QPointF& start, const QPointF& end);
     void clearTemporaryLine();
     QPointF snapToHorizontalOrVertical(const QPointF& start, const QPointF& end);

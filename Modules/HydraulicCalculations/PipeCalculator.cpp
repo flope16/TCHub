@@ -132,8 +132,8 @@ PipeSegmentResult PipeCalculator::calculate(const CalculationParameters& params)
     if (params.networkType == NetworkType::HotWaterWithLoop) {
         result.hasReturn = true;
 
-        // Calcul des pertes thermiques
-        result.heatLoss = calculateHeatLoss(params.loopLength, result.actualDiameter,
+        // Calcul des pertes thermiques (utiliser la longueur du SEGMENT, pas de toute la boucle)
+        result.heatLoss = calculateHeatLoss(params.length, result.actualDiameter,
                                            params.insulationThickness,
                                            params.waterTemperature, params.ambientTemperature);
 

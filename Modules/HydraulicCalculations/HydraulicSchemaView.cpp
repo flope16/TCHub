@@ -366,8 +366,8 @@ void HydraulicSchemaView::handleAddFixtureMode(QMouseEvent* event)
 {
     QPointF scenePos = mapToScene(event->pos());
 
-    // Trouver le segment le plus proche
-    GraphicPipeSegment* targetSegment = findSegmentAt(scenePos);
+    // Trouver le segment le plus proche (avec priorité aux segments parents sur points fusionnés)
+    GraphicPipeSegment* targetSegment = findSegmentAtForFixture(scenePos);
     if (targetSegment) {
         // Trouver le point d'accroche le plus proche (start ou end du segment)
         QPointF segStart = targetSegment->getStartPoint();
@@ -447,6 +447,40 @@ GraphicPipeSegment* HydraulicSchemaView::findSegmentAt(const QPointF& scenePos)
     }
 
     return closestSegment;
+}
+
+GraphicPipeSegment* HydraulicSchemaView::findSegmentAtForFixture(const QPointF& scenePos)
+{
+    // Stratégie spéciale pour placement de fixtures :
+    // Prioriser les segments dont l'ENDPOINT (fin) correspond au point cliqué
+    // car dans une jonction parent-enfant, le parent se TERMINE à la jonction
+    // tandis que l'enfant y COMMENCE
+
+    const double endpointTolerance = 30.0;  // Tolérance pour détecter un endpoint
+
+    // 1. Vérifier si on clique près d'un endpoint
+    GraphicPipeSegment* segmentWithMatchingEnd = nullptr;
+    double minEndDistance = endpointTolerance;
+
+    for (auto* segment : segments) {
+        QPointF endPoint = segment->getEndPoint();
+        QPointF delta = scenePos - endPoint;
+        double dist = std::sqrt(delta.x() * delta.x() + delta.y() * delta.y());
+
+        if (dist < minEndDistance) {
+            minEndDistance = dist;
+            segmentWithMatchingEnd = segment;
+        }
+    }
+
+    // 2. Si on a trouvé un segment dont l'endpoint correspond, le retourner
+    //    (c'est probablement le parent dans une jonction parent-enfant)
+    if (segmentWithMatchingEnd) {
+        return segmentWithMatchingEnd;
+    }
+
+    // 3. Sinon, utiliser la logique classique
+    return findSegmentAt(scenePos);
 }
 
 void HydraulicSchemaView::drawTemporaryLine(const QPointF& start, const QPointF& end)
