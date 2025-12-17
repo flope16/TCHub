@@ -713,17 +713,13 @@ void HydraulicCalculationsWindow::onAddSegmentModeActivated()
 
 void HydraulicCalculationsWindow::onSegmentDrawingComplete(const QPointF& start, const QPointF& end)
 {
+    // Créer des copies modifiables pour le snapping exact
+    QPointF snappedStart = start;
+    QPointF snappedEnd = end;
+
     // L'utilisateur a terminé de dessiner le segment
     // Demander les paramètres du segment
     HydraulicCalc::NetworkSegment newSegment;
-
-    // Calculer automatiquement la longueur et la hauteur d'après les points
-    QPointF delta = end - start;
-    double length = std::sqrt(delta.x() * delta.x() + delta.y() * delta.y()) / 2.0;  // échelle : 1m = 2 pixels
-    double heightDiff = -delta.y() / 2.0;  // Négatif car Y augmente vers le bas
-
-    newSegment.length = std::max(0.1, length);
-    newSegment.heightDifference = heightDiff;
 
     // Détecter automatiquement le parent en cherchant si le point de départ est proche d'un segment existant
     QString autoParentId = "";
@@ -736,8 +732,8 @@ void HydraulicCalculationsWindow::onSegmentDrawingComplete(const QPointF& start,
         QPointF segEnd = graphicSeg->getEndPoint();
 
         // Vérifier si le point de départ du nouveau segment est proche du point de fin d'un segment existant
-        QPointF deltaStart = start - segStart;
-        QPointF deltaEnd = start - segEnd;
+        QPointF deltaStart = snappedStart - segStart;
+        QPointF deltaEnd = snappedStart - segEnd;
 
         double distToStart = std::sqrt(deltaStart.x() * deltaStart.x() + deltaStart.y() * deltaStart.y());
         double distToEnd = std::sqrt(deltaEnd.x() * deltaEnd.x() + deltaEnd.y() * deltaEnd.y());
@@ -747,10 +743,22 @@ void HydraulicCalculationsWindow::onSegmentDrawingComplete(const QPointF& start,
             auto* parentData = graphicSeg->getSegmentData();
             if (parentData) {
                 autoParentId = QString::fromStdString(parentData->id);
+
+                // SNAP exact au point de connexion du parent pour fusionner les points
+                snappedStart = (distToStart < distToEnd) ? segStart : segEnd;
+
                 break;
             }
         }
     }
+
+    // Calculer automatiquement la longueur et la hauteur d'après les points SNAPPÉS
+    QPointF delta = snappedEnd - snappedStart;
+    double length = std::sqrt(delta.x() * delta.x() + delta.y() * delta.y()) / 2.0;  // échelle : 1m = 2 pixels
+    double heightDiff = -delta.y() / 2.0;  // Négatif car Y augmente vers le bas
+
+    newSegment.length = std::max(0.1, length);
+    newSegment.heightDifference = heightDiff;
 
     // Pré-remplir le parent dans le nouveau segment
     if (!autoParentId.isEmpty()) {
@@ -762,8 +770,8 @@ void HydraulicCalculationsWindow::onSegmentDrawingComplete(const QPointF& start,
         newSegment.id = "seg_" + std::to_string(networkSegments.size() + 1);
         networkSegments.push_back(newSegment);
 
-        // Créer le segment graphique avec les points dessinés
-        GraphicPipeSegment* graphicSegment = schemaView->addSegment(&networkSegments.back(), start, end);
+        // Créer le segment graphique avec les points SNAPPÉS pour éviter la superposition
+        GraphicPipeSegment* graphicSegment = schemaView->addSegment(&networkSegments.back(), snappedStart, snappedEnd);
 
         // Retourner en mode sélection
         onSelectModeActivated();
@@ -1263,7 +1271,8 @@ bool HydraulicCalculationsWindow::showSegmentDialog(HydraulicCalc::NetworkSegmen
         parentCombo->addItem(name, id);
     }
 
-    if (isEdit && !currentParentId.isEmpty()) {
+    // Présélectionner le parent s'il existe (création ou édition)
+    if (!currentParentId.isEmpty()) {
         int idx = parentCombo->findData(currentParentId);
         if (idx >= 0) parentCombo->setCurrentIndex(idx);
     }
