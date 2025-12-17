@@ -88,6 +88,7 @@ struct CalculationParameters {
     double supplyPressure;       // Pression d'alimentation en bar
     double requiredPressure;     // Pression minimale requise à l'appareil en bar
     std::vector<Fixture> fixtures; // Liste des appareils desservis
+    int minDiameter;             // Diamètre nominal minimal requis (DN min des enfants)
 
     // Paramètres spécifiques pour ECS avec bouclage
     double loopLength;           // Longueur totale de la boucle en m
@@ -102,6 +103,7 @@ struct CalculationParameters {
         , heightDifference(0.0)
         , supplyPressure(3.0)
         , requiredPressure(1.0)
+        , minDiameter(0)
         , loopLength(0.0)
         , ambientTemperature(20.0)
         , waterTemperature(60.0)
@@ -184,7 +186,7 @@ private:
                                  PipeMaterial material, NetworkType networkType);
     double calculateVelocity(double flowRate, double diameter);
     int selectOptimalDiameter(double flowRate, PipeMaterial material,
-                              double maxVelocity = 2.0);
+                              double maxVelocity = 2.0, int minDiameter = 0);
     double getInternalDiameter(int nominalDiameter, PipeMaterial material);
     double getRoughness(PipeMaterial material);
 
