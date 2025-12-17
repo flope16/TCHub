@@ -99,6 +99,35 @@ PipeSegmentResult PipeCalculator::calculate(const CalculationParameters& params)
     // Ajout de la perte de charge due à la différence de hauteur
     result.pressureDrop += params.heightDifference;
 
+    // Calcul des températures pour ECS (avec et sans bouclage)
+    if (params.networkType == NetworkType::HotWater || params.networkType == NetworkType::HotWaterWithLoop) {
+        // Température d'entrée = température fournie en paramètre
+        result.inletTemperature = params.waterTemperature;
+
+        // Calcul des pertes thermiques pour ce segment
+        result.heatLoss = calculateHeatLoss(params.length, result.actualDiameter,
+                                           params.insulationThickness,
+                                           params.waterTemperature, params.ambientTemperature);
+
+        // Calcul de la chute de température due aux pertes thermiques
+        // ΔT = Pertes (W) / (Débit (L/min) × Chaleur spécifique (J/(kg·K)) × Densité (kg/L) / 60)
+        // Chaleur spécifique de l'eau = 4186 J/(kg·K), Densité ≈ 1 kg/L
+        if (result.flowRate > 0) {
+            double flowRateKgPerS = result.flowRate / 60.0;  // L/min → kg/s (densité ≈ 1 kg/L)
+            double specificHeat = 4186.0;  // J/(kg·K)
+            double temperatureDrop = result.heatLoss / (flowRateKgPerS * specificHeat);
+            result.outletTemperature = result.inletTemperature - temperatureDrop;
+        } else {
+            // Si débit nul, température reste identique (pas de refroidissement)
+            result.outletTemperature = result.inletTemperature;
+        }
+    } else {
+        // Pour eau froide, pas de calcul de température
+        result.inletTemperature = 0.0;
+        result.outletTemperature = 0.0;
+        result.heatLoss = 0.0;
+    }
+
     // Vérification de la pression disponible
     double availablePressure = params.supplyPressure - (result.pressureDrop / 10.0);
 
@@ -131,67 +160,9 @@ PipeSegmentResult PipeCalculator::calculate(const CalculationParameters& params)
 
     if (params.networkType == NetworkType::HotWaterWithLoop) {
         result.hasReturn = true;
-
-        // Calcul des pertes thermiques (utiliser la longueur du SEGMENT, pas de toute la boucle)
-        result.heatLoss = calculateHeatLoss(params.length, result.actualDiameter,
-                                           params.insulationThickness,
-                                           params.waterTemperature, params.ambientTemperature);
-
-        // Calcul du débit de retour (bouclage)
-        // Formule: Q (L/h) = Pertes (W) / (1.16 * ΔT)
-        // ΔT typique = 5°C pour maintenir la température
-        double deltaT = 5.0; // Différence de température aller-retour en °C
-        double returnFlowRateLh = result.heatLoss / (1.16 * deltaT); // L/h
-        result.returnFlowRate = returnFlowRateLh / 60.0; // Conversion en L/min
-
-        // Vitesse minimale recommandée pour éviter stagnation : 0.2-0.3 m/s
-        double minReturnVelocity = 0.2;
-        double maxReturnVelocity = 0.5;
-
-        // Sélection du diamètre de retour
-        result.returnNominalDiameter = selectOptimalDiameter(result.returnFlowRate, params.material, maxReturnVelocity);
-        result.returnActualDiameter = getInternalDiameter(result.returnNominalDiameter, params.material);
-        result.returnVelocity = calculateVelocity(result.returnFlowRate, result.returnActualDiameter);
-
-        // Ajustement si vitesse trop faible
-        while (result.returnVelocity < minReturnVelocity && result.returnNominalDiameter > 10) {
-            // Réduire le diamètre pour augmenter la vitesse
-            std::vector<int> diameters = getAvailableDiameters(params.material);
-            auto it = std::find(diameters.begin(), diameters.end(), result.returnNominalDiameter);
-            if (it != diameters.begin()) {
-                --it;
-                result.returnNominalDiameter = *it;
-                result.returnActualDiameter = getInternalDiameter(result.returnNominalDiameter, params.material);
-                result.returnVelocity = calculateVelocity(result.returnFlowRate, result.returnActualDiameter);
-            } else {
-                break;
-            }
-        }
-
-        // Calcul de la température de retour
-        // ΔT = Pertes thermiques / (Débit × Chaleur spécifique × Densité)
-        // Chaleur spécifique de l'eau = 4186 J/(kg·K)
-        // Densité de l'eau ≈ 1 kg/L
-        double flowRateKgPerS = (result.returnFlowRate / 60.0); // L/min → kg/s (densité ≈ 1 kg/L)
-        double specificHeat = 4186.0; // J/(kg·K)
-
-        if (flowRateKgPerS > 0) {
-            double temperatureDrop = result.heatLoss / (flowRateKgPerS * specificHeat);
-            result.returnTemperature = params.waterTemperature - temperatureDrop;
-        } else {
-            result.returnTemperature = params.waterTemperature - 5.0; // Valeur par défaut si débit nul
-        }
-
-        result.recommendation += "Pertes thermiques: " +
-            std::to_string(static_cast<int>(result.heatLoss)) + " W. ";
-        result.recommendation += "Température retour: " +
-            std::to_string(static_cast<int>(result.returnTemperature * 10) / 10.0) + " °C. ";
-
-        if (result.returnVelocity < minReturnVelocity) {
-            result.recommendation += "⚠️ Vitesse retour faible (" +
-                std::to_string(static_cast<int>(result.returnVelocity * 100) / 100.0) +
-                " m/s). Risque de stagnation sur le retour. ";
-        }
+        // NOTE: Le débit de retour, DN retour et température retour sont calculés
+        // globalement dans calculateNetwork() après avoir calculé tous les segments
+        // car le débit de retour doit être identique pour TOUTE la boucle
     }
 
     if (result.recommendation.empty()) {
@@ -290,12 +261,36 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
         // ÉTAPE 6: Calculer la pression de sortie du parent
         segment.outletPressure = segment.inletPressure - (segment.result.pressureDrop / 10.0);
 
-        // ÉTAPE 7: Mettre à jour la pression d'entrée de tous les enfants
-        // avec la pression de sortie correcte du parent
+        // ÉTAPE 7: Mettre à jour la pression et température d'entrée de tous les enfants
+        // avec les valeurs de sortie correctes du parent
         for (auto* child : children) {
             child->inletPressure = segment.outletPressure;
-            // Note: Les calculs hydrauliques des enfants sont corrects (DN, vitesse, pertes)
-            // Seule la pression d'entrée doit être mise à jour
+
+            // Pour ECS: propager la température de sortie du parent vers l'entrée des enfants
+            // NOTE: les enfants ont déjà été calculés, on doit recalculer avec la bonne température
+            if (networkParams.networkType == NetworkType::HotWater ||
+                networkParams.networkType == NetworkType::HotWaterWithLoop) {
+
+                // Recalculer les pertes thermiques et la température de sortie de l'enfant
+                // avec la température d'entrée correcte (= température sortie parent)
+                double childInletTemp = segment.result.outletTemperature;
+                child->result.inletTemperature = childInletTemp;
+
+                // Recalculer les pertes thermiques avec la bonne température
+                child->result.heatLoss = calculateHeatLoss(child->length, child->result.actualDiameter,
+                                                          networkParams.insulationThickness,
+                                                          childInletTemp, networkParams.ambientTemperature);
+
+                // Recalculer la température de sortie
+                if (child->result.flowRate > 0) {
+                    double flowRateKgPerS = child->result.flowRate / 60.0;
+                    double specificHeat = 4186.0;
+                    double temperatureDrop = child->result.heatLoss / (flowRateKgPerS * specificHeat);
+                    child->result.outletTemperature = childInletTemp - temperatureDrop;
+                } else {
+                    child->result.outletTemperature = childInletTemp;
+                }
+            }
         }
     };
 
@@ -303,6 +298,62 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
     for (auto& segment : networkParams.segments) {
         if (segment.parentId.empty()) {
             calculateSegmentRecursive(segment, networkParams.supplyPressure);
+        }
+    }
+
+    // PASSE 2: Calcul du retour bouclage (si applicable)
+    if (networkParams.networkType == NetworkType::HotWaterWithLoop) {
+        // Calculer le débit de retour GLOBAL pour toute la boucle
+        // Somme de TOUTES les pertes thermiques
+        double totalHeatLoss = 0.0;
+        for (const auto& segment : networkParams.segments) {
+            totalHeatLoss += segment.result.heatLoss;
+        }
+
+        // Calcul du débit de retour global
+        // Q_retour (L/h) = Pertes_totales (W) / (1.16 × ΔT)
+        // ΔT = chute de température acceptable sur la boucle (typiquement 5°C)
+        const double deltaT = 5.0;  // °C
+        double globalReturnFlowRateLh = totalHeatLoss / (1.16 * deltaT);
+        double globalReturnFlowRate = globalReturnFlowRateLh / 60.0;  // Conversion L/h → L/min
+
+        // Vitesses min/max recommandées pour le retour
+        const double minReturnVelocity = 0.2;  // m/s
+        const double maxReturnVelocity = 0.5;  // m/s
+
+        // Appliquer le débit de retour global à TOUS les segments
+        for (auto& segment : networkParams.segments) {
+            segment.result.returnFlowRate = globalReturnFlowRate;
+
+            // Calculer le DN retour basé sur le débit global
+            segment.result.returnNominalDiameter = selectOptimalDiameter(
+                globalReturnFlowRate, networkParams.material, maxReturnVelocity);
+            segment.result.returnActualDiameter = getInternalDiameter(
+                segment.result.returnNominalDiameter, networkParams.material);
+            segment.result.returnVelocity = calculateVelocity(
+                globalReturnFlowRate, segment.result.returnActualDiameter);
+
+            // Ajustement si vitesse trop faible (réduire DN)
+            while (segment.result.returnVelocity < minReturnVelocity &&
+                   segment.result.returnNominalDiameter > 10) {
+                std::vector<int> diameters = getAvailableDiameters(networkParams.material);
+                auto it = std::find(diameters.begin(), diameters.end(),
+                                   segment.result.returnNominalDiameter);
+                if (it != diameters.begin()) {
+                    --it;
+                    segment.result.returnNominalDiameter = *it;
+                    segment.result.returnActualDiameter = getInternalDiameter(
+                        segment.result.returnNominalDiameter, networkParams.material);
+                    segment.result.returnVelocity = calculateVelocity(
+                        globalReturnFlowRate, segment.result.returnActualDiameter);
+                } else {
+                    break;
+                }
+            }
+
+            // Température de retour = température de sortie du segment (côté aller)
+            // car le retour ramène l'eau refroidie vers la source
+            segment.result.returnTemperature = segment.result.outletTemperature;
         }
     }
 }
