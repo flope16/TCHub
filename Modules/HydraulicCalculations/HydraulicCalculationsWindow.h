@@ -12,11 +12,29 @@
 #include <QToolButton>
 #include <QButtonGroup>
 #include <QScrollArea>
+#include <QEvent>
 #include <vector>
 #include "PipeCalculator.h"
 #include "HydraulicSchemaView.h"
 #include "GraphicPipeSegment.h"
 #include "FixturePoint.h"
+
+// Filtre pour désactiver la molette sur les SpinBox
+class SpinBoxWheelFilter : public QObject
+{
+    Q_OBJECT
+public:
+    explicit SpinBoxWheelFilter(QObject* parent = nullptr) : QObject(parent) {}
+
+protected:
+    bool eventFilter(QObject* obj, QEvent* event) override
+    {
+        if (event->type() == QEvent::Wheel) {
+            return true;  // Bloquer l'événement de molette
+        }
+        return QObject::eventFilter(obj, event);
+    }
+};
 
 class HydraulicCalculationsWindow : public QDialog
 {
@@ -25,6 +43,10 @@ class HydraulicCalculationsWindow : public QDialog
 public:
     explicit HydraulicCalculationsWindow(QWidget *parent = nullptr);
     ~HydraulicCalculationsWindow();
+
+protected:
+    // Surcharge pour désactiver la fermeture par Échap
+    void keyPressEvent(QKeyEvent* event) override;
 
 private slots:
     // Changements de paramètres
@@ -131,4 +153,7 @@ private:
     GraphicPipeSegment* currentSelectedSegment;
     FixturePoint* currentSelectedFixture;
     bool hasCalculated;
+
+    // Filtre pour bloquer la molette sur les spinbox
+    SpinBoxWheelFilter* wheelFilter;
 };

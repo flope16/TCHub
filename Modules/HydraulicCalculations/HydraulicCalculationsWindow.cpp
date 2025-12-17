@@ -10,6 +10,7 @@
 #include <QSplitter>
 #include <QPalette>
 #include <QApplication>
+#include <QKeyEvent>
 #include <cmath>
 #include <cstdint>
 
@@ -35,6 +36,9 @@ HydraulicCalculationsWindow::HydraulicCalculationsWindow(QWidget *parent)
     qApp->setPalette(dialogPalette);
 
     setObjectName("HydraulicCalculationsWindow");
+
+    // Créer le filtre pour bloquer la molette sur les spinbox
+    wheelFilter = new SpinBoxWheelFilter(this);
 
     setupUi();
     applyStyle();
@@ -75,6 +79,18 @@ HydraulicCalculationsWindow::HydraulicCalculationsWindow(QWidget *parent)
 
 HydraulicCalculationsWindow::~HydraulicCalculationsWindow()
 {
+}
+
+void HydraulicCalculationsWindow::keyPressEvent(QKeyEvent* event)
+{
+    // Désactiver la fermeture par Échap
+    if (event->key() == Qt::Key_Escape) {
+        event->ignore();  // Ignorer l'événement Échap
+        return;
+    }
+
+    // Propager les autres touches normalement
+    QDialog::keyPressEvent(event);
 }
 
 void HydraulicCalculationsWindow::setupUi()
@@ -167,6 +183,7 @@ void HydraulicCalculationsWindow::createParametersPanel()
     supplyPressureSpin->setValue(3.0);
     supplyPressureSpin->setSuffix(" bar");
     supplyPressureSpin->setDecimals(1);
+    supplyPressureSpin->installEventFilter(wheelFilter);  // Désactiver molette
     paramsLayout->addRow(supplyLabel, supplyPressureSpin);
 
     QLabel *requiredLabel = new QLabel("Pression requise");
@@ -177,6 +194,7 @@ void HydraulicCalculationsWindow::createParametersPanel()
     requiredPressureSpin->setValue(1.0);
     requiredPressureSpin->setSuffix(" bar");
     requiredPressureSpin->setDecimals(1);
+    requiredPressureSpin->installEventFilter(wheelFilter);  // Désactiver molette
     paramsLayout->addRow(requiredLabel, requiredPressureSpin);
 
     leftPanelLayout->addWidget(parametersGroup);
@@ -196,6 +214,7 @@ void HydraulicCalculationsWindow::createParametersPanel()
     loopLengthSpin->setValue(50.0);
     loopLengthSpin->setSuffix(" m");
     loopLengthSpin->setDecimals(1);
+    loopLengthSpin->installEventFilter(wheelFilter);  // Désactiver molette
     loopLayout->addRow(loopLengthLabel, loopLengthSpin);
 
     QLabel *waterTempLabel = new QLabel("Température eau");
@@ -206,6 +225,7 @@ void HydraulicCalculationsWindow::createParametersPanel()
     waterTempSpin->setValue(60.0);
     waterTempSpin->setSuffix(" C");
     waterTempSpin->setDecimals(1);
+    waterTempSpin->installEventFilter(wheelFilter);  // Désactiver molette
     loopLayout->addRow(waterTempLabel, waterTempSpin);
 
     QLabel *ambientTempLabel = new QLabel("Température ambiante");
@@ -216,6 +236,7 @@ void HydraulicCalculationsWindow::createParametersPanel()
     ambientTempSpin->setValue(20.0);
     ambientTempSpin->setSuffix(" C");
     ambientTempSpin->setDecimals(1);
+    ambientTempSpin->installEventFilter(wheelFilter);  // Désactiver molette
     loopLayout->addRow(ambientTempLabel, ambientTempSpin);
 
     QLabel *insulationLabel = new QLabel("Épaisseur isolation");
@@ -226,6 +247,7 @@ void HydraulicCalculationsWindow::createParametersPanel()
     insulationSpin->setValue(13.0);
     insulationSpin->setSuffix(" mm");
     insulationSpin->setDecimals(0);
+    insulationSpin->installEventFilter(wheelFilter);  // Désactiver molette
     loopLayout->addRow(insulationLabel, insulationSpin);
 
     leftPanelLayout->addWidget(loopParametersGroup);
@@ -707,7 +729,7 @@ void HydraulicCalculationsWindow::onSegmentDrawingComplete(const QPointF& start,
     QString autoParentId = "";
     const double snapDistance = 30.0;  // Distance de snapping
 
-    for (const auto* graphicSeg : schemaView->getSegments()) {
+    for (auto* graphicSeg : schemaView->getSegments()) {
         if (!graphicSeg) continue;
 
         QPointF segStart = graphicSeg->getStartPoint();
