@@ -993,32 +993,38 @@ void HydraulicCalculationsWindow::updateNetworkSegmentsData()
 
     auto& graphicSegments = schemaView->getSegments();
 
-    // Vérifier la cohérence entre segments graphiques et segments de données
-    size_t minSize = std::min(graphicSegments.size(), networkSegments.size());
-
-    for (size_t i = 0; i < minSize; ++i) {
-        auto* graphicSegment = graphicSegments[i];
-
+    // Pour chaque segment graphique, trouver le segment de données correspondant par ID (pas par index !)
+    for (auto* graphicSegment : graphicSegments) {
         // Vérifier que le segment graphique est valide
         if (!graphicSegment) continue;
 
-        auto& segmentData = networkSegments[i];
+        auto* graphicSegmentData = graphicSegment->getSegmentData();
+        if (!graphicSegmentData) continue;
 
-        // Effacer les anciennes fixtures
-        segmentData.fixtures.clear();
+        std::string graphicSegmentId = graphicSegmentData->id;
 
-        // Ajouter les fixtures depuis les points graphiques
-        try {
-            const auto& fixturePoints = graphicSegment->getFixturePoints();
-            for (auto* fixturePoint : fixturePoints) {
-                // Vérifier que le pointeur est valide et non corrompu
-                if (fixturePoint && reinterpret_cast<uintptr_t>(fixturePoint) < 0x7FFFFFFFFFFF) {
-                    segmentData.fixtures.push_back(fixturePoint->toFixture());
+        // Trouver le segment de données correspondant par ID
+        bool found = false;
+        for (auto& segmentData : networkSegments) {
+            if (segmentData.id == graphicSegmentId) {
+                // Trouvé le segment correspondant, mettre à jour ses fixtures
+                segmentData.fixtures.clear();
+
+                try {
+                    const auto& fixturePoints = graphicSegment->getFixturePoints();
+                    for (auto* fixturePoint : fixturePoints) {
+                        // Vérifier que le pointeur est valide
+                        if (fixturePoint) {
+                            segmentData.fixtures.push_back(fixturePoint->toFixture());
+                        }
+                    }
+                } catch (...) {
+                    // En cas d'erreur, continuer avec le segment suivant
                 }
+
+                found = true;
+                break;
             }
-        } catch (...) {
-            // En cas d'erreur, continuer avec le segment suivant
-            continue;
         }
     }
 }
