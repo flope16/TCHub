@@ -159,17 +159,23 @@ FixturePoint* HydraulicSchemaView::getSelectedFixture() const
     return nullptr;
 }
 
-void HydraulicSchemaView::updateAllSegments()
+void HydraulicSchemaView::updateAllSegments(std::function<HydraulicCalc::NetworkSegment*(const std::string&)> findSegmentById)
 {
     for (auto* segment : segments) {
-        segment->updateDisplay();
+        if (segment) {
+            HydraulicCalc::NetworkSegment* segData = findSegmentById(segment->getSegmentId());
+            segment->updateDisplay(segData);
+        }
     }
 }
 
-void HydraulicSchemaView::updateSegmentResults()
+void HydraulicSchemaView::updateSegmentResults(std::function<HydraulicCalc::NetworkSegment*(const std::string&)> findSegmentById)
 {
     for (auto* segment : segments) {
-        segment->updateResultsDisplay();
+        if (segment) {
+            HydraulicCalc::NetworkSegment* segData = findSegmentById(segment->getSegmentId());
+            segment->updateResultsDisplay(segData);
+        }
     }
 }
 
