@@ -945,55 +945,88 @@ void HydraulicCalculationsWindow::onCalculate()
         return;
     }
 
-    // Mettre à jour les données des segments avec les fixtures graphiques
-    updateNetworkSegmentsData();
+    try {
+        // Mettre à jour les données des segments avec les fixtures graphiques
+        updateNetworkSegmentsData();
 
-    // Effectuer les calculs
-    performCalculations();
+        // Effectuer les calculs
+        performCalculations();
 
-    // Mettre à jour l'affichage des résultats sur le schéma
-    schemaView->updateSegmentResults();
+        // Mettre à jour l'affichage des résultats sur le schéma
+        schemaView->updateSegmentResults();
 
-    hasCalculated = true;
-    exportButton->setEnabled(true);
+        hasCalculated = true;
+        exportButton->setEnabled(true);
 
-    QMessageBox::information(this, "Calcul terminé",
-                           "Les résultats sont affichés sur le schéma.");
+        QMessageBox::information(this, "Calcul terminé",
+                               "Les résultats sont affichés sur le schéma.");
+    }
+    catch (const std::exception& e) {
+        QMessageBox::critical(this, "Erreur de calcul",
+                            QString("Le calcul a échoué :\n\n%1\n\nVérifiez que tous les segments ont des valeurs valides (longueur > 0).").arg(e.what()));
+        hasCalculated = false;
+        exportButton->setEnabled(false);
+    }
+    catch (...) {
+        QMessageBox::critical(this, "Erreur de calcul",
+                            "Une erreur inconnue s'est produite lors du calcul.\n\nVérifiez que tous les segments ont des valeurs valides.");
+        hasCalculated = false;
+        exportButton->setEnabled(false);
+    }
 }
 
 void HydraulicCalculationsWindow::performCalculations()
 {
-    // Préparer les paramètres de calcul du réseau
-    HydraulicCalc::NetworkCalculationParameters networkParams;
-    networkParams.networkType = static_cast<HydraulicCalc::NetworkType>(networkTypeCombo->currentIndex());
-    networkParams.material = static_cast<HydraulicCalc::PipeMaterial>(materialCombo->currentIndex());
-    networkParams.supplyPressure = supplyPressureSpin->value();
-    networkParams.requiredPressure = requiredPressureSpin->value();
-    networkParams.segments = networkSegments;
+    try {
+        // Préparer les paramètres de calcul du réseau
+        HydraulicCalc::NetworkCalculationParameters networkParams;
+        networkParams.networkType = static_cast<HydraulicCalc::NetworkType>(networkTypeCombo->currentIndex());
+        networkParams.material = static_cast<HydraulicCalc::PipeMaterial>(materialCombo->currentIndex());
+        networkParams.supplyPressure = supplyPressureSpin->value();
+        networkParams.requiredPressure = requiredPressureSpin->value();
 
-    // Paramètres bouclage si nécessaire
-    if (networkTypeCombo->currentIndex() == 2) {
-        networkParams.loopLength = loopLengthSpin->value();
-        networkParams.waterTemperature = waterTempSpin->value();
-        networkParams.ambientTemperature = ambientTempSpin->value();
-        networkParams.insulationThickness = insulationSpin->value();
-    }
+        // Copier les segments et valider qu'ils ont des valeurs cohérentes
+        networkParams.segments = networkSegments;
 
-    // Calcul
-    calculator.calculateNetwork(networkParams);
+        // Vérification de sécurité : s'assurer qu'aucun segment n'a de valeurs invalides
+        for (auto& seg : networkParams.segments) {
+            if (seg.length <= 0.0) seg.length = 0.1;  // Longueur minimale
+            // Les fixtures ont déjà été mises à jour par updateNetworkSegmentsData()
+        }
 
-    // Copier les résultats dans les segments existants par ID
-    // NE PAS remplacer le vecteur ! Les segments graphiques ont des pointeurs vers ces segments
-    for (const auto& calculatedSeg : networkParams.segments) {
-        for (auto& seg : networkSegments) {
-            if (seg.id == calculatedSeg.id) {
-                // Copier uniquement les résultats du calcul (pas tout le segment)
-                seg.result = calculatedSeg.result;
-                seg.inletPressure = calculatedSeg.inletPressure;
-                seg.outletPressure = calculatedSeg.outletPressure;
-                break;
+        // Paramètres bouclage si nécessaire
+        if (networkTypeCombo->currentIndex() == 2) {
+            networkParams.loopLength = loopLengthSpin->value();
+            networkParams.waterTemperature = waterTempSpin->value();
+            networkParams.ambientTemperature = ambientTempSpin->value();
+            networkParams.insulationThickness = insulationSpin->value();
+        }
+
+        // Calcul avec protection
+        calculator.calculateNetwork(networkParams);
+
+        // Copier les résultats dans les segments existants par ID
+        // NE PAS remplacer le vecteur ! Les segments graphiques ont des pointeurs vers ces segments
+        for (const auto& calculatedSeg : networkParams.segments) {
+            for (auto& seg : networkSegments) {
+                if (seg.id == calculatedSeg.id) {
+                    // Copier uniquement les résultats du calcul (pas tout le segment)
+                    seg.result = calculatedSeg.result;
+                    seg.inletPressure = calculatedSeg.inletPressure;
+                    seg.outletPressure = calculatedSeg.outletPressure;
+                    break;
+                }
             }
         }
+    }
+    catch (const std::bad_alloc& e) {
+        throw std::runtime_error("Erreur d'allocation mémoire lors du calcul. Vérifiez que les données sont correctes.");
+    }
+    catch (const std::exception& e) {
+        throw std::runtime_error(std::string("Erreur lors du calcul : ") + e.what());
+    }
+    catch (...) {
+        throw std::runtime_error("Erreur inconnue lors du calcul hydraulique.");
     }
 }
 
@@ -1296,15 +1329,15 @@ bool HydraulicCalculationsWindow::showSegmentDialog(HydraulicCalc::NetworkSegmen
     formLayout->addRow("Parent:", parentCombo);
 
     QDoubleSpinBox *lengthSpin = new QDoubleSpinBox(&dialog);
-    lengthSpin->setRange(0.1, 1000.0);
-    lengthSpin->setValue(isEdit ? segment.length : 10.0);
+    lengthSpin->setRange(0.0, 1000.0);
+    lengthSpin->setValue(isEdit ? segment.length : 0.0);
     lengthSpin->setSuffix(" m");
     lengthSpin->setDecimals(1);
     formLayout->addRow("Longueur:", lengthSpin);
 
     QDoubleSpinBox *heightSpin = new QDoubleSpinBox(&dialog);
     heightSpin->setRange(-100.0, 100.0);
-    heightSpin->setValue(isEdit ? segment.heightDifference : 3.0);
+    heightSpin->setValue(isEdit ? segment.heightDifference : 0.0);
     heightSpin->setSuffix(" m");
     heightSpin->setDecimals(1);
     formLayout->addRow("Hauteur:", heightSpin);
