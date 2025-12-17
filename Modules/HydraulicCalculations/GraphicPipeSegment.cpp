@@ -347,6 +347,57 @@ bool GraphicPipeSegment::containsPoint(const QPointF& point, double tolerance) c
     return std::sqrt(dx * dx + dy * dy) <= tolerance;
 }
 
+QRectF GraphicPipeSegment::boundingRect() const
+{
+    // Retourner un bounding rect qui contient SEULEMENT le segment (ligne + cercles endpoints)
+    // PAS les labels qui peuvent être loin
+    const double margin = 15.0;  // Marge pour les cercles et la largeur de ligne
+
+    double minX = std::min(startPoint.x(), endPoint.x()) - margin;
+    double maxX = std::max(startPoint.x(), endPoint.x()) + margin;
+    double minY = std::min(startPoint.y(), endPoint.y()) - margin;
+    double maxY = std::max(startPoint.y(), endPoint.y()) + margin;
+
+    return QRectF(QPointF(minX, minY), QPointF(maxX, maxY));
+}
+
+QPainterPath GraphicPipeSegment::shape() const
+{
+    // Définir la forme cliquable : une zone autour du segment (ligne épaissie)
+    QPainterPath path;
+
+    // Créer un rectangle autour de la ligne du segment
+    const double thickness = 10.0;  // Épaisseur de la zone cliquable
+
+    QPointF segmentVector = endPoint - startPoint;
+    double length = std::sqrt(segmentVector.x() * segmentVector.x() +
+                             segmentVector.y() * segmentVector.y());
+
+    if (length > 0) {
+        // Vecteur perpendiculaire normalisé
+        QPointF perpVector(-segmentVector.y() / length, segmentVector.x() / length);
+
+        // Les 4 coins du rectangle autour du segment
+        QPointF p1 = startPoint + perpVector * thickness;
+        QPointF p2 = startPoint - perpVector * thickness;
+        QPointF p3 = endPoint - perpVector * thickness;
+        QPointF p4 = endPoint + perpVector * thickness;
+
+        // Créer le chemin (rectangle)
+        path.moveTo(p1);
+        path.lineTo(p4);
+        path.lineTo(p3);
+        path.lineTo(p2);
+        path.closeSubpath();
+    }
+
+    // Ajouter des cercles aux extrémités
+    path.addEllipse(startPoint, thickness, thickness);
+    path.addEllipse(endPoint, thickness, thickness);
+
+    return path;
+}
+
 QVariant GraphicPipeSegment::itemChange(GraphicsItemChange change, const QVariant& value)
 {
     if (change == ItemSelectedChange) {
