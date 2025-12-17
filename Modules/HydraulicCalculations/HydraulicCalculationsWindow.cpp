@@ -11,6 +11,7 @@
 #include <QPalette>
 #include <QApplication>
 #include <cmath>
+#include <cstdint>
 
 HydraulicCalculationsWindow::HydraulicCalculationsWindow(QWidget *parent)
     : QDialog(parent)
@@ -23,6 +24,18 @@ HydraulicCalculationsWindow::HydraulicCalculationsWindow(QWidget *parent)
     , currentSelectedFixture(nullptr)
     , hasCalculated(false)
 {
+    // Configurer une palette globale pour les dialogues
+    QPalette dialogPalette;
+    dialogPalette.setColor(QPalette::Window, QColor("#ffffff"));
+    dialogPalette.setColor(QPalette::WindowText, QColor("#1e293b"));
+    dialogPalette.setColor(QPalette::Base, QColor("#ffffff"));
+    dialogPalette.setColor(QPalette::Text, QColor("#1e293b"));
+    dialogPalette.setColor(QPalette::Button, QColor("#3b82f6"));
+    dialogPalette.setColor(QPalette::ButtonText, QColor("#ffffff"));
+    qApp->setPalette(dialogPalette);
+
+    setObjectName("HydraulicCalculationsWindow");
+
     setupUi();
     applyStyle();
 
@@ -376,9 +389,13 @@ void HydraulicCalculationsWindow::applyStyle()
     QString style = R"(
         /* === LAYOUT PRINCIPAL === */
         QDialog {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                stop:0 #f8fafc, stop:1 #f1f5f9);
+            background-color: #f8fafc;
             color: #1e293b;
+        }
+
+        /* === FENÊTRE PRINCIPALE === */
+        QDialog#HydraulicCalculationsWindow {
+            background-color: #f8fafc;
         }
 
         /* === CARTES MODERNES === */
@@ -885,20 +902,36 @@ void HydraulicCalculationsWindow::performCalculations()
 void HydraulicCalculationsWindow::updateNetworkSegmentsData()
 {
     // Mettre à jour les fixtures de chaque segment à partir des FixturePoint graphiques
+    if (!schemaView) return;
+
     auto& graphicSegments = schemaView->getSegments();
 
-    for (size_t i = 0; i < graphicSegments.size() && i < networkSegments.size(); ++i) {
+    // Vérifier la cohérence entre segments graphiques et segments de données
+    size_t minSize = std::min(graphicSegments.size(), networkSegments.size());
+
+    for (size_t i = 0; i < minSize; ++i) {
         auto* graphicSegment = graphicSegments[i];
+
+        // Vérifier que le segment graphique est valide
+        if (!graphicSegment) continue;
+
         auto& segmentData = networkSegments[i];
 
         // Effacer les anciennes fixtures
         segmentData.fixtures.clear();
 
         // Ajouter les fixtures depuis les points graphiques
-        for (auto* fixturePoint : graphicSegment->getFixturePoints()) {
-            if (fixturePoint) {  // Vérifier que le pointeur est valide
-                segmentData.fixtures.push_back(fixturePoint->toFixture());
+        try {
+            const auto& fixturePoints = graphicSegment->getFixturePoints();
+            for (auto* fixturePoint : fixturePoints) {
+                // Vérifier que le pointeur est valide et non corrompu
+                if (fixturePoint && reinterpret_cast<uintptr_t>(fixturePoint) < 0x7FFFFFFFFFFF) {
+                    segmentData.fixtures.push_back(fixturePoint->toFixture());
+                }
             }
+        } catch (...) {
+            // En cas d'erreur, continuer avec le segment suivant
+            continue;
         }
     }
 }
@@ -1076,13 +1109,59 @@ bool HydraulicCalculationsWindow::showSegmentDialog(HydraulicCalc::NetworkSegmen
 {
     QDialog dialog(this);
     dialog.setWindowTitle(isEdit ? "Modifier le tronçon" : "Nouveau tronçon");
-    dialog.setMinimumWidth(400);
+    dialog.setMinimumWidth(450);
+
+    // Style explicite pour le dialogue
+    dialog.setStyleSheet(
+        "QDialog {"
+        "   background-color: white;"
+        "   color: #1e293b;"
+        "}"
+        "QLabel {"
+        "   color: #1e293b;"
+        "   background-color: transparent;"
+        "   font-size: 10pt;"
+        "}"
+        "QLineEdit, QComboBox, QDoubleSpinBox {"
+        "   padding: 8px;"
+        "   border: 2px solid #e2e8f0;"
+        "   border-radius: 6px;"
+        "   background-color: white;"
+        "   color: #1e293b;"
+        "   font-size: 10pt;"
+        "}"
+        "QPushButton {"
+        "   background-color: #3b82f6;"
+        "   color: white;"
+        "   border: none;"
+        "   border-radius: 6px;"
+        "   padding: 10px 20px;"
+        "   font-weight: 600;"
+        "   font-size: 10pt;"
+        "   min-width: 80px;"
+        "}"
+        "QPushButton:hover {"
+        "   background-color: #2563eb;"
+        "}"
+        "QPushButton:pressed {"
+        "   background-color: #1e40af;"
+        "}"
+    );
 
     QVBoxLayout *layout = new QVBoxLayout(&dialog);
+    layout->setContentsMargins(20, 20, 20, 20);
+    layout->setSpacing(16);
+
     QFormLayout *formLayout = new QFormLayout();
+    formLayout->setSpacing(12);
+
+    // Copier les informations pour éviter les références invalides
+    QString currentSegmentId = QString::fromStdString(segment.id);
+    QString currentSegmentName = QString::fromStdString(segment.name);
+    QString currentParentId = QString::fromStdString(segment.parentId);
 
     QLineEdit *nameEdit = new QLineEdit(&dialog);
-    nameEdit->setText(QString::fromStdString(segment.name));
+    nameEdit->setText(currentSegmentName);
     if (!isEdit) {
         nameEdit->setText("Tronçon " + QString::number(networkSegments.size() + 1));
     }
@@ -1090,13 +1169,23 @@ bool HydraulicCalculationsWindow::showSegmentDialog(HydraulicCalc::NetworkSegmen
 
     QComboBox *parentCombo = new QComboBox(&dialog);
     parentCombo->addItem("(Aucun - Segment racine)", "");
+
+    // Créer une copie des segments pour éviter les problèmes d'itération
+    std::vector<std::pair<QString, QString>> segmentList;
     for (const auto& seg : networkSegments) {
-        if (&seg != &segment) {  // Ne pas pouvoir se choisir comme parent
-            parentCombo->addItem(QString::fromStdString(seg.name), QString::fromStdString(seg.id));
+        QString segId = QString::fromStdString(seg.id);
+        QString segName = QString::fromStdString(seg.name);
+        if (segId != currentSegmentId) {  // Ne pas pouvoir se choisir comme parent
+            segmentList.push_back({segName, segId});
         }
     }
-    if (isEdit) {
-        int idx = parentCombo->findData(QString::fromStdString(segment.parentId));
+
+    for (const auto& [name, id] : segmentList) {
+        parentCombo->addItem(name, id);
+    }
+
+    if (isEdit && !currentParentId.isEmpty()) {
+        int idx = parentCombo->findData(currentParentId);
         if (idx >= 0) parentCombo->setCurrentIndex(idx);
     }
     formLayout->addRow("Parent:", parentCombo);
