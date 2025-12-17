@@ -21,7 +21,7 @@ public:
     ~GraphicPipeSegment();
 
     // Accesseurs
-    HydraulicCalc::NetworkSegment* getSegmentData() { return segmentData; }
+    std::string getSegmentId() const { return segmentId; }
     QPointF getStartPoint() const { return startPoint; }
     QPointF getEndPoint() const { return endPoint; }
 
@@ -35,14 +35,13 @@ public:
     void removeFixturePoint(FixturePoint* fixture);
     std::vector<FixturePoint*>& getFixturePoints() { return fixturePoints; }
 
-    // Mise à jour de l'affichage
-    void updateDisplay();
-    void updateResultsDisplay();
+    // Mise à jour de l'affichage (nécessite les données du segment pour éviter les pointeurs invalides)
+    void updateDisplay(const HydraulicCalc::NetworkSegment* segmentData = nullptr);
+    void updateResultsDisplay(const HydraulicCalc::NetworkSegment* segmentData = nullptr);
     void setHighlighted(bool highlighted);
 
     // Gestion du statut de tronçon principal
-    bool isMainSegment() const;
-    void updateMainSegmentDisplay();
+    bool isMainSegment(const HydraulicCalc::NetworkSegment* segmentData = nullptr) const;
 
     // Vérification si un point est sur le segment
     bool containsPoint(const QPointF& point, double tolerance = 10.0) const;
@@ -54,13 +53,14 @@ protected:
 
 private:
     void createVisuals();
-    void updatePipeVisual();
-    void updateLabels();
+    void updatePipeVisual(const HydraulicCalc::NetworkSegment* segmentData = nullptr);
+    void updateLabels(const HydraulicCalc::NetworkSegment* segmentData = nullptr);
     void updateJunctionPoints();
+    void updateMainSegmentDisplay(const HydraulicCalc::NetworkSegment* segmentData = nullptr);
     QColor getSegmentColor() const;
 
-    // Données du segment
-    HydraulicCalc::NetworkSegment* segmentData;
+    // Données du segment (stockage par ID pour éviter les pointeurs invalides lors de réallocation du vector)
+    std::string segmentId;
 
     // Position
     QPointF startPoint;

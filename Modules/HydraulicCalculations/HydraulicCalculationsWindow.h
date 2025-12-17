@@ -94,6 +94,10 @@ private:
     void performCalculations();
     void updateNetworkSegmentsData();
 
+    // Helpers pour rechercher les segments par ID (évite les pointeurs invalides)
+    HydraulicCalc::NetworkSegment* findSegmentById(const std::string& id);
+    const HydraulicCalc::NetworkSegment* findSegmentById(const std::string& id) const;
+
     // Export
     QString generatePDFHtml();
 

@@ -686,6 +686,28 @@ void HydraulicCalculationsWindow::applyStyle()
     }
 }
 
+// ===== HELPERS =====
+
+HydraulicCalc::NetworkSegment* HydraulicCalculationsWindow::findSegmentById(const std::string& id)
+{
+    for (auto& seg : networkSegments) {
+        if (seg.id == id) {
+            return &seg;
+        }
+    }
+    return nullptr;
+}
+
+const HydraulicCalc::NetworkSegment* HydraulicCalculationsWindow::findSegmentById(const std::string& id) const
+{
+    for (const auto& seg : networkSegments) {
+        if (seg.id == id) {
+            return &seg;
+        }
+    }
+    return nullptr;
+}
+
 // ===== SLOTS =====
 
 void HydraulicCalculationsWindow::onNetworkTypeChanged(int index)
@@ -740,9 +762,9 @@ void HydraulicCalculationsWindow::onSegmentDrawingComplete(const QPointF& start,
 
         if (distToStart < snapDistance || distToEnd < snapDistance) {
             // Trouvé un segment parent potentiel
-            auto* parentData = graphicSeg->getSegmentData();
-            if (parentData) {
-                autoParentId = QString::fromStdString(parentData->id);
+            std::string parentSegmentId = graphicSeg->getSegmentId();
+            if (!parentSegmentId.empty()) {
+                autoParentId = QString::fromStdString(parentSegmentId);
 
                 // SNAP exact au point de connexion du parent pour fusionner les points
                 snappedStart = (distToStart < distToEnd) ? segStart : segEnd;
@@ -772,6 +794,14 @@ void HydraulicCalculationsWindow::onSegmentDrawingComplete(const QPointF& start,
 
         // Créer le segment graphique avec les points SNAPPÉS pour éviter la superposition
         GraphicPipeSegment* graphicSegment = schemaView->addSegment(&networkSegments.back(), snappedStart, snappedEnd);
+
+        // Mettre à jour l'affichage avec les données du segment
+        if (graphicSegment) {
+            HydraulicCalc::NetworkSegment* segData = findSegmentById(newSegment.id);
+            if (segData) {
+                graphicSegment->updateDisplay(segData);
+            }
+        }
 
         // Retourner en mode sélection
         onSelectModeActivated();
@@ -814,9 +844,10 @@ void HydraulicCalculationsWindow::onSegmentSelected(GraphicPipeSegment* segment)
 
 void HydraulicCalculationsWindow::onSegmentRemoved(GraphicPipeSegment* segment)
 {
-    // Retirer des données
+    // Retirer des données par ID au lieu de comparer les pointeurs
+    std::string segmentId = segment->getSegmentId();
     for (auto it = networkSegments.begin(); it != networkSegments.end(); ++it) {
-        if (&(*it) == segment->getSegmentData()) {
+        if (it->id == segmentId) {
             networkSegments.erase(it);
             break;
         }
@@ -833,9 +864,11 @@ void HydraulicCalculationsWindow::onEditSelectedSegment()
 {
     if (!currentSelectedSegment) return;
 
-    HydraulicCalc::NetworkSegment* segmentData = currentSelectedSegment->getSegmentData();
+    // Retrouver le segment par ID au lieu d'utiliser un pointeur potentiellement invalide
+    std::string segmentId = currentSelectedSegment->getSegmentId();
+    HydraulicCalc::NetworkSegment* segmentData = findSegmentById(segmentId);
 
-    // Vérifier que le pointeur est valide
+    // Vérifier que le segment existe toujours
     if (!segmentData) {
         QMessageBox::warning(this, "Erreur", "Le segment sélectionné n'est plus valide.");
         currentSelectedSegment = nullptr;
@@ -844,7 +877,7 @@ void HydraulicCalculationsWindow::onEditSelectedSegment()
         return;
     }
 
-    // Créer une copie locale pour éviter les problèmes de pointeur invalide
+    // Créer une copie locale pour la modification
     HydraulicCalc::NetworkSegment segmentCopy = *segmentData;
 
     if (showSegmentDialog(segmentCopy, true)) {
@@ -859,7 +892,11 @@ void HydraulicCalculationsWindow::onEditSelectedSegment()
         }
 
         if (found) {
-            currentSelectedSegment->updateDisplay();
+            // Récupérer les données à jour pour l'affichage
+            HydraulicCalc::NetworkSegment* updatedData = findSegmentById(segmentCopy.id);
+            if (updatedData) {
+                currentSelectedSegment->updateDisplay(updatedData);
+            }
             hasCalculated = false;
             exportButton->setEnabled(false);
         }
@@ -953,7 +990,9 @@ void HydraulicCalculationsWindow::onCalculate()
         performCalculations();
 
         // Mettre à jour l'affichage des résultats sur le schéma
-        schemaView->updateSegmentResults();
+        schemaView->updateSegmentResults([this](const std::string& id) {
+            return this->findSegmentById(id);
+        });
 
         hasCalculated = true;
         exportButton->setEnabled(true);
@@ -962,8 +1001,10 @@ void HydraulicCalculationsWindow::onCalculate()
                                "Les résultats sont affichés sur le schéma.");
     }
     catch (const std::exception& e) {
+        // Afficher le message d'erreur exact sans ajouter de texte générique
+        // (les validations fournissent déjà des messages explicites en français)
         QMessageBox::critical(this, "Erreur de calcul",
-                            QString("Le calcul a échoué :\n\n%1\n\nVérifiez que tous les segments ont des valeurs valides (longueur > 0).").arg(e.what()));
+                            QString("Le calcul a échoué :\n\n%1").arg(e.what()));
         hasCalculated = false;
         exportButton->setEnabled(false);
     }
@@ -1089,10 +1130,9 @@ void HydraulicCalculationsWindow::updateNetworkSegmentsData()
         // Vérifier que le segment graphique est valide
         if (!graphicSegment) continue;
 
-        auto* graphicSegmentData = graphicSegment->getSegmentData();
-        if (!graphicSegmentData) continue;
-
-        std::string graphicSegmentId = graphicSegmentData->id;
+        // Utiliser l'ID stocké au lieu d'un pointeur (évite les problèmes de réallocation du vector)
+        std::string graphicSegmentId = graphicSegment->getSegmentId();
+        if (graphicSegmentId.empty()) continue;
 
         // Trouver le segment de données correspondant par ID
         bool found = false;

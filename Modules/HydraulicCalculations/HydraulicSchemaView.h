@@ -5,6 +5,7 @@
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <vector>
+#include <functional>
 #include "GraphicPipeSegment.h"
 #include "FixturePoint.h"
 #include "PipeCalculator.h"
@@ -43,9 +44,9 @@ public:
     GraphicPipeSegment* getSelectedSegment() const;
     FixturePoint* getSelectedFixture() const;
 
-    // Mise à jour de l'affichage
-    void updateAllSegments();
-    void updateSegmentResults();
+    // Mise à jour de l'affichage (nécessite une fonction pour retrouver les segments par ID)
+    void updateAllSegments(std::function<HydraulicCalc::NetworkSegment*(const std::string&)> findSegmentById);
+    void updateSegmentResults(std::function<HydraulicCalc::NetworkSegment*(const std::string&)> findSegmentById);
 
     // Réinitialisation de la vue
     void resetView();

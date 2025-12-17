@@ -6,7 +6,7 @@
 
 GraphicPipeSegment::GraphicPipeSegment(HydraulicCalc::NetworkSegment* segment, QGraphicsItem* parent)
     : QGraphicsItemGroup(parent)
-    , segmentData(segment)
+    , segmentId(segment ? segment->id : "")
     , startPoint(0, 0)
     , endPoint(0, 100)
     , pipeLineAller(nullptr)
@@ -117,7 +117,7 @@ void GraphicPipeSegment::createVisuals()
     addToGroup(mainBadge);
 }
 
-void GraphicPipeSegment::updatePipeVisual()
+void GraphicPipeSegment::updatePipeVisual(const HydraulicCalc::NetworkSegment* segmentData)
 {
     if (!pipeLineAller) return;
 
@@ -149,7 +149,7 @@ void GraphicPipeSegment::updatePipeVisual()
     }
 }
 
-void GraphicPipeSegment::updateLabels()
+void GraphicPipeSegment::updateLabels(const HydraulicCalc::NetworkSegment* segmentData)
 {
     if (!segmentData) return;
 
@@ -211,15 +211,15 @@ void GraphicPipeSegment::updateJunctionPoints()
     }
 }
 
-void GraphicPipeSegment::updateDisplay()
+void GraphicPipeSegment::updateDisplay(const HydraulicCalc::NetworkSegment* segmentData)
 {
-    updatePipeVisual();
-    updateLabels();
+    updatePipeVisual(segmentData);
+    updateLabels(segmentData);
     updateJunctionPoints();
-    updateMainSegmentDisplay();
+    updateMainSegmentDisplay(segmentData);
 }
 
-void GraphicPipeSegment::updateResultsDisplay()
+void GraphicPipeSegment::updateResultsDisplay(const HydraulicCalc::NetworkSegment* segmentData)
 {
     if (!segmentData || !resultsLabel) return;
 
@@ -230,7 +230,7 @@ void GraphicPipeSegment::updateResultsDisplay()
         resultsLabel->setPlainText("(Non calculé)");
         resultsLabel->setDefaultTextColor(QColor("#666666"));  // Gris foncé visible
         hasReturn = false;
-        updatePipeVisual();
+        updatePipeVisual(segmentData);
         return;
     }
 
@@ -269,8 +269,8 @@ void GraphicPipeSegment::updateResultsDisplay()
         resultsLabel->setDefaultTextColor(QColor("#006600"));  // Vert foncé si OK
     }
 
-    updatePipeVisual();
-    updateLabels();
+    updatePipeVisual(segmentData);
+    updateLabels(segmentData);
 }
 
 void GraphicPipeSegment::setHighlighted(bool highlighted)
@@ -290,18 +290,9 @@ void GraphicPipeSegment::setHighlighted(bool highlighted)
 
 QColor GraphicPipeSegment::getSegmentColor() const
 {
-    // Couleur selon l'état
-    if (!segmentData) return QColor("#95a5a6");
-
-    if (segmentData->result.nominalDiameter == 0) {
-        return QColor("#95a5a6");  // Gris si non calculé
-    }
-
-    if (segmentData->result.velocity > 2.0 || segmentData->result.velocity < 0.3) {
-        return QColor("#e74c3c");  // Rouge si problème
-    }
-
-    return QColor("#3498db");  // Bleu moderne si OK
+    // Couleur par défaut (sera mise à jour via updateResultsDisplay qui a accès aux données)
+    // Cette méthode est conservée pour la compatibilité mais ne peut plus accéder aux données du segment
+    return QColor("#3498db");  // Bleu moderne par défaut
 }
 
 void GraphicPipeSegment::addFixturePoint(FixturePoint* fixture)
@@ -364,17 +355,17 @@ void GraphicPipeSegment::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
     QGraphicsItemGroup::mouseReleaseEvent(event);
 }
 
-bool GraphicPipeSegment::isMainSegment() const
+bool GraphicPipeSegment::isMainSegment(const HydraulicCalc::NetworkSegment* segmentData) const
 {
     // Un segment est principal s'il n'a pas de parent
     return segmentData && segmentData->parentId.empty();
 }
 
-void GraphicPipeSegment::updateMainSegmentDisplay()
+void GraphicPipeSegment::updateMainSegmentDisplay(const HydraulicCalc::NetworkSegment* segmentData)
 {
     if (!mainBadge) return;
 
-    if (isMainSegment()) {
+    if (isMainSegment(segmentData)) {
         // Ne plus afficher le badge "PRINCIPAL"
         mainBadge->setVisible(false);
         if (mainBadgeBg) {
