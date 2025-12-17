@@ -994,6 +994,53 @@ void HydraulicCalculationsWindow::performCalculations()
             // Les fixtures ont déjà été mises à jour par updateNetworkSegmentsData()
         }
 
+        // VALIDATION CRITIQUE : Vérifier la hiérarchie parent-enfant pour éviter les boucles infinies
+        for (const auto& seg : networkParams.segments) {
+            if (!seg.parentId.empty()) {
+                // Vérifier que le parent existe
+                bool parentExists = false;
+                for (const auto& potentialParent : networkParams.segments) {
+                    if (potentialParent.id == seg.parentId) {
+                        parentExists = true;
+                        break;
+                    }
+                }
+
+                if (!parentExists) {
+                    throw std::runtime_error("Le segment '" + seg.name + "' référence un parent inexistant '" + seg.parentId + "'");
+                }
+
+                // Vérifier qu'il n'y a pas de boucle (un segment ne peut pas être son propre parent)
+                if (seg.id == seg.parentId) {
+                    throw std::runtime_error("Le segment '" + seg.name + "' se référence lui-même comme parent (boucle détectée)");
+                }
+
+                // Vérifier qu'il n'y a pas de boucle circulaire sur 2+ niveaux
+                std::string currentId = seg.parentId;
+                int depth = 0;
+                while (!currentId.empty() && depth < 100) {  // Max 100 niveaux pour éviter boucle infinie
+                    if (currentId == seg.id) {
+                        throw std::runtime_error("Boucle circulaire détectée dans la hiérarchie du segment '" + seg.name + "'");
+                    }
+
+                    // Trouver le parent suivant
+                    std::string nextParentId = "";
+                    for (const auto& s : networkParams.segments) {
+                        if (s.id == currentId) {
+                            nextParentId = s.parentId;
+                            break;
+                        }
+                    }
+                    currentId = nextParentId;
+                    depth++;
+                }
+
+                if (depth >= 100) {
+                    throw std::runtime_error("Hiérarchie trop profonde détectée (> 100 niveaux) pour le segment '" + seg.name + "'");
+                }
+            }
+        }
+
         // Paramètres bouclage si nécessaire
         if (networkTypeCombo->currentIndex() == 2) {
             networkParams.loopLength = loopLengthSpin->value();
