@@ -23,16 +23,6 @@ HydraulicCalculationsWindow::HydraulicCalculationsWindow(QWidget *parent)
     , currentSelectedFixture(nullptr)
     , hasCalculated(false)
 {
-    // Configuration globale de la palette pour tous les widgets (y compris les dialogues)
-    QPalette palette;
-    palette.setColor(QPalette::WindowText, QColor("#2c3e50"));        // Texte sur fond de fenêtre
-    palette.setColor(QPalette::Text, QColor("#2c3e50"));              // Texte dans les champs de saisie
-    palette.setColor(QPalette::ButtonText, QColor("#ffffff"));        // Texte sur les boutons (blanc)
-    palette.setColor(QPalette::Window, QColor("#ecf0f1"));            // Fond de fenêtre
-    palette.setColor(QPalette::Base, QColor("#ffffff"));              // Fond des champs de saisie
-    palette.setColor(QPalette::Button, QColor("#3498db"));            // Fond des boutons (bleu)
-    qApp->setPalette(palette);
-
     setupUi();
     applyStyle();
 
@@ -96,8 +86,8 @@ void HydraulicCalculationsWindow::setupUi()
     leftScrollArea->setWidget(leftPanel);
     leftScrollArea->setWidgetResizable(true);
     leftScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    leftScrollArea->setMinimumWidth(350);
-    leftScrollArea->setMaximumWidth(450);
+    leftScrollArea->setMinimumWidth(380);
+    leftScrollArea->setMaximumWidth(420);
 
     splitter->addWidget(leftScrollArea);
     splitter->addWidget(schemaView);
@@ -111,79 +101,119 @@ void HydraulicCalculationsWindow::createParametersPanel()
 {
     leftPanel = new QWidget();
     leftPanelLayout = new QVBoxLayout(leftPanel);
-    leftPanelLayout->setContentsMargins(15, 15, 15, 15);
-    leftPanelLayout->setSpacing(15);
+    leftPanelLayout->setContentsMargins(20, 20, 20, 20);
+    leftPanelLayout->setSpacing(16);
 
-    // Titre
-    QLabel *titleLabel = new QLabel("💧 Dimensionnement Hydraulique");
-    titleLabel->setStyleSheet("font-size: 16px; font-weight: bold; color: #2c3e50; padding: 10px;");
+    // Titre moderne avec style
+    QLabel *titleLabel = new QLabel("Dimensionnement Hydraulique");
+    titleLabel->setObjectName("mainTitle");
+    titleLabel->setStyleSheet(
+        "#mainTitle {"
+        "   font-size: 20px;"
+        "   font-weight: 700;"
+        "   color: #1e3a8a;"
+        "   padding: 12px 0px;"
+        "   letter-spacing: -0.5px;"
+        "}"
+    );
     leftPanelLayout->addWidget(titleLabel);
 
-    // Paramètres généraux
-    parametersGroup = new QGroupBox("Paramètres généraux");
+    // Paramètres généraux - Style carte moderne
+    parametersGroup = new QGroupBox("Configuration");
+    parametersGroup->setObjectName("modernCard");
     QFormLayout *paramsLayout = new QFormLayout(parametersGroup);
+    paramsLayout->setSpacing(12);
+    paramsLayout->setLabelAlignment(Qt::AlignLeft);
+    paramsLayout->setFormAlignment(Qt::AlignLeft | Qt::AlignTop);
 
+    // Labels avec style moderne
+    QLabel *networkLabel = new QLabel("Type de réseau");
+    networkLabel->setObjectName("formLabel");
     networkTypeCombo = new QComboBox();
+    networkTypeCombo->setObjectName("modernCombo");
     networkTypeCombo->addItem("Eau froide");
     networkTypeCombo->addItem("Eau chaude sanitaire");
     networkTypeCombo->addItem("ECS avec bouclage");
-    paramsLayout->addRow("Type de réseau:", networkTypeCombo);
+    paramsLayout->addRow(networkLabel, networkTypeCombo);
 
+    QLabel *materialLabel = new QLabel("Matériau");
+    materialLabel->setObjectName("formLabel");
     materialCombo = new QComboBox();
+    materialCombo->setObjectName("modernCombo");
     materialCombo->addItem("Cuivre");
     materialCombo->addItem("PER");
     materialCombo->addItem("Multicouche");
     materialCombo->addItem("Acier galvanisé");
-    paramsLayout->addRow("Matériau:", materialCombo);
+    paramsLayout->addRow(materialLabel, materialCombo);
 
+    QLabel *supplyLabel = new QLabel("Pression alimentation");
+    supplyLabel->setObjectName("formLabel");
     supplyPressureSpin = new QDoubleSpinBox();
+    supplyPressureSpin->setObjectName("modernSpin");
     supplyPressureSpin->setRange(0.5, 10.0);
     supplyPressureSpin->setValue(3.0);
     supplyPressureSpin->setSuffix(" bar");
     supplyPressureSpin->setDecimals(1);
-    paramsLayout->addRow("Pression alimentation:", supplyPressureSpin);
+    paramsLayout->addRow(supplyLabel, supplyPressureSpin);
 
+    QLabel *requiredLabel = new QLabel("Pression requise");
+    requiredLabel->setObjectName("formLabel");
     requiredPressureSpin = new QDoubleSpinBox();
+    requiredPressureSpin->setObjectName("modernSpin");
     requiredPressureSpin->setRange(0.5, 5.0);
     requiredPressureSpin->setValue(1.0);
     requiredPressureSpin->setSuffix(" bar");
     requiredPressureSpin->setDecimals(1);
-    paramsLayout->addRow("Pression requise:", requiredPressureSpin);
+    paramsLayout->addRow(requiredLabel, requiredPressureSpin);
 
     leftPanelLayout->addWidget(parametersGroup);
 
-    // Paramètres bouclage ECS
-    loopParametersGroup = new QGroupBox("Paramètres bouclage ECS");
+    // Paramètres bouclage ECS - Style carte moderne
+    loopParametersGroup = new QGroupBox("Bouclage ECS");
+    loopParametersGroup->setObjectName("modernCard");
     loopParametersGroup->setVisible(false);
     QFormLayout *loopLayout = new QFormLayout(loopParametersGroup);
+    loopLayout->setSpacing(12);
 
+    QLabel *loopLengthLabel = new QLabel("Longueur boucle");
+    loopLengthLabel->setObjectName("formLabel");
     loopLengthSpin = new QDoubleSpinBox();
+    loopLengthSpin->setObjectName("modernSpin");
     loopLengthSpin->setRange(1.0, 500.0);
     loopLengthSpin->setValue(50.0);
     loopLengthSpin->setSuffix(" m");
     loopLengthSpin->setDecimals(1);
-    loopLayout->addRow("Longueur boucle:", loopLengthSpin);
+    loopLayout->addRow(loopLengthLabel, loopLengthSpin);
 
+    QLabel *waterTempLabel = new QLabel("Température eau");
+    waterTempLabel->setObjectName("formLabel");
     waterTempSpin = new QDoubleSpinBox();
+    waterTempSpin->setObjectName("modernSpin");
     waterTempSpin->setRange(40.0, 80.0);
     waterTempSpin->setValue(60.0);
     waterTempSpin->setSuffix(" C");
     waterTempSpin->setDecimals(1);
-    loopLayout->addRow("Température eau:", waterTempSpin);
+    loopLayout->addRow(waterTempLabel, waterTempSpin);
 
+    QLabel *ambientTempLabel = new QLabel("Température ambiante");
+    ambientTempLabel->setObjectName("formLabel");
     ambientTempSpin = new QDoubleSpinBox();
+    ambientTempSpin->setObjectName("modernSpin");
     ambientTempSpin->setRange(5.0, 35.0);
     ambientTempSpin->setValue(20.0);
     ambientTempSpin->setSuffix(" C");
     ambientTempSpin->setDecimals(1);
-    loopLayout->addRow("Température ambiante:", ambientTempSpin);
+    loopLayout->addRow(ambientTempLabel, ambientTempSpin);
 
+    QLabel *insulationLabel = new QLabel("Épaisseur isolation");
+    insulationLabel->setObjectName("formLabel");
     insulationSpin = new QDoubleSpinBox();
+    insulationSpin->setObjectName("modernSpin");
     insulationSpin->setRange(6.0, 50.0);
     insulationSpin->setValue(13.0);
     insulationSpin->setSuffix(" mm");
     insulationSpin->setDecimals(0);
-    loopLayout->addRow("Épaisseur isolation:", insulationSpin);
+    loopLayout->addRow(insulationLabel, insulationSpin);
 
     leftPanelLayout->addWidget(loopParametersGroup);
 
@@ -193,75 +223,104 @@ void HydraulicCalculationsWindow::createParametersPanel()
     // Palette d'appareils
     createFixturePalette();
 
-    // Groupe d'édition
+    // Groupe d'édition - Style moderne
     editGroup = new QGroupBox("Édition");
+    editGroup->setObjectName("modernCard");
     QVBoxLayout *editLayout = new QVBoxLayout(editGroup);
+    editLayout->setSpacing(8);
 
-    editButton = new QPushButton("✏️ Modifier");
+    editButton = new QPushButton("Modifier");
+    editButton->setObjectName("secondaryButton");
     editButton->setEnabled(false);
+    editButton->setMinimumHeight(36);
     editLayout->addWidget(editButton);
 
-    deleteButton = new QPushButton("🗑️ Supprimer");
+    deleteButton = new QPushButton("Supprimer");
+    deleteButton->setObjectName("dangerButton");
     deleteButton->setEnabled(false);
+    deleteButton->setMinimumHeight(36);
     editLayout->addWidget(deleteButton);
 
     leftPanelLayout->addWidget(editGroup);
 
-    // Boutons d'action
-    QGroupBox *actionsGroup = new QGroupBox("Actions");
-    QVBoxLayout *actionsLayout = new QVBoxLayout(actionsGroup);
+    // Boutons d'action - Style moderne sans groupbox
+    QLabel *actionsLabel = new QLabel("Actions");
+    actionsLabel->setObjectName("sectionLabel");
+    actionsLabel->setStyleSheet(
+        "#sectionLabel {"
+        "   font-size: 13px;"
+        "   font-weight: 600;"
+        "   color: #64748b;"
+        "   text-transform: uppercase;"
+        "   letter-spacing: 0.5px;"
+        "   margin-top: 8px;"
+        "}"
+    );
+    leftPanelLayout->addWidget(actionsLabel);
 
-    calculateButton = new QPushButton("🧮 Calculer");
-    calculateButton->setMinimumHeight(40);
-    actionsLayout->addWidget(calculateButton);
+    calculateButton = new QPushButton("Calculer");
+    calculateButton->setObjectName("primaryButton");
+    calculateButton->setMinimumHeight(44);
+    leftPanelLayout->addWidget(calculateButton);
 
-    exportButton = new QPushButton("📄 Export PDF");
+    exportButton = new QPushButton("Export PDF");
+    exportButton->setObjectName("secondaryButton");
     exportButton->setEnabled(false);
-    actionsLayout->addWidget(exportButton);
+    exportButton->setMinimumHeight(36);
+    leftPanelLayout->addWidget(exportButton);
 
-    resetViewButton = new QPushButton("🔄 Réinitialiser vue");
-    actionsLayout->addWidget(resetViewButton);
+    resetViewButton = new QPushButton("Réinitialiser vue");
+    resetViewButton->setObjectName("secondaryButton");
+    resetViewButton->setMinimumHeight(36);
+    leftPanelLayout->addWidget(resetViewButton);
 
-    clearButton = new QPushButton("🗑️ Tout effacer");
-    actionsLayout->addWidget(clearButton);
+    clearButton = new QPushButton("Tout effacer");
+    clearButton->setObjectName("dangerButton");
+    clearButton->setMinimumHeight(36);
+    leftPanelLayout->addWidget(clearButton);
 
-    closeButton = new QPushButton("✖️ Fermer");
-    actionsLayout->addWidget(closeButton);
-
-    leftPanelLayout->addWidget(actionsGroup);
+    closeButton = new QPushButton("Fermer");
+    closeButton->setObjectName("ghostButton");
+    closeButton->setMinimumHeight(36);
+    leftPanelLayout->addWidget(closeButton);
 
     leftPanelLayout->addStretch();
 }
 
 void HydraulicCalculationsWindow::createToolsPanel()
 {
-    toolsGroup = new QGroupBox("🛠️ Outils");
+    toolsGroup = new QGroupBox("Outils");
+    toolsGroup->setObjectName("modernCard");
     QVBoxLayout *toolsLayout = new QVBoxLayout(toolsGroup);
+    toolsLayout->setSpacing(8);
 
     toolsButtonGroup = new QButtonGroup(this);
 
     selectToolButton = new QToolButton();
-    selectToolButton->setText("👆 Sélectionner");
+    selectToolButton->setText("Sélectionner");
+    selectToolButton->setObjectName("toolButton");
     selectToolButton->setCheckable(true);
     selectToolButton->setChecked(true);
-    selectToolButton->setMinimumHeight(35);
-    selectToolButton->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    selectToolButton->setMinimumHeight(38);
+    selectToolButton->setToolButtonStyle(Qt::ToolButtonTextOnly);
     toolsButtonGroup->addButton(selectToolButton);
     toolsLayout->addWidget(selectToolButton);
 
     addSegmentToolButton = new QToolButton();
-    addSegmentToolButton->setText("➕ Ajouter tronçon");
+    addSegmentToolButton->setText("Ajouter tronçon");
+    addSegmentToolButton->setObjectName("toolButton");
     addSegmentToolButton->setCheckable(true);
-    addSegmentToolButton->setMinimumHeight(35);
-    addSegmentToolButton->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    addSegmentToolButton->setMinimumHeight(38);
+    addSegmentToolButton->setToolButtonStyle(Qt::ToolButtonTextOnly);
     toolsButtonGroup->addButton(addSegmentToolButton);
     toolsLayout->addWidget(addSegmentToolButton);
 
     panToolButton = new QToolButton();
-    panToolButton->setText("🖐️ Déplacer");
+    panToolButton->setText("Déplacer");
+    panToolButton->setObjectName("toolButton");
     panToolButton->setCheckable(true);
-    panToolButton->setMinimumHeight(35);
-    panToolButton->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    panToolButton->setMinimumHeight(38);
+    panToolButton->setToolButtonStyle(Qt::ToolButtonTextOnly);
     toolsButtonGroup->addButton(panToolButton);
     toolsLayout->addWidget(panToolButton);
 
@@ -270,31 +329,33 @@ void HydraulicCalculationsWindow::createToolsPanel()
 
 void HydraulicCalculationsWindow::createFixturePalette()
 {
-    fixturesGroup = new QGroupBox("🚰 Appareils sanitaires");
+    fixturesGroup = new QGroupBox("Appareils sanitaires");
+    fixturesGroup->setObjectName("modernCard");
     QVBoxLayout *fixturesLayout = new QVBoxLayout(fixturesGroup);
+    fixturesLayout->setSpacing(6);
 
-    // Liste des appareils avec icônes
+    // Liste des appareils sans emojis - style moderne
     struct FixtureInfo {
         HydraulicCalc::FixtureType type;
-        QString icon;
         QString name;
     };
 
     std::vector<FixtureInfo> fixtures = {
-        {HydraulicCalc::FixtureType::WashBasin, "🚰", "Lavabo"},
-        {HydraulicCalc::FixtureType::Sink, "🧽", "Évier"},
-        {HydraulicCalc::FixtureType::Shower, "🚿", "Douche"},
-        {HydraulicCalc::FixtureType::Bathtub, "🛁", "Baignoire"},
-        {HydraulicCalc::FixtureType::WC, "🚽", "WC"},
-        {HydraulicCalc::FixtureType::Bidet, "🚰", "Bidet"},
-        {HydraulicCalc::FixtureType::WashingMachine, "🧺", "Lave-linge"},
-        {HydraulicCalc::FixtureType::Dishwasher, "🍽️", "Lave-vaisselle"},
-        {HydraulicCalc::FixtureType::UrinalFlush, "🚹", "Urinoir"},
+        {HydraulicCalc::FixtureType::WashBasin, "Lavabo"},
+        {HydraulicCalc::FixtureType::Sink, "Évier"},
+        {HydraulicCalc::FixtureType::Shower, "Douche"},
+        {HydraulicCalc::FixtureType::Bathtub, "Baignoire"},
+        {HydraulicCalc::FixtureType::WC, "WC"},
+        {HydraulicCalc::FixtureType::Bidet, "Bidet"},
+        {HydraulicCalc::FixtureType::WashingMachine, "Lave-linge"},
+        {HydraulicCalc::FixtureType::Dishwasher, "Lave-vaisselle"},
+        {HydraulicCalc::FixtureType::UrinalFlush, "Urinoir"},
     };
 
     for (const auto& fixture : fixtures) {
-        QPushButton *btn = new QPushButton(fixture.icon + " " + fixture.name);
-        btn->setMinimumHeight(30);
+        QPushButton *btn = new QPushButton(fixture.name);
+        btn->setObjectName("fixtureButton");
+        btn->setMinimumHeight(32);
         connect(btn, &QPushButton::clicked, [this, fixture]() {
             onAddFixtureModeActivated(fixture.type);
         });
@@ -313,140 +374,275 @@ void HydraulicCalculationsWindow::createSchemaView()
 void HydraulicCalculationsWindow::applyStyle()
 {
     QString style = R"(
+        /* === LAYOUT PRINCIPAL === */
         QDialog {
-            background-color: #ecf0f1;
-            color: #2c3e50;
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                stop:0 #f8fafc, stop:1 #f1f5f9);
+            color: #1e293b;
         }
-        QGroupBox {
-            font-weight: bold;
-            font-size: 11pt;
-            border: 3px solid #34495e;
-            border-radius: 8px;
-            margin-top: 15px;
-            padding-top: 15px;
+
+        /* === CARTES MODERNES === */
+        QGroupBox#modernCard {
+            font-weight: 600;
+            font-size: 12pt;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            margin-top: 8px;
+            padding: 16px 12px 12px 12px;
             background-color: #ffffff;
-            color: #2c3e50;
+            color: #334155;
         }
-        QGroupBox::title {
+        QGroupBox#modernCard::title {
             subcontrol-origin: margin;
             subcontrol-position: top left;
-            padding: 5px 15px;
-            background-color: #ffffff;
-            color: #2c3e50;
-            font-weight: bold;
+            padding: 0px 8px;
+            background-color: transparent;
+            color: #475569;
+            font-weight: 600;
+            font-size: 11pt;
         }
-        QLabel {
-            color: #2c3e50;
+
+        /* === LABELS === */
+        QLabel#formLabel {
+            color: #64748b;
             background-color: transparent;
             font-size: 10pt;
+            font-weight: 500;
+            padding: 2px 0px;
         }
-        /* Boutons généraux (Calculer, Export, etc.) */
-        QPushButton {
-            background-color: #3498db;
+
+        /* === BOUTON PRIMAIRE === */
+        QPushButton#primaryButton {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                stop:0 #3b82f6, stop:1 #2563eb);
             color: white;
             border: none;
-            border-radius: 6px;
-            padding: 10px 18px;
-            font-weight: bold;
+            border-radius: 8px;
+            padding: 12px 20px;
+            font-weight: 600;
             font-size: 11pt;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
-        QPushButton:hover {
-            background-color: #2980b9;
-            color: white;
+        QPushButton#primaryButton:hover {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                stop:0 #2563eb, stop:1 #1d4ed8);
         }
-        QPushButton:pressed {
-            background-color: #21618c;
-            color: white;
+        QPushButton#primaryButton:pressed {
+            background: #1e40af;
         }
-        QPushButton:disabled {
-            background-color: #bdc3c7;
-            color: #7f8c8d;
-        }
-        /* Boutons d'outils (Sélectionner, Ajouter, Déplacer) */
-        QToolButton {
-            background-color: #3498db;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            padding: 10px 15px;
-            text-align: left;
-            font-weight: bold;
-            font-size: 11pt;
-            min-height: 40px;
-        }
-        QToolButton:checked {
-            background-color: #1e3799;
-            color: white;
-        }
-        QToolButton:hover {
-            background-color: #2980b9;
-            color: white;
-        }
-        QToolButton:pressed {
-            background-color: #21618c;
-            color: white;
-        }
-        /* Champs de saisie */
-        QComboBox, QDoubleSpinBox, QLineEdit {
-            padding: 8px;
-            border: 2px solid #34495e;
-            border-radius: 6px;
-            background-color: #ffffff;
-            color: #2c3e50;
+
+        /* === BOUTONS SECONDAIRES === */
+        QPushButton#secondaryButton {
+            background-color: #f1f5f9;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-weight: 500;
             font-size: 10pt;
-            font-weight: bold;
         }
-        QComboBox:focus, QDoubleSpinBox:focus, QLineEdit:focus {
-            border: 3px solid #3498db;
+        QPushButton#secondaryButton:hover {
+            background-color: #e2e8f0;
+            border-color: #94a3b8;
         }
-        /* ComboBox - Dropdown plus visible */
-        QComboBox::drop-down {
+        QPushButton#secondaryButton:pressed {
+            background-color: #cbd5e1;
+        }
+        QPushButton#secondaryButton:disabled {
+            background-color: #f8fafc;
+            color: #cbd5e1;
+            border-color: #e2e8f0;
+        }
+
+        /* === BOUTONS DANGER === */
+        QPushButton#dangerButton {
+            background-color: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-weight: 500;
+            font-size: 10pt;
+        }
+        QPushButton#dangerButton:hover {
+            background-color: #fee2e2;
+            border-color: #fca5a5;
+        }
+        QPushButton#dangerButton:pressed {
+            background-color: #fecaca;
+        }
+        QPushButton#dangerButton:disabled {
+            background-color: #f8fafc;
+            color: #cbd5e1;
+            border-color: #e2e8f0;
+        }
+
+        /* === BOUTONS GHOST === */
+        QPushButton#ghostButton {
+            background-color: transparent;
+            color: #64748b;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-weight: 500;
+            font-size: 10pt;
+        }
+        QPushButton#ghostButton:hover {
+            background-color: #f8fafc;
+            color: #475569;
+        }
+        QPushButton#ghostButton:pressed {
+            background-color: #f1f5f9;
+        }
+
+        /* === BOUTONS D'OUTILS === */
+        QToolButton#toolButton {
+            background-color: #f8fafc;
+            color: #475569;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 10px 16px;
+            text-align: center;
+            font-weight: 500;
+            font-size: 10pt;
+        }
+        QToolButton#toolButton:hover {
+            background-color: #eff6ff;
+            border-color: #93c5fd;
+            color: #1e40af;
+        }
+        QToolButton#toolButton:checked {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                stop:0 #3b82f6, stop:1 #2563eb);
+            border-color: #1d4ed8;
+            color: white;
+            font-weight: 600;
+        }
+        QToolButton#toolButton:pressed {
+            background-color: #dbeafe;
+        }
+
+        /* === BOUTONS APPAREILS === */
+        QPushButton#fixtureButton {
+            background-color: #fafbfc;
+            color: #374151;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-weight: 500;
+            font-size: 10pt;
+            text-align: left;
+        }
+        QPushButton#fixtureButton:hover {
+            background-color: #eff6ff;
+            border-color: #93c5fd;
+            color: #1e40af;
+        }
+        QPushButton#fixtureButton:pressed {
+            background-color: #dbeafe;
+        }
+
+        /* === CHAMPS DE SAISIE === */
+        QComboBox#modernCombo, QDoubleSpinBox#modernSpin, QLineEdit {
+            padding: 9px 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            background-color: #ffffff;
+            color: #1e293b;
+            font-size: 10pt;
+            font-weight: 500;
+            selection-background-color: #3b82f6;
+        }
+        QComboBox#modernCombo:focus, QDoubleSpinBox#modernSpin:focus, QLineEdit:focus {
+            border: 2px solid #3b82f6;
+            background-color: #ffffff;
+        }
+        QComboBox#modernCombo:hover, QDoubleSpinBox#modernSpin:hover, QLineEdit:hover {
+            border-color: #94a3b8;
+        }
+
+        /* === COMBOBOX DROPDOWN === */
+        QComboBox#modernCombo::drop-down {
             subcontrol-origin: padding;
             subcontrol-position: top right;
-            width: 40px;
-            border-left: 2px solid #34495e;
-            background-color: #3498db;
-            border-top-right-radius: 6px;
-            border-bottom-right-radius: 6px;
+            width: 36px;
+            border-left: 2px solid #e2e8f0;
+            background-color: #f8fafc;
+            border-top-right-radius: 8px;
+            border-bottom-right-radius: 8px;
         }
-        QComboBox::down-arrow {
+        QComboBox#modernCombo::down-arrow {
             image: none;
-            border-left: 6px solid transparent;
-            border-right: 6px solid transparent;
-            border-top: 8px solid white;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 6px solid #64748b;
             margin: 0px;
         }
-        QComboBox::drop-down:hover {
-            background-color: #2980b9;
+        QComboBox#modernCombo::drop-down:hover {
+            background-color: #eff6ff;
         }
-        /* SpinBox - Enlever les boutons +/- */
-        QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
+        QComboBox#modernCombo QAbstractItemView {
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            background-color: #ffffff;
+            selection-background-color: #3b82f6;
+            selection-color: white;
+            padding: 4px;
+        }
+
+        /* === SPINBOX === */
+        QDoubleSpinBox#modernSpin::up-button, QDoubleSpinBox#modernSpin::down-button {
             width: 0px;
             height: 0px;
             border: none;
         }
+
+        /* === SCROLL AREA === */
         QScrollArea {
             border: none;
-            background-color: #ecf0f1;
+            background: transparent;
         }
+        QScrollBar:vertical {
+            background: #f8fafc;
+            width: 10px;
+            border-radius: 5px;
+            margin: 0px;
+        }
+        QScrollBar::handle:vertical {
+            background: #cbd5e1;
+            border-radius: 5px;
+            min-height: 20px;
+        }
+        QScrollBar::handle:vertical:hover {
+            background: #94a3b8;
+        }
+        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+            height: 0px;
+        }
+
+        /* === PANNEAU GAUCHE === */
         QWidget#leftPanel {
-            background-color: #ecf0f1;
+            background: transparent;
             border: none;
         }
+
+        /* === SPLITTER === */
         QSplitter::handle {
-            background-color: #34495e;
-            width: 2px;
+            background-color: #cbd5e1;
+            width: 1px;
+        }
+        QSplitter::handle:hover {
+            background-color: #94a3b8;
         }
     )";
     setStyleSheet(style);
 
-    // Forcer la couleur du panneau gauche et de la scroll area
+    // Configuration du panneau gauche
     if (leftPanel) {
         leftPanel->setObjectName("leftPanel");
-        leftPanel->setStyleSheet("background-color: #ecf0f1; border: none;");
     }
     if (leftScrollArea) {
-        leftScrollArea->setStyleSheet("QScrollArea { background-color: #ecf0f1; border: none; }");
         leftScrollArea->setFrameShape(QFrame::NoFrame);
     }
 }
