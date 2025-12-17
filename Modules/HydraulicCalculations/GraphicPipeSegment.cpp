@@ -375,28 +375,11 @@ void GraphicPipeSegment::updateMainSegmentDisplay()
     if (!mainBadge) return;
 
     if (isMainSegment()) {
-        // Afficher le badge "PRINCIPAL"
-        mainBadge->setPlainText("⭐ PRINCIPAL");
-        mainBadge->setVisible(true);
-
-        // Positionner le badge en haut du segment
-        QPointF midPoint = (startPoint + endPoint) / 2.0;
-        mainBadge->setPos(midPoint.x() - 40, midPoint.y() - 40);
-
-        // Créer ou mettre à jour le fond coloré du badge
-        if (!mainBadgeBg) {
-            mainBadgeBg = new QGraphicsRectItem(this);
-            mainBadgeBg->setBrush(QBrush(QColor("#e74c3c")));  // Rouge vif
-            mainBadgeBg->setPen(QPen(Qt::white, 2));
-            mainBadgeBg->setZValue(-1);
-            addToGroup(mainBadgeBg);
+        // Ne plus afficher le badge "PRINCIPAL"
+        mainBadge->setVisible(false);
+        if (mainBadgeBg) {
+            mainBadgeBg->setVisible(false);
         }
-
-        QRectF badgeRect = mainBadge->boundingRect();
-        mainBadgeBg->setRect(
-            mainBadge->x() - 5, mainBadge->y() - 2,
-            badgeRect.width() + 10, badgeRect.height() + 4);
-        mainBadgeBg->setVisible(true);
 
         // Rendre les cercles d'extrémité plus visibles pour le segment principal
         startCircle->setBrush(QBrush(QColor("#e74c3c")));

@@ -703,6 +703,38 @@ void HydraulicCalculationsWindow::onSegmentDrawingComplete(const QPointF& start,
     newSegment.length = std::max(0.1, length);
     newSegment.heightDifference = heightDiff;
 
+    // Détecter automatiquement le parent en cherchant si le point de départ est proche d'un segment existant
+    QString autoParentId = "";
+    const double snapDistance = 30.0;  // Distance de snapping
+
+    for (const auto* graphicSeg : schemaView->getSegments()) {
+        if (!graphicSeg) continue;
+
+        QPointF segStart = graphicSeg->getStartPoint();
+        QPointF segEnd = graphicSeg->getEndPoint();
+
+        // Vérifier si le point de départ du nouveau segment est proche du point de fin d'un segment existant
+        QPointF deltaStart = start - segStart;
+        QPointF deltaEnd = start - segEnd;
+
+        double distToStart = std::sqrt(deltaStart.x() * deltaStart.x() + deltaStart.y() * deltaStart.y());
+        double distToEnd = std::sqrt(deltaEnd.x() * deltaEnd.x() + deltaEnd.y() * deltaEnd.y());
+
+        if (distToStart < snapDistance || distToEnd < snapDistance) {
+            // Trouvé un segment parent potentiel
+            auto* parentData = graphicSeg->getSegmentData();
+            if (parentData) {
+                autoParentId = QString::fromStdString(parentData->id);
+                break;
+            }
+        }
+    }
+
+    // Pré-remplir le parent dans le nouveau segment
+    if (!autoParentId.isEmpty()) {
+        newSegment.parentId = autoParentId.toStdString();
+    }
+
     if (showSegmentDialog(newSegment, false)) {
         // Ajouter le segment aux données
         newSegment.id = "seg_" + std::to_string(networkSegments.size() + 1);
@@ -772,10 +804,35 @@ void HydraulicCalculationsWindow::onEditSelectedSegment()
     if (!currentSelectedSegment) return;
 
     HydraulicCalc::NetworkSegment* segmentData = currentSelectedSegment->getSegmentData();
-    if (showSegmentDialog(*segmentData, true)) {
-        currentSelectedSegment->updateDisplay();
-        hasCalculated = false;
-        exportButton->setEnabled(false);
+
+    // Vérifier que le pointeur est valide
+    if (!segmentData) {
+        QMessageBox::warning(this, "Erreur", "Le segment sélectionné n'est plus valide.");
+        currentSelectedSegment = nullptr;
+        editButton->setEnabled(false);
+        deleteButton->setEnabled(false);
+        return;
+    }
+
+    // Créer une copie locale pour éviter les problèmes de pointeur invalide
+    HydraulicCalc::NetworkSegment segmentCopy = *segmentData;
+
+    if (showSegmentDialog(segmentCopy, true)) {
+        // Retrouver le segment dans le vector et le mettre à jour
+        bool found = false;
+        for (auto& seg : networkSegments) {
+            if (seg.id == segmentCopy.id) {
+                seg = segmentCopy;
+                found = true;
+                break;
+            }
+        }
+
+        if (found) {
+            currentSelectedSegment->updateDisplay();
+            hasCalculated = false;
+            exportButton->setEnabled(false);
+        }
     }
 }
 

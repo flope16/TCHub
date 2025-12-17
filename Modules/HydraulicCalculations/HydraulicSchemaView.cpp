@@ -357,9 +357,47 @@ void HydraulicSchemaView::handleAddFixtureMode(QMouseEvent* event)
     // Trouver le segment le plus proche
     GraphicPipeSegment* targetSegment = findSegmentAt(scenePos);
     if (targetSegment) {
+        // Trouver le point d'accroche le plus proche (start ou end du segment)
+        QPointF segStart = targetSegment->getStartPoint();
+        QPointF segEnd = targetSegment->getEndPoint();
+
+        QPointF deltaStart = scenePos - segStart;
+        QPointF deltaEnd = scenePos - segEnd;
+
+        double distToStart = std::sqrt(deltaStart.x() * deltaStart.x() + deltaStart.y() * deltaStart.y());
+        double distToEnd = std::sqrt(deltaEnd.x() * deltaEnd.x() + deltaEnd.y() * deltaEnd.y());
+
+        // Choisir le point le plus proche
+        QPointF snapPoint = (distToStart < distToEnd) ? segStart : segEnd;
+
+        // Calculer le vecteur perpendiculaire au segment pour le décalage
+        QPointF segVector = segEnd - segStart;
+        double segLength = std::sqrt(segVector.x() * segVector.x() + segVector.y() * segVector.y());
+        QPointF perpVector(-segVector.y() / segLength, segVector.x() / segLength);
+
+        // Compter combien de fixtures sont déjà sur ce point
+        int fixtureCount = 0;
+        const double snapTolerance = 5.0;
+        for (auto* existingFixture : targetSegment->getFixturePoints()) {
+            if (existingFixture) {
+                QPointF existingPos = existingFixture->getPositionOnSegment();
+                QPointF delta = existingPos - snapPoint;
+                double dist = std::sqrt(delta.x() * delta.x() + delta.y() * delta.y());
+                if (dist < 50.0) {  // Considérer les fixtures dans un rayon de 50px comme étant sur le même point
+                    fixtureCount++;
+                }
+            }
+        }
+
+        // Calculer la position finale avec décalage
+        const double baseOffset = 25.0;  // Décalage de base du segment
+        const double fixtureSpacing = 30.0;  // Espacement entre fixtures
+
+        QPointF fixturePos = snapPoint + perpVector * (baseOffset + fixtureCount * fixtureSpacing);
+
         // Créer la fixture
         FixturePoint* fixture = new FixturePoint(fixtureTypeToPlace, fixtureQuantityToPlace);
-        fixture->setPositionOnSegment(scenePos);
+        fixture->setPositionOnSegment(fixturePos);
         scene->addItem(fixture);
 
         // Ajouter au segment graphique
