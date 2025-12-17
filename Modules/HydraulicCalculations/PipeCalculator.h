@@ -89,6 +89,7 @@ struct CalculationParameters {
     double requiredPressure;     // Pression minimale requise à l'appareil en bar
     std::vector<Fixture> fixtures; // Liste des appareils desservis
     int minDiameter;             // Diamètre nominal minimal requis (DN min des enfants)
+    double overrideFlowRate;     // Débit forcé (pour segments parents) - 0 = calculer depuis fixtures
 
     // Paramètres spécifiques pour ECS avec bouclage
     double loopLength;           // Longueur totale de la boucle en m
@@ -104,6 +105,7 @@ struct CalculationParameters {
         , supplyPressure(3.0)
         , requiredPressure(1.0)
         , minDiameter(0)
+        , overrideFlowRate(0.0)
         , loopLength(0.0)
         , ambientTemperature(20.0)
         , waterTemperature(60.0)

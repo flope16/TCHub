@@ -75,8 +75,12 @@ double PipeCalculator::calculateFlowRate(const std::vector<Fixture>& fixtures) {
 PipeSegmentResult PipeCalculator::calculate(const CalculationParameters& params) {
     PipeSegmentResult result;
 
-    // Calcul du débit
-    result.flowRate = calculateFlowRate(params.fixtures);
+    // Calcul du débit : utiliser overrideFlowRate si défini, sinon calculer depuis fixtures
+    if (params.overrideFlowRate > 0.0) {
+        result.flowRate = params.overrideFlowRate;
+    } else {
+        result.flowRate = calculateFlowRate(params.fixtures);
+    }
 
     // Sélection du diamètre optimal (vitesse max 2 m/s pour confort)
     // En tenant compte du DN minimal requis (par ex. DN max des enfants)
@@ -128,8 +132,8 @@ PipeSegmentResult PipeCalculator::calculate(const CalculationParameters& params)
     if (params.networkType == NetworkType::HotWaterWithLoop) {
         result.hasReturn = true;
 
-        // Calcul des pertes thermiques
-        result.heatLoss = calculateHeatLoss(params.loopLength, result.actualDiameter,
+        // Calcul des pertes thermiques (utiliser la longueur du SEGMENT, pas de toute la boucle)
+        result.heatLoss = calculateHeatLoss(params.length, result.actualDiameter,
                                            params.insulationThickness,
                                            params.waterTemperature, params.ambientTemperature);
 
@@ -230,9 +234,24 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
             }
         }
 
-        // ÉTAPE 2: Collecter tous les appareils de ce segment et de TOUS ses descendants
-        std::vector<Fixture> allFixtures;
-        collectAllFixtures(segment, allFixtures);
+        // ÉTAPE 2: Déterminer le débit du segment
+        double segmentFlowRate = 0.0;
+
+        if (children.empty()) {
+            // Segment FEUILLE (sans enfants) : calculer depuis les fixtures avec coeff simultanéité
+            segmentFlowRate = calculateFlowRate(segment.fixtures);
+        } else {
+            // Segment PARENT (avec enfants) : somme des débits des enfants directs
+            // + les fixtures directes sur ce segment s'il y en a
+            for (const auto* child : children) {
+                segmentFlowRate += child->result.flowRate;
+            }
+
+            // Ajouter les fixtures directes de ce segment (si présentes)
+            if (!segment.fixtures.empty()) {
+                segmentFlowRate += calculateFlowRate(segment.fixtures);
+            }
+        }
 
         // ÉTAPE 3: Déterminer le DN minimal requis = max des DN de tous les enfants directs
         int minRequiredDiameter = 0;
@@ -250,14 +269,15 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
         params.heightDifference = segment.heightDifference;
         params.supplyPressure = inletPressure;
         params.requiredPressure = networkParams.requiredPressure;
-        params.fixtures = allFixtures;
+        params.fixtures = segment.fixtures;  // Seulement les fixtures directes
         params.minDiameter = minRequiredDiameter;  // DN minimal = max DN des enfants
+        params.overrideFlowRate = (!children.empty()) ? segmentFlowRate : 0.0;  // Forcer débit si parent
         params.loopLength = networkParams.loopLength;
         params.ambientTemperature = networkParams.ambientTemperature;
         params.waterTemperature = networkParams.waterTemperature;
         params.insulationThickness = networkParams.insulationThickness;
 
-        // ÉTAPE 5: Calculer ce segment avec le DN minimal requis
+        // ÉTAPE 5: Calculer ce segment (le DN sera correct maintenant)
         segment.result = calculate(params);
 
         // ÉTAPE 6: Calculer la pression de sortie du parent
