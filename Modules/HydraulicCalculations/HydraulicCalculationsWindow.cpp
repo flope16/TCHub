@@ -982,8 +982,19 @@ void HydraulicCalculationsWindow::performCalculations()
     // Calcul
     calculator.calculateNetwork(networkParams);
 
-    // Récupérer les résultats
-    networkSegments = networkParams.segments;
+    // Copier les résultats dans les segments existants par ID
+    // NE PAS remplacer le vecteur ! Les segments graphiques ont des pointeurs vers ces segments
+    for (const auto& calculatedSeg : networkParams.segments) {
+        for (auto& seg : networkSegments) {
+            if (seg.id == calculatedSeg.id) {
+                // Copier uniquement les résultats du calcul (pas tout le segment)
+                seg.result = calculatedSeg.result;
+                seg.inletPressure = calculatedSeg.inletPressure;
+                seg.outletPressure = calculatedSeg.outletPressure;
+                break;
+            }
+        }
+    }
 }
 
 void HydraulicCalculationsWindow::updateNetworkSegmentsData()
