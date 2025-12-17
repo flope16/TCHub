@@ -177,10 +177,20 @@ void GraphicPipeSegment::updateLabels(const HydraulicCalc::NetworkSegment* segme
         // Résultats (si calculés)
         resultsLabel->setPos(labelPos.x(), labelPos.y() + 30);
 
-        // Ajuster le fond du label
-        QRectF boundingRect = nameLabel->boundingRect().united(dimensionsLabel->boundingRect()).united(resultsLabel->boundingRect());
+        // Ajuster le fond du label : calculer la largeur et hauteur réelles sans utiliser united()
+        // qui peut causer des problèmes avec des positions absolues
+        double maxWidth = std::max({nameLabel->boundingRect().width(),
+                                    dimensionsLabel->boundingRect().width(),
+                                    resultsLabel->boundingRect().width()});
+
+        // Hauteur totale : somme des hauteurs des 3 labels
+        double totalHeight = nameLabel->boundingRect().height()
+                           + dimensionsLabel->boundingRect().height()
+                           + resultsLabel->boundingRect().height();
+
+        // Définir la zone de fond avec padding constant
         labelBackground->setRect(labelPos.x() - 5, labelPos.y() - 2,
-                                boundingRect.width() + 10, boundingRect.height() + 50);
+                                maxWidth + 10, totalHeight + 4);
     }
 }
 

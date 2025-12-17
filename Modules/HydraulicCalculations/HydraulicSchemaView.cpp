@@ -2,6 +2,7 @@
 #include <QGraphicsLineItem>
 #include <QKeyEvent>
 #include <QScrollBar>
+#include <QPainter>
 #include <cmath>
 
 HydraulicSchemaView::HydraulicSchemaView(QWidget* parent)
@@ -14,6 +15,8 @@ HydraulicSchemaView::HydraulicSchemaView(QWidget* parent)
     , fixtureTypeToPlace(HydraulicCalc::FixtureType::WashBasin)
     , fixtureQuantityToPlace(1)
     , isPanning(false)
+    , gridEnabled(true)           // Grille activée par défaut
+    , snapToGridEnabled(true)     // Snap activé par défaut
 {
     setupScene();
 
@@ -219,7 +222,8 @@ void HydraulicSchemaView::mouseMoveEvent(QMouseEvent* event)
             // Accroché à un point d'extrémité - afficher l'indicateur
             drawSnapIndicator(snappedPos);
         } else {
-            // Pas accroché - utiliser le snapping horizontal/vertical
+            // Pas accroché à un endpoint - appliquer snap à la grille puis H/V
+            scenePos = snapToGrid(scenePos);
             snappedPos = snapToHorizontalOrVertical(segmentStartPoint, scenePos);
             clearSnapIndicator();
         }
@@ -330,7 +334,8 @@ void HydraulicSchemaView::handleAddSegmentMode(QMouseEvent* event)
         segmentStartPoint = snapToNearestEndpoint(scenePos, 30.0, &snappedToEndpoint);
 
         if (!snappedToEndpoint) {
-            segmentStartPoint = scenePos;
+            // Pas d'endpoint - snapper à la grille
+            segmentStartPoint = snapToGrid(scenePos);
         }
 
         isDrawingSegment = true;
@@ -347,7 +352,8 @@ void HydraulicSchemaView::handleAddSegmentMode(QMouseEvent* event)
         QPointF snappedEndPos = snapToNearestEndpoint(scenePos, 30.0, &snappedToEndpoint);
 
         if (!snappedToEndpoint) {
-            // Pas accroché - utiliser le snapping horizontal/vertical
+            // Pas accroché à un endpoint - appliquer snap à la grille puis H/V
+            scenePos = snapToGrid(scenePos);
             snappedEndPos = snapToHorizontalOrVertical(segmentStartPoint, scenePos);
         }
 
@@ -537,4 +543,57 @@ void HydraulicSchemaView::clearSnapIndicator()
     if (snapIndicator) {
         snapIndicator->setVisible(false);
     }
+}
+
+QPointF HydraulicSchemaView::snapToGrid(const QPointF& pos)
+{
+    if (!snapToGridEnabled) {
+        return pos;
+    }
+
+    // Arrondir les coordonnées au multiple de GRID_SIZE le plus proche
+    double snappedX = std::round(pos.x() / GRID_SIZE) * GRID_SIZE;
+    double snappedY = std::round(pos.y() / GRID_SIZE) * GRID_SIZE;
+
+    return QPointF(snappedX, snappedY);
+}
+
+void HydraulicSchemaView::drawForeground(QPainter* painter, const QRectF& rect)
+{
+    if (!gridEnabled) {
+        return;
+    }
+
+    painter->save();
+
+    // Couleur de la grille (gris très clair)
+    QPen gridPen(QColor("#d0d0d0"), 0.5);
+    painter->setPen(gridPen);
+
+    // Dessiner les lignes verticales
+    double startX = std::floor(rect.left() / GRID_SIZE) * GRID_SIZE;
+    double endX = std::ceil(rect.right() / GRID_SIZE) * GRID_SIZE;
+    for (double x = startX; x <= endX; x += GRID_SIZE) {
+        painter->drawLine(QPointF(x, rect.top()), QPointF(x, rect.bottom()));
+    }
+
+    // Dessiner les lignes horizontales
+    double startY = std::floor(rect.top() / GRID_SIZE) * GRID_SIZE;
+    double endY = std::ceil(rect.bottom() / GRID_SIZE) * GRID_SIZE;
+    for (double y = startY; y <= endY; y += GRID_SIZE) {
+        painter->drawLine(QPointF(rect.left(), y), QPointF(rect.right(), y));
+    }
+
+    // Dessiner des points aux intersections de la grille principale (tous les 100px)
+    QPen majorGridPen(QColor("#a0a0a0"), 1.5);
+    painter->setPen(majorGridPen);
+    painter->setBrush(QBrush(QColor("#a0a0a0")));
+    const double MAJOR_GRID = GRID_SIZE * 5;  // Tous les 5 carreaux
+    for (double x = std::floor(rect.left() / MAJOR_GRID) * MAJOR_GRID; x <= endX; x += MAJOR_GRID) {
+        for (double y = std::floor(rect.top() / MAJOR_GRID) * MAJOR_GRID; y <= endY; y += MAJOR_GRID) {
+            painter->drawEllipse(QPointF(x, y), 2, 2);
+        }
+    }
+
+    painter->restore();
 }

@@ -83,8 +83,10 @@ private:
     void clearTemporaryLine();
     QPointF snapToHorizontalOrVertical(const QPointF& start, const QPointF& end);
     QPointF snapToNearestEndpoint(const QPointF& pos, double tolerance = 30.0, bool* snapped = nullptr);
+    QPointF snapToGrid(const QPointF& pos);
     void drawSnapIndicator(const QPointF& pos);
     void clearSnapIndicator();
+    void drawForeground(QPainter* painter, const QRectF& rect) override;
 
     // Scène graphique
     QGraphicsScene* scene;
@@ -108,4 +110,10 @@ private:
     // Pour le pan (déplacement de la vue)
     bool isPanning;
     QPoint lastPanPoint;
+
+    // Système de grille
+    bool gridEnabled;
+    bool snapToGridEnabled;
+    static constexpr double GRID_SIZE = 20.0;  // Taille de la grille en pixels
+    static constexpr double GRID_SNAP_THRESHOLD = 10.0;  // Distance pour snap automatique
 };
