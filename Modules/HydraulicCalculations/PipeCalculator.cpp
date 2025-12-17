@@ -79,8 +79,9 @@ PipeSegmentResult PipeCalculator::calculate(const CalculationParameters& params)
     result.flowRate = calculateFlowRate(params.fixtures);
 
     // Sélection du diamètre optimal (vitesse max 2 m/s pour confort)
+    // En tenant compte du DN minimal requis (par ex. DN max des enfants)
     double maxVelocity = (params.networkType == NetworkType::HotWaterWithLoop) ? 1.5 : 2.0;
-    result.nominalDiameter = selectOptimalDiameter(result.flowRate, params.material, maxVelocity);
+    result.nominalDiameter = selectOptimalDiameter(result.flowRate, params.material, maxVelocity, params.minDiameter);
     result.actualDiameter = getInternalDiameter(result.nominalDiameter, params.material);
 
     // Calcul de la vitesse réelle
@@ -197,25 +198,51 @@ PipeSegmentResult PipeCalculator::calculate(const CalculationParameters& params)
 }
 
 void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParams) {
-    // Fonction récursive pour calculer un segment et tous ses enfants
+    // Fonction récursive pour collecter tous les appareils d'un segment et tous ses descendants
+    std::function<void(const NetworkSegment&, std::vector<Fixture>&)> collectAllFixtures;
+    collectAllFixtures = [&](const NetworkSegment& seg, std::vector<Fixture>& fixtures) {
+        // Ajouter les fixtures de ce segment
+        fixtures.insert(fixtures.end(), seg.fixtures.begin(), seg.fixtures.end());
+
+        // Ajouter récursivement les fixtures de tous les enfants
+        for (const auto& otherSegment : networkParams.segments) {
+            if (otherSegment.parentId == seg.id) {
+                collectAllFixtures(otherSegment, fixtures);
+            }
+        }
+    };
+
+    // Fonction récursive pour calculer un segment BOTTOM-UP (enfants avant parents)
     std::function<void(NetworkSegment&, double)> calculateSegmentRecursive;
 
     calculateSegmentRecursive = [&](NetworkSegment& segment, double inletPressure) {
         segment.inletPressure = inletPressure;
 
-        // Collecter tous les appareils de ce segment et de ses descendants
-        std::vector<Fixture> allFixtures = segment.fixtures;
-
-        for (auto& otherSegment : networkParams.segments) {
-            if (otherSegment.parentId == segment.id) {
-                // Ajouter les appareils des segments enfants
-                allFixtures.insert(allFixtures.end(),
-                                 otherSegment.fixtures.begin(),
-                                 otherSegment.fixtures.end());
+        // ÉTAPE 1: Calculer d'abord TOUS les enfants (BOTTOM-UP)
+        // Collecter les références des enfants directs
+        std::vector<NetworkSegment*> children;
+        for (auto& childSegment : networkParams.segments) {
+            if (childSegment.parentId == segment.id) {
+                children.push_back(&childSegment);
+                // Calculer récursivement l'enfant AVANT le parent
+                // Note: On passe la pression d'entrée actuelle, elle sera mise à jour après
+                calculateSegmentRecursive(childSegment, inletPressure);
             }
         }
 
-        // Créer les paramètres de calcul pour ce segment
+        // ÉTAPE 2: Collecter tous les appareils de ce segment et de TOUS ses descendants
+        std::vector<Fixture> allFixtures;
+        collectAllFixtures(segment, allFixtures);
+
+        // ÉTAPE 3: Déterminer le DN minimal requis = max des DN de tous les enfants directs
+        int minRequiredDiameter = 0;
+        for (const auto* child : children) {
+            if (child->result.nominalDiameter > minRequiredDiameter) {
+                minRequiredDiameter = child->result.nominalDiameter;
+            }
+        }
+
+        // ÉTAPE 4: Créer les paramètres de calcul pour ce segment
         CalculationParameters params;
         params.networkType = networkParams.networkType;
         params.material = networkParams.material;
@@ -224,22 +251,24 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
         params.supplyPressure = inletPressure;
         params.requiredPressure = networkParams.requiredPressure;
         params.fixtures = allFixtures;
+        params.minDiameter = minRequiredDiameter;  // DN minimal = max DN des enfants
         params.loopLength = networkParams.loopLength;
         params.ambientTemperature = networkParams.ambientTemperature;
         params.waterTemperature = networkParams.waterTemperature;
         params.insulationThickness = networkParams.insulationThickness;
 
-        // Calculer ce segment
+        // ÉTAPE 5: Calculer ce segment avec le DN minimal requis
         segment.result = calculate(params);
 
-        // Calculer la pression de sortie
+        // ÉTAPE 6: Calculer la pression de sortie du parent
         segment.outletPressure = segment.inletPressure - (segment.result.pressureDrop / 10.0);
 
-        // Calculer récursivement les segments enfants
-        for (auto& childSegment : networkParams.segments) {
-            if (childSegment.parentId == segment.id) {
-                calculateSegmentRecursive(childSegment, segment.outletPressure);
-            }
+        // ÉTAPE 7: Mettre à jour la pression d'entrée de tous les enfants
+        // avec la pression de sortie correcte du parent
+        for (auto* child : children) {
+            child->inletPressure = segment.outletPressure;
+            // Note: Les calculs hydrauliques des enfants sont corrects (DN, vitesse, pertes)
+            // Seule la pression d'entrée doit être mise à jour
         }
     };
 
@@ -259,10 +288,15 @@ double PipeCalculator::calculateVelocity(double flowRate, double diameter) {
     return flowRateM3s / area;
 }
 
-int PipeCalculator::selectOptimalDiameter(double flowRate, PipeMaterial material, double maxVelocity) {
+int PipeCalculator::selectOptimalDiameter(double flowRate, PipeMaterial material, double maxVelocity, int minDiameter) {
     std::vector<int> diameters = getAvailableDiameters(material);
 
     for (int dn : diameters) {
+        // Ignorer les diamètres plus petits que le minimum requis
+        if (dn < minDiameter) {
+            continue;
+        }
+
         double internalDia = getInternalDiameter(dn, material);
         double velocity = calculateVelocity(flowRate, internalDia);
 
@@ -271,7 +305,11 @@ int PipeCalculator::selectOptimalDiameter(double flowRate, PipeMaterial material
         }
     }
 
-    // Si aucun diamètre ne convient, retourner le plus grand
+    // Si aucun diamètre ne convient, retourner le plus grand disponible
+    // ou le minDiameter si tous les diamètres sont trop petits
+    if (minDiameter > 0 && diameters.back() < minDiameter) {
+        return minDiameter;
+    }
     return diameters.back();
 }
 
