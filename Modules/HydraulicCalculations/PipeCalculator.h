@@ -174,6 +174,7 @@ struct NetworkSegment {
     double length;               // Longueur en m
     double heightDifference;     // Différence de hauteur en m
     std::vector<Fixture> fixtures; // Appareils desservis par ce segment
+    bool hasReturnLine;          // Indique si ce segment possède une ligne de retour ECS (pour bouclage)
 
     // Résultats de calcul
     PipeSegmentResult result;
@@ -183,6 +184,7 @@ struct NetworkSegment {
     NetworkSegment(const std::string& segId = "", const std::string& segName = "Segment principal")
         : id(segId), name(segName), parentId("")
         , length(0.0), heightDifference(0.0)
+        , hasReturnLine(false)
         , inletPressure(0.0), outletPressure(0.0)
     {}
 };

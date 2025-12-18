@@ -366,9 +366,10 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
 
     // PASSE 2: Calcul du retour bouclage (si applicable)
     if (networkParams.networkType == NetworkType::HotWaterWithLoop) {
-        // Dans un système de bouclage avec sous-boucles :
-        // - Chaque sous-boucle calcule son propre débit de retour basé sur ses pertes
-        // - Au parent : débits s'additionnent, températures se mélangent (pondérées par débits)
+        // RÈGLE FONDAMENTALE DTU 60.11 :
+        // Un sous-bouclage est défini UNIQUEMENT par un ALLER + RETOUR formant une boucle thermique fermée.
+        // Un embranchement hydraulique NE CRÉE PAS un sous-bouclage.
+        // Les antennes (branches sans retour) ne participent PAS au calcul thermique de bouclage.
 
         // ΔT acceptable sur une boucle
         const double deltaT = 5.0;  // °C
@@ -378,7 +379,7 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
         const double maxReturnVelocity = 0.5;  // m/s
 
         // PASSE 3: Calcul récursif bottom-up des débits de retour et températures
-        // Tout se fait en une passe : enfant → parent
+        // UNIQUEMENT pour les segments qui ont une ligne de retour (hasReturnLine = true)
 
         std::function<void(NetworkSegment&)> calculateRetourRecursive;
         calculateRetourRecursive = [&](NetworkSegment& segment) {
@@ -391,17 +392,34 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
                 }
             }
 
-            // ÉTAPE 1 : Calculer le débit de retour du segment
+            // RÈGLE 1 : Vérifier si ce segment possède une ligne de retour
+            if (!segment.hasReturnLine) {
+                // ANTENNE : pas de retour, pas de calcul thermique de bouclage
+                segment.result.hasReturn = false;
+                segment.result.returnFlowRate = 0.0;
+                segment.result.returnNominalDiameter = 0;
+                segment.result.returnActualDiameter = 0.0;
+                segment.result.returnVelocity = 0.0;
+                segment.result.returnInletTemperature = 0.0;
+                segment.result.returnOutletTemperature = 0.0;
+                segment.result.returnTemperature = 0.0;
+                return;  // Ne pas calculer le retour pour ce segment
+            }
+
+            // RÈGLE 2 : Ce segment a un retour, calculer le débit
             if (children.empty()) {
-                // Segment FEUILLE : calcul du débit basé sur les pertes locales
+                // Segment FEUILLE avec retour : calcul du débit basé sur les pertes locales
                 // Q_retour (L/h) = Pertes (W) / (1.16 × ΔT)
                 double returnFlowRateLh = segment.result.heatLoss / (1.16 * deltaT);
                 segment.result.returnFlowRate = returnFlowRateLh / 60.0;  // L/h → L/min
             } else {
-                // Segment PARENT : somme des débits de retour des enfants
+                // Segment PARENT : somme UNIQUEMENT des débits de retour des enfants QUI ONT UN RETOUR
+                // RÈGLE 3 : Les antennes ne contribuent PAS au débit de retour du parent
                 double totalReturnFlow = 0.0;
                 for (const auto* child : children) {
-                    totalReturnFlow += child->result.returnFlowRate;
+                    if (child->hasReturnLine && child->result.hasReturn) {
+                        totalReturnFlow += child->result.returnFlowRate;
+                    }
                 }
                 segment.result.returnFlowRate = totalReturnFlow;
             }
@@ -439,24 +457,34 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
                 segment.result.returnInletTemperature = segment.result.outletTemperature;
             } else {
                 // Segment PARENT : MÉLANGE PONDÉRÉ par les débits
+                // RÈGLE 4 : Ne considérer QUE les enfants qui ont un retour pour le mélange
                 // Formule : T_mélange = (Q₁×T₁ + Q₂×T₂ + ...) / (Q₁ + Q₂ + ...)
                 double sumWeightedTemp = 0.0;
                 double sumFlow = 0.0;
+                int childrenWithReturn = 0;
 
                 for (const auto* child : children) {
-                    sumWeightedTemp += child->result.returnFlowRate * child->result.returnOutletTemperature;
-                    sumFlow += child->result.returnFlowRate;
+                    if (child->hasReturnLine && child->result.hasReturn) {
+                        sumWeightedTemp += child->result.returnFlowRate * child->result.returnOutletTemperature;
+                        sumFlow += child->result.returnFlowRate;
+                        childrenWithReturn++;
+                    }
                 }
 
                 if (sumFlow > 0.0001) {
                     segment.result.returnInletTemperature = sumWeightedTemp / sumFlow;
-                } else {
-                    // Cas dégénéré : moyenne simple si débits nuls
+                } else if (childrenWithReturn > 0) {
+                    // Cas dégénéré : moyenne simple si débits nuls mais enfants avec retour
                     double sumTemp = 0.0;
                     for (const auto* child : children) {
-                        sumTemp += child->result.returnOutletTemperature;
+                        if (child->hasReturnLine && child->result.hasReturn) {
+                            sumTemp += child->result.returnOutletTemperature;
+                        }
                     }
-                    segment.result.returnInletTemperature = sumTemp / children.size();
+                    segment.result.returnInletTemperature = sumTemp / childrenWithReturn;
+                } else {
+                    // Aucun enfant avec retour : utiliser la température de sortie aller
+                    segment.result.returnInletTemperature = segment.result.outletTemperature;
                 }
             }
 
@@ -526,6 +554,11 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
 
         // PASSE 3B: Recalcul des températures RETOUR
         recalculateRetourTemperatures = [&](NetworkSegment& segment) {
+            // Si ce segment n'a pas de retour, ne rien faire
+            if (!segment.hasReturnLine) {
+                return;
+            }
+
             // D'abord, calculer récursivement tous les enfants
             std::vector<NetworkSegment*> children;
             for (auto& child : networkParams.segments) {
@@ -541,22 +574,31 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
                 segment.result.returnInletTemperature = segment.result.outletTemperature;
             } else {
                 // Segment PARENT : MÉLANGE PONDÉRÉ par les débits
+                // RÈGLE : Ne considérer QUE les enfants qui ont un retour
                 double sumWeightedTemp = 0.0;
                 double sumFlow = 0.0;
+                int childrenWithReturn = 0;
 
                 for (const auto* child : children) {
-                    sumWeightedTemp += child->result.returnFlowRate * child->result.returnOutletTemperature;
-                    sumFlow += child->result.returnFlowRate;
+                    if (child->hasReturnLine && child->result.hasReturn) {
+                        sumWeightedTemp += child->result.returnFlowRate * child->result.returnOutletTemperature;
+                        sumFlow += child->result.returnFlowRate;
+                        childrenWithReturn++;
+                    }
                 }
 
                 if (sumFlow > 0.0001) {
                     segment.result.returnInletTemperature = sumWeightedTemp / sumFlow;
-                } else {
+                } else if (childrenWithReturn > 0) {
                     double sumTemp = 0.0;
                     for (const auto* child : children) {
-                        sumTemp += child->result.returnOutletTemperature;
+                        if (child->hasReturnLine && child->result.hasReturn) {
+                            sumTemp += child->result.returnOutletTemperature;
+                        }
                     }
-                    segment.result.returnInletTemperature = sumTemp / children.size();
+                    segment.result.returnInletTemperature = sumTemp / childrenWithReturn;
+                } else {
+                    segment.result.returnInletTemperature = segment.result.outletTemperature;
                 }
             }
 
@@ -601,6 +643,11 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
             // (qui ont été recalculées dans recalculateAllerTemperatures avec les bonnes températures)
             std::function<void(NetworkSegment&)> recalculateReturnFlows;
             recalculateReturnFlows = [&](NetworkSegment& segment) {
+                // Si ce segment n'a pas de retour, ne rien faire
+                if (!segment.hasReturnLine) {
+                    return;
+                }
+
                 // D'abord, calculer récursivement tous les enfants
                 std::vector<NetworkSegment*> children;
                 for (auto& child : networkParams.segments) {
@@ -612,15 +659,17 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
 
                 // Recalculer le débit de retour basé sur les pertes actualisées
                 if (children.empty()) {
-                    // Segment FEUILLE : calcul du débit basé sur les pertes actualisées
+                    // Segment FEUILLE avec retour : calcul du débit basé sur les pertes actualisées
                     // Q_retour (L/h) = Pertes (W) / (1.16 × ΔT)
                     double returnFlowRateLh = segment.result.heatLoss / (1.16 * deltaT);
                     segment.result.returnFlowRate = returnFlowRateLh / 60.0;  // L/h → L/min
                 } else {
-                    // Segment PARENT : somme des débits de retour des enfants
+                    // Segment PARENT : somme UNIQUEMENT des débits de retour des enfants QUI ONT UN RETOUR
                     double totalReturnFlow = 0.0;
                     for (const auto* child : children) {
-                        totalReturnFlow += child->result.returnFlowRate;
+                        if (child->hasReturnLine && child->result.hasReturn) {
+                            totalReturnFlow += child->result.returnFlowRate;
+                        }
                     }
                     segment.result.returnFlowRate = totalReturnFlow;
                 }
@@ -758,17 +807,18 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
             segment.result.returnTemperature = segment.result.returnOutletTemperature;
 
             // Propager le nouveau débit aux enfants proportionnellement
+            // RÈGLE : Propager uniquement aux enfants qui ont un retour
             std::vector<NetworkSegment*> children;
             double oldTotalChildFlow = 0.0;
             for (auto& child : networkParams.segments) {
-                if (child.parentId == segment.id) {
+                if (child.parentId == segment.id && child.hasReturnLine && child.result.hasReturn) {
                     children.push_back(&child);
                     oldTotalChildFlow += child.result.returnFlowRate;
                 }
             }
 
             if (!children.empty() && oldTotalChildFlow > 0.0001) {
-                // Distribuer le nouveau débit proportionnellement aux enfants
+                // Distribuer le nouveau débit proportionnellement aux enfants QUI ONT UN RETOUR
                 for (auto* child : children) {
                     double ratio = child->result.returnFlowRate / oldTotalChildFlow;
                     double childNewFlow = newFlowRate * ratio;
