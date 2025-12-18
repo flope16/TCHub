@@ -202,6 +202,108 @@ PipeSegmentResult PipeCalculator::calculate(const CalculationParameters& params)
     return result;
 }
 
+// Sélection optimale du diamètre de retour avec contraintes de vitesse
+PipeCalculator::ReturnDiameterResult PipeCalculator::selectReturnDiameter(
+    double thermalFlowRate, PipeMaterial material, double minVelocity, double maxVelocity) {
+
+    ReturnDiameterResult result;
+    result.adjustedFlowRate = thermalFlowRate;
+    result.flowRateAdjusted = false;
+
+    // Obtenir tous les diamètres disponibles pour ce matériau
+    std::vector<int> diameters = getAvailableDiameters(material);
+
+    if (diameters.empty()) {
+        // Cas dégénéré : aucun diamètre disponible
+        result.nominalDiameter = 10;
+        result.actualDiameter = getInternalDiameter(10, material);
+        result.velocity = calculateVelocity(thermalFlowRate, result.actualDiameter);
+        return result;
+    }
+
+    // Structure pour stocker les candidats
+    struct Candidate {
+        int dn;
+        double diameter;
+        double velocity;
+    };
+    std::vector<Candidate> validCandidates;
+
+    // Tester tous les DN et trouver ceux qui respectent les contraintes
+    for (int dn : diameters) {
+        double diameter = getInternalDiameter(dn, material);
+        double velocity = calculateVelocity(thermalFlowRate, diameter);
+
+        // Vérifier si ce DN respecte les contraintes de vitesse
+        if (velocity >= minVelocity && velocity <= maxVelocity) {
+            validCandidates.push_back({dn, diameter, velocity});
+        }
+    }
+
+    // CAS 1 : Au moins un DN respecte les contraintes
+    if (!validCandidates.empty()) {
+        // Prendre le plus petit DN (celui avec la vitesse la plus haute dans la plage)
+        auto minDN = std::min_element(validCandidates.begin(), validCandidates.end(),
+            [](const Candidate& a, const Candidate& b) { return a.dn < b.dn; });
+
+        result.nominalDiameter = minDN->dn;
+        result.actualDiameter = minDN->diameter;
+        result.velocity = minDN->velocity;
+        return result;
+    }
+
+    // CAS 2 : Aucun DN ne respecte les contraintes
+    // Vérifier si tous les DN donnent une vitesse trop faible (v < vmin)
+    bool allTooSlow = true;
+    for (int dn : diameters) {
+        double diameter = getInternalDiameter(dn, material);
+        double velocity = calculateVelocity(thermalFlowRate, diameter);
+        if (velocity >= minVelocity) {
+            allTooSlow = false;
+            break;
+        }
+    }
+
+    if (allTooSlow) {
+        // Tous les DN donnent v < vmin : prendre le plus petit DN et augmenter le débit
+        int smallestDN = diameters.front();
+        double diameter = getInternalDiameter(smallestDN, material);
+
+        // Calculer le débit nécessaire pour atteindre vmin
+        // v = Q / (π D² / 4) => Q = v × π D² / 4
+        double requiredFlowRate = minVelocity * M_PI * std::pow(diameter / 2000.0, 2);
+        requiredFlowRate *= 60000.0; // m³/s → L/min
+
+        result.nominalDiameter = smallestDN;
+        result.actualDiameter = diameter;
+        result.adjustedFlowRate = requiredFlowRate;
+        result.velocity = minVelocity;
+        result.flowRateAdjusted = true;
+        return result;
+    }
+
+    // CAS 3 : Tous les DN donnent v > vmax : prendre le premier DN qui donne v ≤ vmax
+    // (normalement ne devrait pas arriver car selectOptimalDiameter gère déjà ce cas)
+    for (int dn : diameters) {
+        double diameter = getInternalDiameter(dn, material);
+        double velocity = calculateVelocity(thermalFlowRate, diameter);
+
+        if (velocity <= maxVelocity) {
+            result.nominalDiameter = dn;
+            result.actualDiameter = diameter;
+            result.velocity = velocity;
+            return result;
+        }
+    }
+
+    // Dernier recours : prendre le plus gros DN disponible
+    int largestDN = diameters.back();
+    result.nominalDiameter = largestDN;
+    result.actualDiameter = getInternalDiameter(largestDN, material);
+    result.velocity = calculateVelocity(thermalFlowRate, result.actualDiameter);
+    return result;
+}
+
 void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParams) {
     // Calcul automatique de la longueur de boucle = somme des longueurs de tous les segments
     double totalLoopLength = 0.0;
@@ -424,31 +526,20 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
                 segment.result.returnFlowRate = totalReturnFlow;
             }
 
-            // ÉTAPE 2 : Calculer le DN retour basé sur le débit local
+            // ÉTAPE 2 : Calculer le DN retour basé sur le débit thermique
+            // Utilisation de la nouvelle fonction qui trouve automatiquement le plus petit DN
+            // tout en respectant les contraintes 0.2 ≤ v ≤ 0.5 m/s
             segment.result.hasReturn = true;
-            segment.result.returnNominalDiameter = selectOptimalDiameter(
-                segment.result.returnFlowRate, networkParams.material, maxReturnVelocity);
-            segment.result.returnActualDiameter = getInternalDiameter(
-                segment.result.returnNominalDiameter, networkParams.material);
-            segment.result.returnVelocity = calculateVelocity(
-                segment.result.returnFlowRate, segment.result.returnActualDiameter);
+            auto returnResult = selectReturnDiameter(
+                segment.result.returnFlowRate, networkParams.material, minReturnVelocity, maxReturnVelocity);
 
-            // Ajustement si vitesse trop faible (réduire DN)
-            while (segment.result.returnVelocity < minReturnVelocity &&
-                   segment.result.returnNominalDiameter > 10) {
-                std::vector<int> diameters = getAvailableDiameters(networkParams.material);
-                auto it = std::find(diameters.begin(), diameters.end(),
-                                   segment.result.returnNominalDiameter);
-                if (it != diameters.begin()) {
-                    --it;
-                    segment.result.returnNominalDiameter = *it;
-                    segment.result.returnActualDiameter = getInternalDiameter(
-                        segment.result.returnNominalDiameter, networkParams.material);
-                    segment.result.returnVelocity = calculateVelocity(
-                        segment.result.returnFlowRate, segment.result.returnActualDiameter);
-                } else {
-                    break;
-                }
+            segment.result.returnNominalDiameter = returnResult.nominalDiameter;
+            segment.result.returnActualDiameter = returnResult.actualDiameter;
+            segment.result.returnVelocity = returnResult.velocity;
+
+            // Si le débit a été augmenté pour respecter vmin, mettre à jour le débit
+            if (returnResult.flowRateAdjusted) {
+                segment.result.returnFlowRate = returnResult.adjustedFlowRate;
             }
 
             // ÉTAPE 3 : Calculer la température d'entrée retour (returnInletTemperature)
@@ -675,29 +766,16 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
                 }
 
                 // Recalculer le DN retour basé sur le nouveau débit
-                segment.result.returnNominalDiameter = selectOptimalDiameter(
-                    segment.result.returnFlowRate, networkParams.material, maxReturnVelocity);
-                segment.result.returnActualDiameter = getInternalDiameter(
-                    segment.result.returnNominalDiameter, networkParams.material);
-                segment.result.returnVelocity = calculateVelocity(
-                    segment.result.returnFlowRate, segment.result.returnActualDiameter);
+                auto returnResult = selectReturnDiameter(
+                    segment.result.returnFlowRate, networkParams.material, minReturnVelocity, maxReturnVelocity);
 
-                // Ajustement si vitesse trop faible (réduire DN)
-                while (segment.result.returnVelocity < minReturnVelocity &&
-                       segment.result.returnNominalDiameter > 10) {
-                    std::vector<int> diameters = getAvailableDiameters(networkParams.material);
-                    auto it = std::find(diameters.begin(), diameters.end(),
-                                       segment.result.returnNominalDiameter);
-                    if (it != diameters.begin()) {
-                        --it;
-                        segment.result.returnNominalDiameter = *it;
-                        segment.result.returnActualDiameter = getInternalDiameter(
-                            segment.result.returnNominalDiameter, networkParams.material);
-                        segment.result.returnVelocity = calculateVelocity(
-                            segment.result.returnFlowRate, segment.result.returnActualDiameter);
-                    } else {
-                        break;
-                    }
+                segment.result.returnNominalDiameter = returnResult.nominalDiameter;
+                segment.result.returnActualDiameter = returnResult.actualDiameter;
+                segment.result.returnVelocity = returnResult.velocity;
+
+                // Si le débit a été augmenté pour respecter vmin, mettre à jour le débit
+                if (returnResult.flowRateAdjusted) {
+                    segment.result.returnFlowRate = returnResult.adjustedFlowRate;
                 }
             };
 
@@ -744,51 +822,17 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
         // Fonction pour recalculer les températures avec un nouveau débit
         std::function<void(NetworkSegment&, double)> recalculateTemperaturesWithFlow;
         recalculateTemperaturesWithFlow = [&](NetworkSegment& segment, double newFlowRate) {
-            // Mettre à jour le débit
-            segment.result.returnFlowRate = newFlowRate;
-
             // Recalculer DN et vitesse avec le nouveau débit
-            segment.result.returnNominalDiameter = selectOptimalDiameter(
-                newFlowRate, networkParams.material, maxReturnVelocity);
-            segment.result.returnActualDiameter = getInternalDiameter(
-                segment.result.returnNominalDiameter, networkParams.material);
-            segment.result.returnVelocity = calculateVelocity(
-                newFlowRate, segment.result.returnActualDiameter);
+            auto returnResult = selectReturnDiameter(
+                newFlowRate, networkParams.material, minReturnVelocity, maxReturnVelocity);
 
-            // Ajustement si vitesse trop faible (réduire DN)
-            while (segment.result.returnVelocity < minReturnVelocity &&
-                   segment.result.returnNominalDiameter > 10) {
-                std::vector<int> diameters = getAvailableDiameters(networkParams.material);
-                auto it = std::find(diameters.begin(), diameters.end(),
-                                   segment.result.returnNominalDiameter);
-                if (it != diameters.begin()) {
-                    --it;
-                    segment.result.returnNominalDiameter = *it;
-                    segment.result.returnActualDiameter = getInternalDiameter(
-                        segment.result.returnNominalDiameter, networkParams.material);
-                    segment.result.returnVelocity = calculateVelocity(
-                        newFlowRate, segment.result.returnActualDiameter);
-                } else {
-                    break;
-                }
-            }
+            segment.result.returnNominalDiameter = returnResult.nominalDiameter;
+            segment.result.returnActualDiameter = returnResult.actualDiameter;
+            segment.result.returnVelocity = returnResult.velocity;
 
-            // Ajustement si vitesse trop élevée (augmenter DN)
-            while (segment.result.returnVelocity > maxReturnVelocity) {
-                std::vector<int> diameters = getAvailableDiameters(networkParams.material);
-                auto it = std::find(diameters.begin(), diameters.end(),
-                                   segment.result.returnNominalDiameter);
-                if (it != diameters.end() && (it + 1) != diameters.end()) {
-                    ++it;
-                    segment.result.returnNominalDiameter = *it;
-                    segment.result.returnActualDiameter = getInternalDiameter(
-                        segment.result.returnNominalDiameter, networkParams.material);
-                    segment.result.returnVelocity = calculateVelocity(
-                        newFlowRate, segment.result.returnActualDiameter);
-                } else {
-                    break;
-                }
-            }
+            // Utiliser le débit ajusté si nécessaire pour respecter vmin
+            segment.result.returnFlowRate = returnResult.flowRateAdjusted ?
+                returnResult.adjustedFlowRate : newFlowRate;
 
             // Recalculer les pertes thermiques retour avec le nouveau DN
             double returnHeatLoss = calculateHeatLoss(

@@ -235,6 +235,17 @@ public:
     static std::string getMaterialName(PipeMaterial material);
     static std::string getNetworkTypeName(NetworkType type);
 
+    // Sélection du diamètre retour avec contraintes de vitesse
+    struct ReturnDiameterResult {
+        int nominalDiameter;
+        double actualDiameter;
+        double velocity;
+        double adjustedFlowRate;  // Débit ajusté si nécessaire pour respecter vmin
+        bool flowRateAdjusted;    // true si le débit a été augmenté
+    };
+    ReturnDiameterResult selectReturnDiameter(double thermalFlowRate, PipeMaterial material,
+                                              double minVelocity = 0.2, double maxVelocity = 0.5);
+
 private:
     // Calculs internes
     double calculatePressureDrop(double flowRate, double length, double diameter,
