@@ -2,7 +2,6 @@
 #include <QMessageBox>
 #include <QFileDialog>
 #include <QInputDialog>
-#include <QCheckBox>
 #include <QPrinter>
 #include <QTextDocument>
 #include <QDateTime>
@@ -1078,6 +1077,16 @@ void HydraulicCalculationsWindow::performCalculations()
             networkParams.waterTemperature = waterTempSpin->value();
             networkParams.ambientTemperature = ambientTempSpin->value();
             networkParams.insulationThickness = insulationSpin->value();
+
+            // Définir automatiquement hasReturnLine = true pour tous les segments en mode bouclage
+            for (auto& seg : networkParams.segments) {
+                seg.hasReturnLine = true;
+            }
+        } else {
+            // En mode non-bouclage, hasReturnLine = false pour tous les segments
+            for (auto& seg : networkParams.segments) {
+                seg.hasReturnLine = false;
+            }
         }
 
         // Calcul avec protection
@@ -1540,14 +1549,6 @@ bool HydraulicCalculationsWindow::showSegmentDialog(HydraulicCalc::NetworkSegmen
     heightSpin->setDecimals(1);
     formLayout->addRow("Hauteur:", heightSpin);
 
-    // Checkbox pour le retour de bouclage (uniquement si ECS avec bouclage)
-    QCheckBox *hasReturnCheckbox = new QCheckBox("Possède une ligne de retour ECS", &dialog);
-    hasReturnCheckbox->setChecked(isEdit ? segment.hasReturnLine : false);
-    hasReturnCheckbox->setStyleSheet("QCheckBox { color: #1e293b; font-size: 10pt; }");
-    // Afficher uniquement si le réseau est de type ECS avec bouclage
-    hasReturnCheckbox->setVisible(networkTypeCombo->currentIndex() == 2);
-    formLayout->addRow("Retour:", hasReturnCheckbox);
-
     layout->addLayout(formLayout);
 
     QHBoxLayout *buttonsLayout = new QHBoxLayout();
@@ -1565,7 +1566,7 @@ bool HydraulicCalculationsWindow::showSegmentDialog(HydraulicCalc::NetworkSegmen
         segment.parentId = parentCombo->currentData().toString().toStdString();
         segment.length = lengthSpin->value();
         segment.heightDifference = heightSpin->value();
-        segment.hasReturnLine = hasReturnCheckbox->isChecked();
+        // hasReturnLine est défini automatiquement selon le type de réseau dans performCalculations()
         return true;
     }
 
