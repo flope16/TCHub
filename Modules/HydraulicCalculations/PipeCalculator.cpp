@@ -84,7 +84,8 @@ PipeSegmentResult PipeCalculator::calculate(const CalculationParameters& params)
 
     // Sélection du diamètre optimal (vitesse max 2 m/s pour confort)
     // En tenant compte du DN minimal requis (par ex. DN max des enfants)
-    double maxVelocity = (params.networkType == NetworkType::HotWaterWithLoop) ? 1.5 : 2.0;
+    // DTU 60.11 : viser 0,5 à 1,0 m/s en ECS pour limiter le bruit/érosion
+    double maxVelocity = (params.networkType == NetworkType::ColdWater) ? 2.0 : 1.0;
     result.nominalDiameter = selectOptimalDiameter(result.flowRate, params.material, maxVelocity, params.minDiameter);
     result.actualDiameter = getInternalDiameter(result.nominalDiameter, params.material);
 
@@ -121,6 +122,30 @@ PipeSegmentResult PipeCalculator::calculate(const CalculationParameters& params)
             // Si débit nul, température reste identique (pas de refroidissement)
             result.outletTemperature = result.inletTemperature;
         }
+
+        // Contrôle DTU 60.11 : ne pas descendre sous 55°C
+        const double minHotWaterTemp = 55.0;
+        if (result.outletTemperature < minHotWaterTemp) {
+            double allowableDrop = result.inletTemperature - minHotWaterTemp;
+            if (allowableDrop > 0.1) {
+                double minFlowKgPerS = result.heatLoss / (4186.0 * allowableDrop);
+                double minFlowLPerMin = minFlowKgPerS * 60.0;  // kg/s ≈ L/s → L/min
+                result.recommendation += "⚠️ Débit insuffisant pour maintenir 55°C (" +
+                    std::to_string(static_cast<int>(minFlowLPerMin * 10) / 10.0) +
+                    " L/min requis). ";
+            } else {
+                result.recommendation += "⚠️ Température trop basse (<55°C). ";
+            }
+        }
+
+        // Alerte si ΔT > 1°C / 10 m avec isolant standard
+        double deltaT = result.inletTemperature - result.outletTemperature;
+        if (params.length > 0.1 && deltaT > (params.length / 10.0)) {
+            result.recommendation += "⚠️ ΔT élevé (" +
+                std::to_string(static_cast<int>(deltaT * 10) / 10.0) +
+                " °C sur " + std::to_string(static_cast<int>(params.length * 10) / 10.0) +
+                " m). Vérifier isolant ou débit. ";
+        }
     } else {
         // Pour eau froide, pas de calcul de température
         result.inletTemperature = 0.0;
@@ -140,7 +165,8 @@ PipeSegmentResult PipeCalculator::calculate(const CalculationParameters& params)
             " m/s). Risque de bruit. ";
     }
 
-    if (result.velocity < 0.3) {
+    double minVelocityWarning = (params.networkType == NetworkType::ColdWater) ? 0.3 : 0.5;
+    if (result.velocity < minVelocityWarning) {
         result.recommendation += "⚠️ Vitesse faible (" +
             std::to_string(static_cast<int>(result.velocity * 100) / 100.0) +
             " m/s). Risque de stagnation. ";
@@ -311,8 +337,8 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
         const double deltaT = 5.0;  // °C
 
         // Vitesses min/max recommandées pour le retour
-        const double minReturnVelocity = 0.2;  // m/s
-        const double maxReturnVelocity = 0.5;  // m/s
+        const double minReturnVelocity = 0.5;  // m/s (DTU : viser 0,5 à 1,0 m/s)
+        const double maxReturnVelocity = 1.0;  // m/s
 
         // PASSE 3: Calcul récursif bottom-up des débits de retour et températures
         // Tout se fait en une passe : enfant → parent
@@ -653,25 +679,34 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
             recalculateRetourTemperatures(segment);
         };
 
-        // Vérifier et ajuster chaque segment racine
+        // Appliquer la contrainte de température 55°C sur chaque segment de bouclage
+        std::function<void(NetworkSegment&)> enforceMinimumReturnTemperature;
+        enforceMinimumReturnTemperature = [&](NetworkSegment& segment) {
+            double returnHeatLoss = calculateHeatLoss(
+                segment.length, segment.result.returnActualDiameter,
+                networkParams.insulationThickness,
+                segment.result.returnInletTemperature, networkParams.ambientTemperature);
+
+            double allowableDrop = segment.result.returnInletTemperature - minReturnTemp;
+            if (allowableDrop > 0.05) {
+                double minFlowM3h = returnHeatLoss / (1160.0 * allowableDrop);
+                double minFlowLmin = minFlowM3h * 1000.0 / 60.0;
+
+                if (segment.result.returnFlowRate + 1e-6 < minFlowLmin) {
+                    recalculateTemperaturesWithFlow(segment, minFlowLmin);
+                }
+            }
+
+            for (auto& child : networkParams.segments) {
+                if (child.parentId == segment.id) {
+                    enforceMinimumReturnTemperature(child);
+                }
+            }
+        };
+
         for (auto& segment : networkParams.segments) {
             if (segment.parentId.empty()) {
-                // Vérifier si la température finale respecte la contrainte
-                if (segment.result.returnOutletTemperature < minReturnTemp) {
-                    // Calculer le débit nécessaire pour atteindre exactement minReturnTemp
-                    // On fait plusieurs itérations si nécessaire
-                    const int maxIterations = 10;
-                    for (int i = 0; i < maxIterations; i++) {
-                        double currentTemp = segment.result.returnOutletTemperature;
-                        double tempDeficit = minReturnTemp - currentTemp;
-
-                        if (tempDeficit < 0.1) break;  // Tolérance de 0.1°C
-
-                        // Augmenter le débit de 20% à chaque itération
-                        double newFlowRate = segment.result.returnFlowRate * 1.2;
-                        recalculateTemperaturesWithFlow(segment, newFlowRate);
-                    }
-                }
+                enforceMinimumReturnTemperature(segment);
             }
         }
     }
@@ -794,52 +829,22 @@ double PipeCalculator::calculateSingularPressureDrop(double linearDrop) {
 
 double PipeCalculator::calculateHeatLoss(double length, double diameter, double insulation,
                                         double waterTemp, double ambientTemp) {
-    // Calcul des pertes thermiques basé sur les résistances thermiques
-    // Formule : q = (T_eau - T_amb) / R_tot  (W/m)
-    //           Q = q × L  (W total)
-    // où R_tot = R_isol + R_ext
-    //    R_isol = ln(r2/r1) / (2πλ)
-    //    R_ext = 1 / (h_ext × 2πr2)
+    // Modèle simplifié issu des notes DTU 60.11 :
+    // q = U × π × D_ext × (T_eau - T_amb)
+    // U dépend de l'épaisseur d'isolant (≈0,5 à 1,0 W/m².K pour 20–30 mm)
 
-    // Rayon extérieur du tube (m)
-    double r1 = (diameter / 1000.0) / 2.0;
+    // Diamètre extérieur isolé (m)
+    double externalDiameterM = (diameter + 2.0 * insulation) / 1000.0;
 
-    // Rayon extérieur avec isolation (m)
-    double r2 = (diameter / 1000.0 + 2.0 * insulation / 1000.0) / 2.0;
+    // Ajustement empirique de U en fonction de l'épaisseur d'isolant
+    double effectiveThickness = std::max(insulation, 5.0); // éviter division par zéro
+    double U = 0.8 * (25.0 / effectiveThickness); // 0,8 W/m².K à 25 mm
+    U = std::clamp(U, 0.4, 1.6); // bornes cohérentes isolant courant
 
-    // Conductivité thermique de l'isolation (W/m·K)
-    // Valeur typique pour mousse polyuréthane ou polystyrène expansé
-    const double lambda = 0.04;
-
-    // Coefficient d'échange convectif extérieur (W/m²·K)
-    // Valeur typique pour convection naturelle dans l'air
-    const double h_ext = 10.0;
-
-    // Résistance thermique de l'isolation (K/W par mètre linéaire)
-    // R_isol = ln(r2/r1) / (2πλ)
-    double R_isol = 0.0;
-    if (r2 > r1 && r1 > 0) {
-        R_isol = std::log(r2 / r1) / (2.0 * M_PI * lambda);
-    }
-
-    // Résistance thermique externe par convection (K/W par mètre linéaire)
-    // R_ext = 1 / (h_ext × 2πr2)
-    double R_ext = 0.0;
-    if (r2 > 0) {
-        R_ext = 1.0 / (h_ext * 2.0 * M_PI * r2);
-    }
-
-    // Résistance thermique totale (K/W par mètre linéaire)
-    double R_tot = R_isol + R_ext;
-
-    // Perte thermique linéique (W/m)
     double temperatureDiff = waterTemp - ambientTemp;
-    double q = (R_tot > 0) ? (temperatureDiff / R_tot) : 0.0;
+    double qLinear = U * M_PI * externalDiameterM * temperatureDiff; // W/m
 
-    // Perte thermique totale (W)
-    double Q = q * length;
-
-    return Q;
+    return qLinear * length;
 }
 
 std::vector<int> PipeCalculator::getAvailableDiameters(PipeMaterial material) {
