@@ -51,6 +51,44 @@ private:
     void initializeFlowRate();
 };
 
+// Détails de calcul intermédiaires pour le débogage (PDF détaillé)
+struct CalculationDetails {
+    // Calcul du débit
+    double totalFixtureFlowRate;   // Somme des débits des appareils (L/min)
+    int totalFixtures;              // Nombre total d'appareils
+    double simultaneityCoeff;       // Coefficient de simultanéité appliqué
+
+    // Calcul de la vitesse
+    double crossSection;            // Section de passage (m²)
+
+    // Calcul de la perte de charge
+    double reynolds;                // Nombre de Reynolds
+    bool isLaminar;                 // Écoulement laminaire (Re < 2300)
+    double lambda;                  // Coefficient de friction (sans dimension)
+    double roughness;               // Rugosité absolue du matériau (mm)
+    double relativeRoughness;       // Rugosité relative (ε/D)
+    double linearPressureDrop;      // Perte de charge linéaire (mCE)
+    double singularPressureDrop;    // Perte de charge singulière (mCE)
+    double heightPressureDrop;      // Perte/gain dû à la hauteur (mCE)
+
+    // Calcul des pertes thermiques (ECS)
+    double r1;                      // Rayon intérieur (m)
+    double r2;                      // Rayon extérieur avec isolation (m)
+    double thermalResistanceInsul;  // Résistance thermique isolation (K/W par m)
+    double thermalResistanceExt;    // Résistance thermique externe (K/W par m)
+    double heatLossPerMeter;        // Perte thermique par mètre (W/m)
+    double temperatureDrop;         // Chute de température (°C)
+
+    CalculationDetails()
+        : totalFixtureFlowRate(0), totalFixtures(0), simultaneityCoeff(0)
+        , crossSection(0), reynolds(0), isLaminar(false), lambda(0)
+        , roughness(0), relativeRoughness(0), linearPressureDrop(0)
+        , singularPressureDrop(0), heightPressureDrop(0)
+        , r1(0), r2(0), thermalResistanceInsul(0), thermalResistanceExt(0)
+        , heatLossPerMeter(0), temperatureDrop(0)
+    {}
+};
+
 // Résultat de calcul pour un tronçon
 struct PipeSegmentResult {
     double flowRate;         // Débit en L/min
@@ -77,6 +115,9 @@ struct PipeSegmentResult {
     double returnOutletTemperature;  // Température sortie retour en °C (après pertes dans le retour)
 
     std::string recommendation; // Recommandation
+
+    // Détails de calcul pour le débogage
+    CalculationDetails details;
 
     PipeSegmentResult()
         : flowRate(0), velocity(0), pressureDrop(0)
@@ -206,12 +247,25 @@ private:
     double calculateLinearPressureDrop(double flowRate, double diameter,
                                        double roughness, double length);
 
+    // Version avec détails pour le PDF
+    double calculateLinearPressureDropWithDetails(double flowRate, double diameter,
+                                                   double roughness, double length,
+                                                   CalculationDetails& details);
+
     // Calcul de la perte de charge singulière (estimée à 20% des pertes linéaires)
     double calculateSingularPressureDrop(double linearDrop);
 
     // Calcul des pertes thermiques pour le bouclage ECS
     double calculateHeatLoss(double length, double diameter, double insulation,
                             double waterTemp, double ambientTemp);
+
+    // Version avec détails pour le PDF
+    double calculateHeatLossWithDetails(double length, double diameter, double insulation,
+                                        double waterTemp, double ambientTemp,
+                                        CalculationDetails& details);
+
+    // Version avec détails pour le PDF
+    double calculateFlowRateWithDetails(const std::vector<Fixture>& fixtures, CalculationDetails& details);
 
     // Diamètres nominaux disponibles par matériau
     std::vector<int> getAvailableDiameters(PipeMaterial material);
