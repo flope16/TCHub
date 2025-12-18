@@ -321,20 +321,10 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
         const double minReturnVelocity = 0.2;  // m/s
         const double maxReturnVelocity = 0.5;  // m/s
 
-        // Appliquer le débit de retour global à TOUS les segments
-        // ET recalculer les températures avec le débit de retour
+        // Appliquer le débit de retour global et calculer DN retour pour TOUS les segments
         for (auto& segment : networkParams.segments) {
             segment.result.returnFlowRate = globalReturnFlowRate;
-
-            // RECALCUL TEMPÉRATURE avec le débit de RETOUR (pas le débit aller !)
-            // Formule : ΔT = Pertes (W) / (1160 × Q_retour (m³/h))
-            double returnFlowRateM3h = globalReturnFlowRate * 60.0 / 1000.0;  // L/min → m³/h
-            if (returnFlowRateM3h > 0.0001) {  // Éviter division par zéro
-                double temperatureDrop = segment.result.heatLoss / (1160.0 * returnFlowRateM3h);
-                segment.result.outletTemperature = segment.result.inletTemperature - temperatureDrop;
-            } else {
-                segment.result.outletTemperature = segment.result.inletTemperature;
-            }
+            segment.result.hasReturn = true;
 
             // Calculer le DN retour basé sur le débit global
             segment.result.returnNominalDiameter = selectOptimalDiameter(
@@ -361,47 +351,66 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
                     break;
                 }
             }
-
-            // Température de retour = température de sortie du segment (côté aller)
-            segment.result.returnTemperature = segment.result.outletTemperature;
         }
 
-        // PASSE 3: Propager les températures recalculées aux enfants
-        // (nécessaire car les températures ont changé avec le débit de retour)
-        std::function<void(NetworkSegment&)> propagateTemperatures;
-        propagateTemperatures = [&](NetworkSegment& segment) {
+        // PASSE 3: Calcul des températures de RETOUR (bottom-up : enfants → parent)
+        // Le retour circule dans le sens INVERSE de l'aller !
+        // Logique : returnInlet (vient enfants) → pertes → returnOutlet (va vers parent)
+
+        std::function<void(NetworkSegment&)> calculateReturnTemperatures;
+        calculateReturnTemperatures = [&](NetworkSegment& segment) {
+            // D'abord, calculer récursivement tous les enfants
+            std::vector<NetworkSegment*> children;
             for (auto& child : networkParams.segments) {
                 if (child.parentId == segment.id) {
-                    // Mettre à jour température entrée enfant
-                    child.result.inletTemperature = segment.result.outletTemperature;
-
-                    // Recalculer pertes thermiques avec nouvelle température
-                    child.result.heatLoss = calculateHeatLoss(
-                        child.length, child.result.actualDiameter,
-                        networkParams.insulationThickness,
-                        child.result.inletTemperature, networkParams.ambientTemperature);
-
-                    // Recalculer température sortie avec débit de retour
-                    double returnFlowRateM3h = globalReturnFlowRate * 60.0 / 1000.0;
-                    if (returnFlowRateM3h > 0.0001) {
-                        double temperatureDrop = child.result.heatLoss / (1160.0 * returnFlowRateM3h);
-                        child.result.outletTemperature = child.result.inletTemperature - temperatureDrop;
-                    } else {
-                        child.result.outletTemperature = child.result.inletTemperature;
-                    }
-
-                    child.result.returnTemperature = child.result.outletTemperature;
-
-                    // Propager récursivement
-                    propagateTemperatures(child);
+                    children.push_back(&child);
+                    calculateReturnTemperatures(child);
                 }
             }
+
+            // Calculer returnInletTemperature du segment actuel
+            if (children.empty()) {
+                // Segment feuille : la température d'entrée retour = température sortie aller
+                segment.result.returnInletTemperature = segment.result.outletTemperature;
+            } else {
+                // Segment parent : agrégation des températures de sortie retour des enfants
+                // On prend la moyenne pondérée, ou simplement la moyenne
+                // (tous les enfants ont le même débit retour global)
+                double sumTemp = 0.0;
+                for (const auto* child : children) {
+                    sumTemp += child->result.returnOutletTemperature;
+                }
+                segment.result.returnInletTemperature = sumTemp / children.size();
+            }
+
+            // Calculer les pertes thermiques dans le retour
+            // On utilise la température moyenne du retour dans ce segment
+            double avgReturnTemp = segment.result.returnInletTemperature;
+            double returnHeatLoss = calculateHeatLoss(
+                segment.length, segment.result.returnActualDiameter,
+                networkParams.insulationThickness,
+                avgReturnTemp, networkParams.ambientTemperature);
+
+            // Calculer la chute de température dans le retour
+            // Formule : ΔT = Pertes (W) / (1160 × Q_retour (m³/h))
+            double returnFlowRateM3h = globalReturnFlowRate * 60.0 / 1000.0;  // L/min → m³/h
+            double temperatureDrop = 0.0;
+            if (returnFlowRateM3h > 0.0001) {
+                temperatureDrop = returnHeatLoss / (1160.0 * returnFlowRateM3h);
+            }
+
+            // Température sortie retour = entrée retour - pertes
+            // (la température BAISSE en remontant vers le parent)
+            segment.result.returnOutletTemperature = segment.result.returnInletTemperature - temperatureDrop;
+
+            // Compatibilité avec ancien champ
+            segment.result.returnTemperature = segment.result.returnOutletTemperature;
         };
 
-        // Propager depuis les segments racines
+        // Calculer depuis les segments racines (qui vont propager récursivement)
         for (auto& segment : networkParams.segments) {
             if (segment.parentId.empty()) {
-                propagateTemperatures(segment);
+                calculateReturnTemperatures(segment);
             }
         }
     }
