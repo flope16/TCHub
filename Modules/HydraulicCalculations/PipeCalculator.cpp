@@ -423,6 +423,141 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
                 calculateRetourRecursive(segment);
             }
         }
+
+        // PASSE 4: Ajuster les débits de retour pour respecter la contrainte de température
+        // La température au retour (source) doit être >= T_source - ΔT_max
+        double minReturnTemp = networkParams.waterTemperature - deltaT;  // Ex: 60°C - 5°C = 55°C
+
+        // Fonction pour recalculer les températures avec un nouveau débit
+        std::function<void(NetworkSegment&, double)> recalculateTemperaturesWithFlow;
+        recalculateTemperaturesWithFlow = [&](NetworkSegment& segment, double newFlowRate) {
+            // Mettre à jour le débit
+            segment.result.returnFlowRate = newFlowRate;
+
+            // Recalculer DN et vitesse avec le nouveau débit
+            segment.result.returnNominalDiameter = selectOptimalDiameter(
+                newFlowRate, networkParams.material, maxReturnVelocity);
+            segment.result.returnActualDiameter = getInternalDiameter(
+                segment.result.returnNominalDiameter, networkParams.material);
+            segment.result.returnVelocity = calculateVelocity(
+                newFlowRate, segment.result.returnActualDiameter);
+
+            // Ajustement si vitesse trop faible (réduire DN)
+            while (segment.result.returnVelocity < minReturnVelocity &&
+                   segment.result.returnNominalDiameter > 10) {
+                std::vector<int> diameters = getAvailableDiameters(networkParams.material);
+                auto it = std::find(diameters.begin(), diameters.end(),
+                                   segment.result.returnNominalDiameter);
+                if (it != diameters.begin()) {
+                    --it;
+                    segment.result.returnNominalDiameter = *it;
+                    segment.result.returnActualDiameter = getInternalDiameter(
+                        segment.result.returnNominalDiameter, networkParams.material);
+                    segment.result.returnVelocity = calculateVelocity(
+                        newFlowRate, segment.result.returnActualDiameter);
+                } else {
+                    break;
+                }
+            }
+
+            // Ajustement si vitesse trop élevée (augmenter DN)
+            while (segment.result.returnVelocity > maxReturnVelocity) {
+                std::vector<int> diameters = getAvailableDiameters(networkParams.material);
+                auto it = std::find(diameters.begin(), diameters.end(),
+                                   segment.result.returnNominalDiameter);
+                if (it != diameters.end() && (it + 1) != diameters.end()) {
+                    ++it;
+                    segment.result.returnNominalDiameter = *it;
+                    segment.result.returnActualDiameter = getInternalDiameter(
+                        segment.result.returnNominalDiameter, networkParams.material);
+                    segment.result.returnVelocity = calculateVelocity(
+                        newFlowRate, segment.result.returnActualDiameter);
+                } else {
+                    break;
+                }
+            }
+
+            // Recalculer les pertes thermiques retour avec le nouveau DN
+            double returnHeatLoss = calculateHeatLoss(
+                segment.length, segment.result.returnActualDiameter,
+                networkParams.insulationThickness,
+                segment.result.returnInletTemperature, networkParams.ambientTemperature);
+
+            // Recalculer température de sortie retour
+            double returnFlowRateM3h = newFlowRate * 60.0 / 1000.0;
+            double temperatureDrop = 0.0;
+            if (returnFlowRateM3h > 0.0001) {
+                temperatureDrop = returnHeatLoss / (1160.0 * returnFlowRateM3h);
+            }
+
+            segment.result.returnOutletTemperature = segment.result.returnInletTemperature - temperatureDrop;
+            segment.result.returnTemperature = segment.result.returnOutletTemperature;
+
+            // Propager le nouveau débit aux enfants proportionnellement
+            std::vector<NetworkSegment*> children;
+            double oldTotalChildFlow = 0.0;
+            for (auto& child : networkParams.segments) {
+                if (child.parentId == segment.id) {
+                    children.push_back(&child);
+                    oldTotalChildFlow += child.result.returnFlowRate;
+                }
+            }
+
+            if (!children.empty() && oldTotalChildFlow > 0.0001) {
+                // Distribuer le nouveau débit proportionnellement aux enfants
+                for (auto* child : children) {
+                    double ratio = child->result.returnFlowRate / oldTotalChildFlow;
+                    double childNewFlow = newFlowRate * ratio;
+                    recalculateTemperaturesWithFlow(*child, childNewFlow);
+                }
+
+                // Recalculer le mélange pondéré avec les nouveaux débits
+                double sumWeightedTemp = 0.0;
+                double sumFlow = 0.0;
+                for (const auto* child : children) {
+                    sumWeightedTemp += child->result.returnFlowRate * child->result.returnOutletTemperature;
+                    sumFlow += child->result.returnFlowRate;
+                }
+                if (sumFlow > 0.0001) {
+                    segment.result.returnInletTemperature = sumWeightedTemp / sumFlow;
+                }
+
+                // Recalculer la sortie retour du parent avec la nouvelle inlet
+                returnHeatLoss = calculateHeatLoss(
+                    segment.length, segment.result.returnActualDiameter,
+                    networkParams.insulationThickness,
+                    segment.result.returnInletTemperature, networkParams.ambientTemperature);
+
+                temperatureDrop = 0.0;
+                if (returnFlowRateM3h > 0.0001) {
+                    temperatureDrop = returnHeatLoss / (1160.0 * returnFlowRateM3h);
+                }
+                segment.result.returnOutletTemperature = segment.result.returnInletTemperature - temperatureDrop;
+                segment.result.returnTemperature = segment.result.returnOutletTemperature;
+            }
+        };
+
+        // Vérifier et ajuster chaque segment racine
+        for (auto& segment : networkParams.segments) {
+            if (segment.parentId.empty()) {
+                // Vérifier si la température finale respecte la contrainte
+                if (segment.result.returnOutletTemperature < minReturnTemp) {
+                    // Calculer le débit nécessaire pour atteindre exactement minReturnTemp
+                    // On fait plusieurs itérations si nécessaire
+                    const int maxIterations = 10;
+                    for (int i = 0; i < maxIterations; i++) {
+                        double currentTemp = segment.result.returnOutletTemperature;
+                        double tempDeficit = minReturnTemp - currentTemp;
+
+                        if (tempDeficit < 0.1) break;  // Tolérance de 0.1°C
+
+                        // Augmenter le débit de 20% à chaque itération
+                        double newFlowRate = segment.result.returnFlowRate * 1.2;
+                        recalculateTemperaturesWithFlow(segment, newFlowRate);
+                    }
+                }
+            }
+        }
     }
 }
 
