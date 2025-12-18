@@ -67,14 +67,18 @@ PipeCalculator::PipeCalculator() {
 PipeCalculator::~PipeCalculator() {
 }
 
-// Coefficient de simultanéité selon la formule couramment utilisée en France
+// Coefficient de simultanéité selon norme
 double PipeCalculator::getSimultaneityCoefficient(int numberOfFixtures) {
     if (numberOfFixtures <= 1) return 1.0;
-    if (numberOfFixtures == 2) return 0.8;
-    if (numberOfFixtures == 3) return 0.7;
 
-    // Formule: K = 1 / sqrt(n-1) pour n > 3
-    return 1.0 / std::sqrt(static_cast<double>(numberOfFixtures - 1));
+    // Pour les installations individuelles (x ≤ 5) : pas de simultanéité
+    // Se reporter au paragraphe 2.1.2 "Installations individuelles"
+    if (numberOfFixtures <= 5) return 1.0;
+
+    // Pour les installations collectives (x > 5) :
+    // Formule : y = 0.8 / √(x - 1)
+    // Cette formule reste valable pour x > 150
+    return 0.8 / std::sqrt(static_cast<double>(numberOfFixtures - 1));
 }
 
 double PipeCalculator::calculateFlowRate(const std::vector<Fixture>& fixtures) {
