@@ -7,38 +7,56 @@
 
 namespace HydraulicCalc {
 
-// Initialisation des débits selon DTU 60.11
+// Initialisation des débits selon tableau normatif (Qmin de calcul)
 void Fixture::initializeFlowRate() {
     switch (type) {
         case FixtureType::WashBasin:
             flowRate = 12.0; // 0.20 L/s = 12 L/min
             break;
+        case FixtureType::WashBasinCollective:
+            flowRate = 3.0; // 0.05 L/s = 3 L/min (par jet)
+            break;
         case FixtureType::Sink:
-            flowRate = 15.0; // 0.25 L/s = 15 L/min
+            flowRate = 12.0; // 0.20 L/s = 12 L/min
             break;
         case FixtureType::Shower:
-            flowRate = 18.0; // 0.30 L/s = 18 L/min
+            flowRate = 12.0; // 0.20 L/s = 12 L/min
             break;
         case FixtureType::Bathtub:
-            flowRate = 24.0; // 0.40 L/s = 24 L/min
+            flowRate = 20.0; // 0.33 L/s = 19.8 L/min ≈ 20 L/min
             break;
         case FixtureType::WC:
-            flowRate = 7.2; // 0.12 L/s = 7.2 L/min
+            flowRate = 7.2; // 0.12 L/s = 7.2 L/min (avec réservoir)
+            break;
+        case FixtureType::WCFlushValve:
+            flowRate = 90.0; // 1.50 L/s = 90 L/min (avec robinet de chasse)
             break;
         case FixtureType::Bidet:
             flowRate = 12.0; // 0.20 L/s = 12 L/min
             break;
         case FixtureType::WashingMachine:
-            flowRate = 18.0; // 0.30 L/s = 18 L/min
+            flowRate = 12.0; // 0.20 L/s = 12 L/min
             break;
         case FixtureType::Dishwasher:
-            flowRate = 15.0; // 0.25 L/s = 15 L/min
-            break;
-        case FixtureType::UrinalFlush:
             flowRate = 6.0; // 0.10 L/s = 6 L/min
             break;
-        case FixtureType::UrinalContinuous:
-            flowRate = 2.4; // 0.04 L/s = 2.4 L/min
+        case FixtureType::UrinalFlush:
+            flowRate = 9.0; // 0.15 L/s = 9 L/min (avec robinet individuel)
+            break;
+        case FixtureType::UrinalSiphonic:
+            flowRate = 30.0; // 0.50 L/s = 30 L/min (à action siphonique)
+            break;
+        case FixtureType::HandWashBasin:
+            flowRate = 6.0; // 0.10 L/s = 6 L/min
+            break;
+        case FixtureType::UtilitySink:
+            flowRate = 20.0; // 0.33 L/s = 19.8 L/min ≈ 20 L/min
+            break;
+        case FixtureType::WaterOutlet12:
+            flowRate = 20.0; // 0.33 L/s = 19.8 L/min ≈ 20 L/min (robinet 1/2")
+            break;
+        case FixtureType::WaterOutlet34:
+            flowRate = 25.2; // 0.42 L/s = 25.2 L/min (robinet 3/4")
             break;
     }
 }
@@ -49,14 +67,18 @@ PipeCalculator::PipeCalculator() {
 PipeCalculator::~PipeCalculator() {
 }
 
-// Coefficient de simultanéité selon la formule couramment utilisée en France
+// Coefficient de simultanéité selon norme
 double PipeCalculator::getSimultaneityCoefficient(int numberOfFixtures) {
     if (numberOfFixtures <= 1) return 1.0;
-    if (numberOfFixtures == 2) return 0.8;
-    if (numberOfFixtures == 3) return 0.7;
 
-    // Formule: K = 1 / sqrt(n-1) pour n > 3
-    return 1.0 / std::sqrt(static_cast<double>(numberOfFixtures - 1));
+    // Pour les installations individuelles (x ≤ 5) : pas de simultanéité
+    // Se reporter au paragraphe 2.1.2 "Installations individuelles"
+    if (numberOfFixtures <= 5) return 1.0;
+
+    // Pour les installations collectives (x > 5) :
+    // Formule : y = 0.8 / √(x - 1)
+    // Cette formule reste valable pour x > 150
+    return 0.8 / std::sqrt(static_cast<double>(numberOfFixtures - 1));
 }
 
 double PipeCalculator::calculateFlowRate(const std::vector<Fixture>& fixtures) {
@@ -1195,15 +1217,21 @@ std::vector<int> PipeCalculator::getAvailableDiameters(PipeMaterial material) {
 std::string PipeCalculator::getFixtureName(FixtureType type) {
     switch (type) {
         case FixtureType::WashBasin: return "Lavabo";
+        case FixtureType::WashBasinCollective: return "Lavabo collectif (par jet)";
         case FixtureType::Sink: return "Évier";
         case FixtureType::Shower: return "Douche";
         case FixtureType::Bathtub: return "Baignoire";
-        case FixtureType::WC: return "WC";
+        case FixtureType::WC: return "WC avec réservoir";
+        case FixtureType::WCFlushValve: return "WC avec robinet de chasse";
         case FixtureType::Bidet: return "Bidet";
         case FixtureType::WashingMachine: return "Lave-linge";
         case FixtureType::Dishwasher: return "Lave-vaisselle";
-        case FixtureType::UrinalFlush: return "Urinoir à chasse";
-        case FixtureType::UrinalContinuous: return "Urinoir à écoulement";
+        case FixtureType::UrinalFlush: return "Urinoir avec robinet";
+        case FixtureType::UrinalSiphonic: return "Urinoir siphonique";
+        case FixtureType::HandWashBasin: return "Lave-mains";
+        case FixtureType::UtilitySink: return "Bac à laver";
+        case FixtureType::WaterOutlet12: return "Poste d'eau 1/2\"";
+        case FixtureType::WaterOutlet34: return "Poste d'eau 3/4\"";
     }
     return "Inconnu";
 }

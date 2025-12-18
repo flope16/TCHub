@@ -16,15 +16,21 @@ enum class NetworkType {
 // Types d'appareil sanitaire
 enum class FixtureType {
     WashBasin,           // Lavabo
+    WashBasinCollective, // Lavabo collectif (par jet)
     Sink,                // Évier
     Shower,              // Douche
     Bathtub,             // Baignoire
-    WC,                  // WC
+    WC,                  // WC avec réservoir de chasse
+    WCFlushValve,        // WC avec robinet de chasse
     Bidet,               // Bidet
     WashingMachine,      // Lave-linge
     Dishwasher,          // Lave-vaisselle
-    UrinalFlush,         // Urinoir à chasse
-    UrinalContinuous     // Urinoir à écoulement continu
+    UrinalFlush,         // Urinoir avec robinet individuel
+    UrinalSiphonic,      // Urinoir à action siphonique
+    HandWashBasin,       // Lave-mains
+    UtilitySink,         // Bac à laver
+    WaterOutlet12,       // Poste d'eau robinet 1/2"
+    WaterOutlet34        // Poste d'eau robinet 3/4"
 };
 
 // Matériau des tuyaux
