@@ -174,6 +174,7 @@ struct NetworkSegment {
     double length;               // Longueur en m
     double heightDifference;     // Différence de hauteur en m
     std::vector<Fixture> fixtures; // Appareils desservis par ce segment
+    bool hasReturnLine;          // Indique si ce segment possède une ligne de retour ECS (pour bouclage)
 
     // Résultats de calcul
     PipeSegmentResult result;
@@ -183,6 +184,7 @@ struct NetworkSegment {
     NetworkSegment(const std::string& segId = "", const std::string& segName = "Segment principal")
         : id(segId), name(segName), parentId("")
         , length(0.0), heightDifference(0.0)
+        , hasReturnLine(false)
         , inletPressure(0.0), outletPressure(0.0)
     {}
 };
@@ -232,6 +234,17 @@ public:
     static std::string getFixtureName(FixtureType type);
     static std::string getMaterialName(PipeMaterial material);
     static std::string getNetworkTypeName(NetworkType type);
+
+    // Sélection du diamètre retour avec contraintes de vitesse
+    struct ReturnDiameterResult {
+        int nominalDiameter;
+        double actualDiameter;
+        double velocity;
+        double adjustedFlowRate;  // Débit ajusté si nécessaire pour respecter vmin
+        bool flowRateAdjusted;    // true si le débit a été augmenté
+    };
+    ReturnDiameterResult selectReturnDiameter(double thermalFlowRate, PipeMaterial material,
+                                              double minVelocity = 0.2, double maxVelocity = 0.5);
 
 private:
     // Calculs internes

@@ -1077,6 +1077,16 @@ void HydraulicCalculationsWindow::performCalculations()
             networkParams.waterTemperature = waterTempSpin->value();
             networkParams.ambientTemperature = ambientTempSpin->value();
             networkParams.insulationThickness = insulationSpin->value();
+
+            // Définir automatiquement hasReturnLine = true pour tous les segments en mode bouclage
+            for (auto& seg : networkParams.segments) {
+                seg.hasReturnLine = true;
+            }
+        } else {
+            // En mode non-bouclage, hasReturnLine = false pour tous les segments
+            for (auto& seg : networkParams.segments) {
+                seg.hasReturnLine = false;
+            }
         }
 
         // Calcul avec protection
@@ -1556,6 +1566,7 @@ bool HydraulicCalculationsWindow::showSegmentDialog(HydraulicCalc::NetworkSegmen
         segment.parentId = parentCombo->currentData().toString().toStdString();
         segment.length = lengthSpin->value();
         segment.heightDifference = heightSpin->value();
+        // hasReturnLine est défini automatiquement selon le type de réseau dans performCalculations()
         return true;
     }
 
