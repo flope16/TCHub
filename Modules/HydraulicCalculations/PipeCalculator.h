@@ -68,6 +68,10 @@ struct PipeSegmentResult {
     double heatLoss;         // Pertes thermiques en W
     double returnTemperature;    // Température de l'eau de retour en °C
 
+    // Températures pour ECS (avec et sans bouclage)
+    double inletTemperature;     // Température entrée segment en °C
+    double outletTemperature;    // Température sortie segment en °C (après pertes)
+
     std::string recommendation; // Recommandation
 
     PipeSegmentResult()
@@ -76,6 +80,7 @@ struct PipeSegmentResult {
         , hasReturn(false), returnFlowRate(0), returnVelocity(0)
         , returnNominalDiameter(0), returnActualDiameter(0)
         , heatLoss(0), returnTemperature(0)
+        , inletTemperature(0), outletTemperature(0)
     {}
 };
 
@@ -94,7 +99,7 @@ struct CalculationParameters {
     // Paramètres spécifiques pour ECS avec bouclage
     double loopLength;           // Longueur totale de la boucle en m
     double ambientTemperature;   // Température ambiante en °C
-    double waterTemperature;     // Température de l'eau en °C
+    double waterTemperature;     // Température de l'eau en °C (température d'entrée du segment)
     double insulationThickness;  // Épaisseur d'isolation en mm
 
     CalculationParameters()

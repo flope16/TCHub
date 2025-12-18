@@ -46,6 +46,10 @@ public:
     // Vérification si un point est sur le segment
     bool containsPoint(const QPointF& point, double tolerance = 10.0) const;
 
+    // Override pour limiter la zone de sélection au segment uniquement (pas aux labels)
+    QRectF boundingRect() const override;
+    QPainterPath shape() const override;
+
 protected:
     QVariant itemChange(GraphicsItemChange change, const QVariant& value) override;
     void mousePressEvent(QGraphicsSceneMouseEvent* event) override;

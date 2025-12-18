@@ -369,34 +369,46 @@ void HydraulicSchemaView::handleAddFixtureMode(QMouseEvent* event)
     // Trouver le segment le plus proche (avec priorité aux segments parents sur points fusionnés)
     GraphicPipeSegment* targetSegment = findSegmentAtForFixture(scenePos);
     if (targetSegment) {
-        // Trouver le point d'accroche le plus proche (start ou end du segment)
+        // IMPORTANT : Les équipements ne peuvent être placés QUE sur la FIN (endpoint) d'un tronçon
+        // Pas au début (startpoint)
         QPointF segStart = targetSegment->getStartPoint();
         QPointF segEnd = targetSegment->getEndPoint();
 
+        // Vérifier si le clic est près du début ou de la fin
         QPointF deltaStart = scenePos - segStart;
         QPointF deltaEnd = scenePos - segEnd;
 
         double distToStart = std::sqrt(deltaStart.x() * deltaStart.x() + deltaStart.y() * deltaStart.y());
         double distToEnd = std::sqrt(deltaEnd.x() * deltaEnd.x() + deltaEnd.y() * deltaEnd.y());
 
-        // Choisir le point le plus proche
-        QPointF snapPoint = (distToStart < distToEnd) ? segStart : segEnd;
+        // FORCER l'équipement sur l'endpoint uniquement
+        // Si le clic est plus proche du startpoint, rejeter
+        if (distToStart < distToEnd) {
+            // Clic trop proche du début du tronçon - rejeter
+            setInteractionMode(InteractionMode::Select);
+            return;
+        }
+
+        QPointF snapPoint = segEnd;  // Toujours utiliser l'endpoint
 
         // Calculer le vecteur perpendiculaire au segment pour le décalage
         QPointF segVector = segEnd - segStart;
         double segLength = std::sqrt(segVector.x() * segVector.x() + segVector.y() * segVector.y());
         QPointF perpVector(-segVector.y() / segLength, segVector.x() / segLength);
 
-        // Compter combien de fixtures sont déjà sur ce point
+        // Compter combien de fixtures sont déjà sur ce point DE JONCTION (tous segments confondus)
         int fixtureCount = 0;
-        const double snapTolerance = 5.0;
-        for (auto* existingFixture : targetSegment->getFixturePoints()) {
-            if (existingFixture) {
-                QPointF existingPos = existingFixture->getPositionOnSegment();
-                QPointF delta = existingPos - snapPoint;
-                double dist = std::sqrt(delta.x() * delta.x() + delta.y() * delta.y());
-                if (dist < 50.0) {  // Considérer les fixtures dans un rayon de 50px comme étant sur le même point
-                    fixtureCount++;
+        const double snapTolerance = 50.0;  // Tolérance pour détecter les fixtures au même point
+
+        for (auto* segment : segments) {
+            for (auto* existingFixture : segment->getFixturePoints()) {
+                if (existingFixture) {
+                    QPointF existingPos = existingFixture->getPositionOnSegment();
+                    QPointF delta = existingPos - snapPoint;
+                    double dist = std::sqrt(delta.x() * delta.x() + delta.y() * delta.y());
+                    if (dist < snapTolerance) {
+                        fixtureCount++;
+                    }
                 }
             }
         }
