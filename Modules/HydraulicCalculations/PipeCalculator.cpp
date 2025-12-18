@@ -417,10 +417,117 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
             segment.result.returnTemperature = segment.result.returnOutletTemperature;
         };
 
-        // Calculer les retours depuis les segments racines
+        // Calculer les débits et DN de retour depuis les segments racines
         for (auto& segment : networkParams.segments) {
             if (segment.parentId.empty()) {
                 calculateRetourRecursive(segment);
+            }
+        }
+
+        // PASSE 3A: Recalculer les températures ALLER avec le débit de bouclage
+        // Dans un système de bouclage, c'est le débit de RETOUR qui circule à l'aller (circuit fermé)
+        // On doit donc recalculer les températures aller avec ce débit, pas avec le débit des fixtures
+
+        std::function<void(NetworkSegment&)> recalculateAllerTemperatures;
+        recalculateAllerTemperatures = [&](NetworkSegment& segment) {
+            // La température d'entrée a déjà été définie (source ou parent)
+
+            // Recalculer les pertes thermiques ALLER avec le débit de bouclage
+            // Le débit de bouclage à l'aller = débit de retour du segment
+            double bouclageFlowRateM3h = segment.result.returnFlowRate * 60.0 / 1000.0;  // L/min → m³/h
+
+            segment.result.heatLoss = calculateHeatLoss(
+                segment.length, segment.result.actualDiameter,
+                networkParams.insulationThickness,
+                segment.result.inletTemperature, networkParams.ambientTemperature);
+
+            // Calculer la chute de température ALLER avec le débit de bouclage
+            // Formule : ΔT = Pertes (W) / (1160 × Q_bouclage (m³/h))
+            double temperatureDrop = 0.0;
+            if (bouclageFlowRateM3h > 0.0001) {
+                temperatureDrop = segment.result.heatLoss / (1160.0 * bouclageFlowRateM3h);
+            }
+
+            segment.result.outletTemperature = segment.result.inletTemperature - temperatureDrop;
+
+            // Propager aux enfants
+            for (auto& child : networkParams.segments) {
+                if (child.parentId == segment.id) {
+                    // Température sortie parent = température entrée enfant
+                    child.result.inletTemperature = segment.result.outletTemperature;
+                    recalculateAllerTemperatures(child);
+                }
+            }
+        };
+
+        // Initialiser température source et calculer récursivement les températures ALLER
+        for (auto& segment : networkParams.segments) {
+            if (segment.parentId.empty()) {
+                segment.result.inletTemperature = networkParams.waterTemperature;
+                recalculateAllerTemperatures(segment);
+            }
+        }
+
+        // PASSE 3B: Recalculer les températures RETOUR avec les nouvelles températures ALLER
+        // Maintenant que les températures aller sont correctes, on recalcule les retours
+
+        std::function<void(NetworkSegment&)> recalculateRetourTemperatures;
+        recalculateRetourTemperatures = [&](NetworkSegment& segment) {
+            // D'abord, calculer récursivement tous les enfants
+            std::vector<NetworkSegment*> children;
+            for (auto& child : networkParams.segments) {
+                if (child.parentId == segment.id) {
+                    children.push_back(&child);
+                    recalculateRetourTemperatures(child);
+                }
+            }
+
+            // Calculer returnInletTemperature du segment actuel
+            if (children.empty()) {
+                // Segment FEUILLE : l'eau passe de l'aller au retour
+                segment.result.returnInletTemperature = segment.result.outletTemperature;
+            } else {
+                // Segment PARENT : MÉLANGE PONDÉRÉ par les débits
+                double sumWeightedTemp = 0.0;
+                double sumFlow = 0.0;
+
+                for (const auto* child : children) {
+                    sumWeightedTemp += child->result.returnFlowRate * child->result.returnOutletTemperature;
+                    sumFlow += child->result.returnFlowRate;
+                }
+
+                if (sumFlow > 0.0001) {
+                    segment.result.returnInletTemperature = sumWeightedTemp / sumFlow;
+                } else {
+                    double sumTemp = 0.0;
+                    for (const auto* child : children) {
+                        sumTemp += child->result.returnOutletTemperature;
+                    }
+                    segment.result.returnInletTemperature = sumTemp / children.size();
+                }
+            }
+
+            // Calculer les pertes thermiques dans le retour
+            double returnHeatLoss = calculateHeatLoss(
+                segment.length, segment.result.returnActualDiameter,
+                networkParams.insulationThickness,
+                segment.result.returnInletTemperature, networkParams.ambientTemperature);
+
+            // Calculer la température de sortie retour
+            double returnFlowRateM3h = segment.result.returnFlowRate * 60.0 / 1000.0;
+            double temperatureDrop = 0.0;
+            if (returnFlowRateM3h > 0.0001) {
+                temperatureDrop = returnHeatLoss / (1160.0 * returnFlowRateM3h);
+            }
+
+            segment.result.returnOutletTemperature = segment.result.returnInletTemperature - temperatureDrop;
+            segment.result.returnTemperature = segment.result.returnOutletTemperature;
+        };
+
+        // Recalculer les températures retour depuis les segments racines
+        for (auto& segment : networkParams.segments) {
+            if (segment.parentId.empty()) {
+                recalculateRetourTemperatures(segment);
             }
         }
 
@@ -535,6 +642,15 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
                 segment.result.returnOutletTemperature = segment.result.returnInletTemperature - temperatureDrop;
                 segment.result.returnTemperature = segment.result.returnOutletTemperature;
             }
+
+            // Après avoir propagé les nouveaux débits, recalculer toutes les températures
+            // ALLER (top-down) puis RETOUR (bottom-up) depuis ce segment
+
+            // Recalculer températures ALLER avec nouveau débit
+            recalculateAllerTemperatures(segment);
+
+            // Recalculer températures RETOUR avec nouvelles températures aller
+            recalculateRetourTemperatures(segment);
         };
 
         // Vérifier et ajuster chaque segment racine
