@@ -1255,12 +1255,12 @@ QString HydraulicCalculationsWindow::generatePDFHtml()
         if (!segment.fixtures.empty()) {
             html += "<h3>Appareils sanitaires</h3>";
             html += "<table>";
-            html += "<tr><th>Type</th><th>Quantité</th><th>Débit unitaire (L/min)</th></tr>";
+            html += "<tr><th>Type</th><th>Quantité</th><th>Débit unitaire (m³/h)</th></tr>";
             for (const auto& fixture : segment.fixtures) {
                 html += "<tr>";
                 html += "<td>" + QString::fromStdString(HydraulicCalc::PipeCalculator::getFixtureName(fixture.type)) + "</td>";
                 html += "<td>" + QString::number(fixture.quantity) + "</td>";
-                html += "<td>" + QString::number(fixture.flowRate, 'f', 1) + "</td>";
+                html += "<td>" + QString::number(fixture.flowRate * 0.06, 'f', 2) + "</td>";
                 html += "</tr>";
             }
             html += "</table>";
@@ -1270,7 +1270,7 @@ QString HydraulicCalculationsWindow::generatePDFHtml()
         html += "<h3>Résultats du dimensionnement</h3>";
         html += "<table>";
         html += "<tr><th>Résultat</th><th>Valeur</th></tr>";
-        html += "<tr class='result'><td>Débit</td><td>" + QString::number(segment.result.flowRate, 'f', 2) + " L/min</td></tr>";
+        html += "<tr class='result'><td>Débit</td><td>" + QString::number(segment.result.flowRate * 0.06, 'f', 2) + " m³/h</td></tr>";
         html += "<tr class='result'><td>Diamètre nominal</td><td>DN " + QString::number(segment.result.nominalDiameter) +
                 " (D=" + QString::number(segment.result.actualDiameter, 'f', 1) + " mm)</td></tr>";
         html += "<tr><td>Vitesse</td><td>" + QString::number(segment.result.velocity, 'f', 2) + " m/s</td></tr>";
@@ -1286,13 +1286,13 @@ QString HydraulicCalculationsWindow::generatePDFHtml()
         html += "<tr><th>Paramètre</th><th>Valeur</th></tr>";
         if (segment.result.details.totalFixtures > 0) {
             html += "<tr><td>Débit total des appareils (somme)</td><td>" +
-                    QString::number(segment.result.details.totalFixtureFlowRate, 'f', 2) + " L/min</td></tr>";
-            html += "<tr><td>Nombre total d'appareils</td><td>" +
+                    QString::number(segment.result.details.totalFixtureFlowRate * 0.06, 'f', 2) + " m³/h</td></tr>";
+            html += "<tr><td>Nombre total d'appareils desservis</td><td>" +
                     QString::number(segment.result.details.totalFixtures) + "</td></tr>";
             html += "<tr><td>Coefficient de simultanéité (K)</td><td>" +
-                    QString::number(segment.result.details.simultaneityCoeff, 'f', 3) + "</td></tr>";
+                    QString::number(segment.result.details.simultaneityCoeff, 'f', 3) + " (selon DTU 60.11)</td></tr>";
             html += "<tr class='result'><td><strong>Débit final = Somme × K</strong></td><td><strong>" +
-                    QString::number(segment.result.flowRate, 'f', 2) + " L/min</strong></td></tr>";
+                    QString::number(segment.result.flowRate * 0.06, 'f', 2) + " m³/h</strong></td></tr>";
         } else {
             html += "<tr><td colspan='2'>Débit imposé par les tronçons enfants</td></tr>";
         }
@@ -1315,7 +1315,7 @@ QString HydraulicCalculationsWindow::generatePDFHtml()
         html += "<table>";
         html += "<tr><th>Paramètre</th><th>Valeur</th></tr>";
         html += "<tr><td>Débit (Q)</td><td>" +
-                QString::number(segment.result.flowRate, 'f', 2) + " L/min = " +
+                QString::number(segment.result.flowRate * 0.06, 'f', 2) + " m³/h = " +
                 QString::number(segment.result.flowRate / 60000.0, 'f', 6) + " m³/s</td></tr>";
         html += "<tr><td>Section (S)</td><td>" +
                 QString::number(segment.result.details.crossSection, 'f', 6) + " m²</td></tr>";
@@ -1384,7 +1384,7 @@ QString HydraulicCalculationsWindow::generatePDFHtml()
             html += "<tr><th>Résultat</th><th>Valeur</th></tr>";
             html += "<tr class='result'><td>Diamètre retour</td><td>DN " + QString::number(segment.result.returnNominalDiameter) +
                     " (D=" + QString::number(segment.result.returnActualDiameter, 'f', 1) + " mm)</td></tr>";
-            html += "<tr><td>Débit retour</td><td>" + QString::number(segment.result.returnFlowRate, 'f', 2) + " L/min</td></tr>";
+            html += "<tr><td>Débit retour</td><td>" + QString::number(segment.result.returnFlowRate * 0.06, 'f', 2) + " m³/h</td></tr>";
             html += "<tr><td>Vitesse retour</td><td>" + QString::number(segment.result.returnVelocity, 'f', 2) + " m/s</td></tr>";
             html += "<tr><td>Pertes thermiques</td><td>" + QString::number(segment.result.heatLoss, 'f', 0) + " W</td></tr>";
             html += "<tr><td>Température retour</td><td>" + QString::number(segment.result.returnTemperature, 'f', 1) + " C</td></tr>";
