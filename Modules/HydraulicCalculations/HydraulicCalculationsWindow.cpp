@@ -1194,8 +1194,9 @@ QString HydraulicCalculationsWindow::generatePDFHtml()
     QString html = "<html><head><style>"
         "body { font-family: Arial, sans-serif; margin: 40px; }"
         "h1 { color: #2c3e50; border-bottom: 3px solid #4472C4; padding-bottom: 10px; }"
-        "h2 { color: #4472C4; margin-top: 30px; }"
+        "h2 { color: #4472C4; margin-top: 30px; page-break-before: always; }"
         "h3 { color: #5a8fd1; margin-top: 20px; border-left: 4px solid #4472C4; padding-left: 10px; }"
+        "h4 { color: #6c9dd1; margin-top: 15px; font-size: 1.1em; }"
         "table { border-collapse: collapse; width: 100%; margin: 20px 0; }"
         "th, td { border: 1px solid #bdc3c7; padding: 10px; text-align: left; }"
         "th { background-color: #ecf0f1; font-weight: bold; }"
@@ -1275,6 +1276,106 @@ QString HydraulicCalculationsWindow::generatePDFHtml()
         html += "<tr><td>Vitesse</td><td>" + QString::number(segment.result.velocity, 'f', 2) + " m/s</td></tr>";
         html += "<tr><td>Perte de charge</td><td>" + QString::number(segment.result.pressureDrop, 'f', 2) + " mCE</td></tr>";
         html += "</table>";
+
+        // Calculs détaillés pour débogage
+        html += "<h3>Calculs détaillés (débogage)</h3>";
+
+        // 1. Calcul du débit
+        html += "<h4>1. Calcul du débit</h4>";
+        html += "<table>";
+        html += "<tr><th>Paramètre</th><th>Valeur</th></tr>";
+        if (segment.result.details.totalFixtures > 0) {
+            html += "<tr><td>Débit total des appareils (somme)</td><td>" +
+                    QString::number(segment.result.details.totalFixtureFlowRate, 'f', 2) + " L/min</td></tr>";
+            html += "<tr><td>Nombre total d'appareils</td><td>" +
+                    QString::number(segment.result.details.totalFixtures) + "</td></tr>";
+            html += "<tr><td>Coefficient de simultanéité (K)</td><td>" +
+                    QString::number(segment.result.details.simultaneityCoeff, 'f', 3) + "</td></tr>";
+            html += "<tr class='result'><td><strong>Débit final = Somme × K</strong></td><td><strong>" +
+                    QString::number(segment.result.flowRate, 'f', 2) + " L/min</strong></td></tr>";
+        } else {
+            html += "<tr><td colspan='2'>Débit imposé par les tronçons enfants</td></tr>";
+        }
+        html += "</table>";
+
+        // 2. Sélection du diamètre
+        html += "<h4>2. Sélection du diamètre</h4>";
+        html += "<table>";
+        html += "<tr><th>Paramètre</th><th>Valeur</th></tr>";
+        html += "<tr><td>Diamètre nominal sélectionné (DN)</td><td>" +
+                QString::number(segment.result.nominalDiameter) + " mm</td></tr>";
+        html += "<tr><td>Diamètre intérieur réel (D)</td><td>" +
+                QString::number(segment.result.actualDiameter, 'f', 1) + " mm</td></tr>";
+        html += "<tr><td>Section de passage (S)</td><td>" +
+                QString::number(segment.result.details.crossSection * 1e6, 'f', 2) + " mm²</td></tr>";
+        html += "</table>";
+
+        // 3. Calcul de la vitesse
+        html += "<h4>3. Calcul de la vitesse</h4>";
+        html += "<table>";
+        html += "<tr><th>Paramètre</th><th>Valeur</th></tr>";
+        html += "<tr><td>Débit (Q)</td><td>" +
+                QString::number(segment.result.flowRate, 'f', 2) + " L/min = " +
+                QString::number(segment.result.flowRate / 60000.0, 'f', 6) + " m³/s</td></tr>";
+        html += "<tr><td>Section (S)</td><td>" +
+                QString::number(segment.result.details.crossSection, 'f', 6) + " m²</td></tr>";
+        html += "<tr class='result'><td><strong>Vitesse V = Q/S</strong></td><td><strong>" +
+                QString::number(segment.result.velocity, 'f', 3) + " m/s</strong></td></tr>";
+        html += "</table>";
+
+        // 4. Calcul des pertes de charge
+        html += "<h4>4. Calcul des pertes de charge</h4>";
+        html += "<table>";
+        html += "<tr><th>Paramètre</th><th>Valeur</th></tr>";
+        html += "<tr><td>Nombre de Reynolds (Re = VD/ν)</td><td>" +
+                QString::number(segment.result.details.reynolds, 'f', 0) + "</td></tr>";
+        html += "<tr><td>Régime d'écoulement</td><td>" +
+                QString(segment.result.details.isLaminar ? "Laminaire (Re &lt; 2300)" : "Turbulent (Re &gt; 2300)") + "</td></tr>";
+        html += "<tr><td>Rugosité absolue (ε)</td><td>" +
+                QString::number(segment.result.details.roughness, 'f', 4) + " mm</td></tr>";
+        html += "<tr><td>Rugosité relative (ε/D)</td><td>" +
+                QString::number(segment.result.details.relativeRoughness, 'f', 6) + "</td></tr>";
+        html += "<tr><td>Coefficient de friction (λ)</td><td>" +
+                QString::number(segment.result.details.lambda, 'f', 4) + "</td></tr>";
+        html += "<tr><td>Formule utilisée</td><td>" +
+                QString(segment.result.details.isLaminar ? "Poiseuille: λ = 64/Re" : "Swamee-Jain (approximation de Colebrook-White)") + "</td></tr>";
+        html += "<tr><td>Perte linéaire (Darcy-Weisbach)</td><td>" +
+                QString::number(segment.result.details.linearPressureDrop, 'f', 3) + " mCE</td></tr>";
+        html += "<tr><td>Perte singulière (20% de linéaire)</td><td>" +
+                QString::number(segment.result.details.singularPressureDrop, 'f', 3) + " mCE</td></tr>";
+        html += "<tr><td>Perte/Gain dû à la hauteur</td><td>" +
+                QString::number(segment.result.details.heightPressureDrop, 'f', 3) + " mCE</td></tr>";
+        html += "<tr class='result'><td><strong>Perte totale</strong></td><td><strong>" +
+                QString::number(segment.result.pressureDrop, 'f', 3) + " mCE</strong></td></tr>";
+        html += "</table>";
+
+        // 5. Calcul des pertes thermiques (si ECS)
+        if (networkTypeCombo->currentIndex() >= 1 && segment.result.heatLoss > 0) {
+            html += "<h4>5. Calcul des pertes thermiques (ECS)</h4>";
+            html += "<table>";
+            html += "<tr><th>Paramètre</th><th>Valeur</th></tr>";
+            html += "<tr><td>Rayon intérieur du tube (r1)</td><td>" +
+                    QString::number(segment.result.details.r1 * 1000, 'f', 2) + " mm</td></tr>";
+            html += "<tr><td>Rayon extérieur avec isolation (r2)</td><td>" +
+                    QString::number(segment.result.details.r2 * 1000, 'f', 2) + " mm</td></tr>";
+            html += "<tr><td>Résistance thermique isolation (R_isol)</td><td>" +
+                    QString::number(segment.result.details.thermalResistanceInsul, 'f', 4) + " K·m/W</td></tr>";
+            html += "<tr><td>Résistance thermique externe (R_ext)</td><td>" +
+                    QString::number(segment.result.details.thermalResistanceExt, 'f', 4) + " K·m/W</td></tr>";
+            html += "<tr><td>Résistance totale (R_tot)</td><td>" +
+                    QString::number(segment.result.details.thermalResistanceInsul + segment.result.details.thermalResistanceExt, 'f', 4) + " K·m/W</td></tr>";
+            html += "<tr><td>Perte thermique linéique</td><td>" +
+                    QString::number(segment.result.details.heatLossPerMeter, 'f', 2) + " W/m</td></tr>";
+            html += "<tr class='result'><td><strong>Perte thermique totale</strong></td><td><strong>" +
+                    QString::number(segment.result.heatLoss, 'f', 1) + " W</strong></td></tr>";
+            html += "<tr><td>Chute de température</td><td>" +
+                    QString::number(segment.result.details.temperatureDrop, 'f', 2) + " °C</td></tr>";
+            html += "<tr><td>Température entrée</td><td>" +
+                    QString::number(segment.result.inletTemperature, 'f', 1) + " °C</td></tr>";
+            html += "<tr><td>Température sortie</td><td>" +
+                    QString::number(segment.result.outletTemperature, 'f', 1) + " °C</td></tr>";
+            html += "</table>";
+        }
 
         // Retour si applicable
         if (segment.result.hasReturn) {

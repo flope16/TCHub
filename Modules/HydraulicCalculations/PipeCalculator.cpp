@@ -73,14 +73,33 @@ double PipeCalculator::calculateFlowRate(const std::vector<Fixture>& fixtures) {
     return totalFlowRate * simultaneityCoeff;
 }
 
+// Version avec détails pour le PDF
+double PipeCalculator::calculateFlowRateWithDetails(const std::vector<Fixture>& fixtures, CalculationDetails& details) {
+    details.totalFixtureFlowRate = 0.0;
+    details.totalFixtures = 0;
+
+    for (const auto& fixture : fixtures) {
+        details.totalFixtureFlowRate += fixture.flowRate * fixture.quantity;
+        details.totalFixtures += fixture.quantity;
+    }
+
+    // Application du coefficient de simultanéité
+    details.simultaneityCoeff = getSimultaneityCoefficient(details.totalFixtures);
+    return details.totalFixtureFlowRate * details.simultaneityCoeff;
+}
+
 PipeSegmentResult PipeCalculator::calculate(const CalculationParameters& params) {
     PipeSegmentResult result;
 
     // Calcul du débit : utiliser overrideFlowRate si défini, sinon calculer depuis fixtures
     if (params.overrideFlowRate > 0.0) {
         result.flowRate = params.overrideFlowRate;
+        // Pour overrideFlowRate, on ne peut pas calculer les détails de débit
+        result.details.totalFixtureFlowRate = params.overrideFlowRate;
+        result.details.totalFixtures = 0;
+        result.details.simultaneityCoeff = 1.0;
     } else {
-        result.flowRate = calculateFlowRate(params.fixtures);
+        result.flowRate = calculateFlowRateWithDetails(params.fixtures, result.details);
     }
 
     // Sélection du diamètre optimal (vitesse max 2 m/s pour confort)
@@ -89,26 +108,34 @@ PipeSegmentResult PipeCalculator::calculate(const CalculationParameters& params)
     result.nominalDiameter = selectOptimalDiameter(result.flowRate, params.material, maxVelocity, params.minDiameter);
     result.actualDiameter = getInternalDiameter(result.nominalDiameter, params.material);
 
-    // Calcul de la vitesse réelle
+    // Calcul de la vitesse réelle et section
+    result.details.crossSection = M_PI * std::pow(result.actualDiameter / 2000.0, 2);
     result.velocity = calculateVelocity(result.flowRate, result.actualDiameter);
 
-    // Calcul de la perte de charge
-    result.pressureDrop = calculatePressureDrop(result.flowRate, params.length,
-                                                result.actualDiameter, params.material,
-                                                params.networkType);
+    // Calcul de la perte de charge avec détails
+    result.details.roughness = getRoughness(params.material);
+    result.details.heightPressureDrop = params.heightDifference;
 
-    // Ajout de la perte de charge due à la différence de hauteur
-    result.pressureDrop += params.heightDifference;
+    result.details.linearPressureDrop = calculateLinearPressureDropWithDetails(
+        result.flowRate, result.actualDiameter, result.details.roughness,
+        params.length, result.details);
+
+    result.details.singularPressureDrop = calculateSingularPressureDrop(result.details.linearPressureDrop);
+
+    result.pressureDrop = result.details.linearPressureDrop +
+                         result.details.singularPressureDrop +
+                         result.details.heightPressureDrop;
 
     // Calcul des températures pour ECS (avec et sans bouclage)
     if (params.networkType == NetworkType::HotWater || params.networkType == NetworkType::HotWaterWithLoop) {
         // Température d'entrée = température fournie en paramètre
         result.inletTemperature = params.waterTemperature;
 
-        // Calcul des pertes thermiques pour ce segment
-        result.heatLoss = calculateHeatLoss(params.length, result.actualDiameter,
-                                           params.insulationThickness,
-                                           params.waterTemperature, params.ambientTemperature);
+        // Calcul des pertes thermiques pour ce segment avec détails
+        result.heatLoss = calculateHeatLossWithDetails(params.length, result.actualDiameter,
+                                                       params.insulationThickness,
+                                                       params.waterTemperature, params.ambientTemperature,
+                                                       result.details);
 
         // Calcul de la chute de température due aux pertes thermiques
         // ΔT = Pertes (W) / (Débit (L/min) × Chaleur spécifique (J/(kg·K)) × Densité (kg/L) / 60)
@@ -116,10 +143,11 @@ PipeSegmentResult PipeCalculator::calculate(const CalculationParameters& params)
         if (result.flowRate > 0) {
             double flowRateKgPerS = result.flowRate / 60.0;  // L/min → kg/s (densité ≈ 1 kg/L)
             double specificHeat = 4186.0;  // J/(kg·K)
-            double temperatureDrop = result.heatLoss / (flowRateKgPerS * specificHeat);
-            result.outletTemperature = result.inletTemperature - temperatureDrop;
+            result.details.temperatureDrop = result.heatLoss / (flowRateKgPerS * specificHeat);
+            result.outletTemperature = result.inletTemperature - result.details.temperatureDrop;
         } else {
             // Si débit nul, température reste identique (pas de refroidissement)
+            result.details.temperatureDrop = 0.0;
             result.outletTemperature = result.inletTemperature;
         }
     } else {
@@ -127,6 +155,7 @@ PipeSegmentResult PipeCalculator::calculate(const CalculationParameters& params)
         result.inletTemperature = 0.0;
         result.outletTemperature = 0.0;
         result.heatLoss = 0.0;
+        result.details.temperatureDrop = 0.0;
     }
 
     // Vérification de la pression disponible
@@ -880,6 +909,31 @@ double PipeCalculator::calculateLinearPressureDrop(double flowRate, double diame
     return pressureDropMce;
 }
 
+// Version avec détails pour le PDF
+double PipeCalculator::calculateLinearPressureDropWithDetails(double flowRate, double diameter,
+                                                               double roughness, double length,
+                                                               CalculationDetails& details) {
+    double velocity = calculateVelocity(flowRate, diameter);
+    details.reynolds = (velocity * diameter / 1000.0) / 0.000001; // Re = VD/ν, ν≈10⁻⁶ m²/s pour l'eau
+    details.relativeRoughness = roughness / diameter;
+    details.isLaminar = (details.reynolds < 2300);
+
+    // Calcul du coefficient de perte de charge λ (Colebrook-White simplifié)
+    if (details.isLaminar) {
+        // Écoulement laminaire
+        details.lambda = 64.0 / details.reynolds;
+    } else {
+        // Écoulement turbulent - Formule de Swamee-Jain (approximation de Colebrook)
+        details.lambda = 0.25 / std::pow(std::log10(roughness / (3.7 * diameter) + 5.74 / std::pow(details.reynolds, 0.9)), 2);
+    }
+
+    // Perte de charge en mCE
+    double pressureDropPa = details.lambda * (length / (diameter / 1000.0)) * (1000.0 * std::pow(velocity, 2) / 2.0);
+    double pressureDropMce = pressureDropPa / (1000.0 * 9.81); // Pa -> mCE
+
+    return pressureDropMce;
+}
+
 double PipeCalculator::calculateSingularPressureDrop(double linearDrop) {
     // Estimation des pertes singulières à 20% des pertes linéaires
     // (coudes, vannes, raccords, etc.)
@@ -932,6 +986,47 @@ double PipeCalculator::calculateHeatLoss(double length, double diameter, double 
 
     // Perte thermique totale (W)
     double Q = q * length;
+
+    return Q;
+}
+
+// Version avec détails pour le PDF
+double PipeCalculator::calculateHeatLossWithDetails(double length, double diameter, double insulation,
+                                                    double waterTemp, double ambientTemp,
+                                                    CalculationDetails& details) {
+    // Rayon extérieur du tube (m)
+    details.r1 = (diameter / 1000.0) / 2.0;
+
+    // Rayon extérieur avec isolation (m)
+    details.r2 = (diameter / 1000.0 + 2.0 * insulation / 1000.0) / 2.0;
+
+    // Conductivité thermique de l'isolation (W/m·K)
+    const double lambda = 0.04;
+
+    // Coefficient d'échange convectif extérieur (W/m²·K)
+    const double h_ext = 10.0;
+
+    // Résistance thermique de l'isolation (K/W par mètre linéaire)
+    details.thermalResistanceInsul = 0.0;
+    if (details.r2 > details.r1 && details.r1 > 0) {
+        details.thermalResistanceInsul = std::log(details.r2 / details.r1) / (2.0 * M_PI * lambda);
+    }
+
+    // Résistance thermique externe par convection (K/W par mètre linéaire)
+    details.thermalResistanceExt = 0.0;
+    if (details.r2 > 0) {
+        details.thermalResistanceExt = 1.0 / (h_ext * 2.0 * M_PI * details.r2);
+    }
+
+    // Résistance thermique totale (K/W par mètre linéaire)
+    double R_tot = details.thermalResistanceInsul + details.thermalResistanceExt;
+
+    // Perte thermique linéique (W/m)
+    double temperatureDiff = waterTemp - ambientTemp;
+    details.heatLossPerMeter = (R_tot > 0) ? (temperatureDiff / R_tot) : 0.0;
+
+    // Perte thermique totale (W)
+    double Q = details.heatLossPerMeter * length;
 
     return Q;
 }
