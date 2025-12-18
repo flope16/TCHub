@@ -105,6 +105,8 @@ QString FixturePoint::getFixtureIcon() const
     switch (fixtureType) {
         case HydraulicCalc::FixtureType::WashBasin:
             return "🚰";
+        case HydraulicCalc::FixtureType::WashBasinCollective:
+            return "🚰";
         case HydraulicCalc::FixtureType::Sink:
             return "🧽";
         case HydraulicCalc::FixtureType::Shower:
@@ -112,6 +114,8 @@ QString FixturePoint::getFixtureIcon() const
         case HydraulicCalc::FixtureType::Bathtub:
             return "🛁";
         case HydraulicCalc::FixtureType::WC:
+            return "🚽";
+        case HydraulicCalc::FixtureType::WCFlushValve:
             return "🚽";
         case HydraulicCalc::FixtureType::Bidet:
             return "🚰";
@@ -121,8 +125,16 @@ QString FixturePoint::getFixtureIcon() const
             return "🍽️";
         case HydraulicCalc::FixtureType::UrinalFlush:
             return "🚹";
-        case HydraulicCalc::FixtureType::UrinalContinuous:
+        case HydraulicCalc::FixtureType::UrinalSiphonic:
             return "🚹";
+        case HydraulicCalc::FixtureType::HandWashBasin:
+            return "🚰";
+        case HydraulicCalc::FixtureType::UtilitySink:
+            return "🧽";
+        case HydraulicCalc::FixtureType::WaterOutlet12:
+            return "💧";
+        case HydraulicCalc::FixtureType::WaterOutlet34:
+            return "💧";
         default:
             return "💧";
     }
@@ -137,13 +149,20 @@ QColor FixturePoint::getFixtureColor() const
             return QColor("#3498db");  // Bleu pour salle de bain
         case HydraulicCalc::FixtureType::Sink:
         case HydraulicCalc::FixtureType::Dishwasher:
+        case HydraulicCalc::FixtureType::UtilitySink:
             return QColor("#e67e22");  // Orange pour cuisine
         case HydraulicCalc::FixtureType::WC:
+        case HydraulicCalc::FixtureType::WCFlushValve:
         case HydraulicCalc::FixtureType::UrinalFlush:
-        case HydraulicCalc::FixtureType::UrinalContinuous:
+        case HydraulicCalc::FixtureType::UrinalSiphonic:
             return QColor("#9b59b6");  // Violet pour WC
         case HydraulicCalc::FixtureType::WashingMachine:
             return QColor("#1abc9c");  // Turquoise pour électroménager
+        case HydraulicCalc::FixtureType::WashBasin:
+        case HydraulicCalc::FixtureType::WashBasinCollective:
+        case HydraulicCalc::FixtureType::HandWashBasin:
+        case HydraulicCalc::FixtureType::Bidet:
+            return QColor("#16a085");  // Vert pour lavabos
         default:
             return QColor("#95a5a6");  // Gris par défaut
     }
