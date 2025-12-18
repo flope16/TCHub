@@ -304,14 +304,14 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
     // PASSE 2: Calcul du retour bouclage (si applicable)
     if (networkParams.networkType == NetworkType::HotWaterWithLoop) {
         // Calculer le débit de retour GLOBAL pour toute la boucle
-        // Somme de TOUTES les pertes thermiques
+        // Somme de TOUTES les pertes thermiques (calculées avec débits aller)
         double totalHeatLoss = 0.0;
         for (const auto& segment : networkParams.segments) {
             totalHeatLoss += segment.result.heatLoss;
         }
 
-        // Calcul du débit de retour global
-        // Q_retour (L/h) = Pertes_totales (W) / (1.16 × ΔT)
+        // Calcul du débit de bouclage global
+        // Q_bouclage (L/h) = Pertes_totales (W) / (1.16 × ΔT)
         // ΔT = chute de température acceptable sur la boucle (typiquement 5°C)
         const double deltaT = 5.0;  // °C
         double globalReturnFlowRateLh = totalHeatLoss / (1.16 * deltaT);
@@ -353,54 +353,98 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
             }
         }
 
-        // PASSE 3: Calcul des températures de RETOUR (bottom-up : enfants → parent)
-        // Le retour circule dans le sens INVERSE de l'aller !
-        // Logique : returnInlet (vient enfants) → pertes → returnOutlet (va vers parent)
+        // PASSE 3: Recalculer TOUTES les températures avec le débit de bouclage
+        // C'est un circuit continu : source → aller → retour → source
+        // La température diminue continuellement tout au long du circuit
 
-        std::function<void(NetworkSegment&)> calculateReturnTemperatures;
-        calculateReturnTemperatures = [&](NetworkSegment& segment) {
+        // PARTIE A : Températures ALLER (top-down : parent → enfant)
+        std::function<void(NetworkSegment&)> calculateAllerTemperatures;
+        calculateAllerTemperatures = [&](NetworkSegment& segment) {
+            // La température d'entrée a déjà été définie (source ou parent)
+
+            // Recalculer les pertes thermiques ALLER avec le débit de bouclage
+            segment.result.heatLoss = calculateHeatLoss(
+                segment.length, segment.result.actualDiameter,
+                networkParams.insulationThickness,
+                segment.result.inletTemperature, networkParams.ambientTemperature);
+
+            // Calculer la chute de température avec le débit de bouclage
+            // Formule : ΔT = Pertes (W) / (1160 × Q_bouclage (m³/h))
+            double bouclageFlowRateM3h = globalReturnFlowRate * 60.0 / 1000.0;  // L/min → m³/h
+            double temperatureDrop = 0.0;
+            if (bouclageFlowRateM3h > 0.0001) {
+                temperatureDrop = segment.result.heatLoss / (1160.0 * bouclageFlowRateM3h);
+            }
+
+            segment.result.outletTemperature = segment.result.inletTemperature - temperatureDrop;
+
+            // Propager aux enfants
+            for (auto& child : networkParams.segments) {
+                if (child.parentId == segment.id) {
+                    // Température sortie parent = température entrée enfant
+                    child.result.inletTemperature = segment.result.outletTemperature;
+                    calculateAllerTemperatures(child);
+                }
+            }
+        };
+
+        // Initialiser température source et calculer récursivement
+        for (auto& segment : networkParams.segments) {
+            if (segment.parentId.empty()) {
+                segment.result.inletTemperature = networkParams.waterTemperature;
+                calculateAllerTemperatures(segment);
+            }
+        }
+
+        // PARTIE B : Températures RETOUR (bottom-up : enfant → parent)
+        // Le retour circule dans le sens INVERSE
+        std::function<void(NetworkSegment&)> calculateRetourTemperatures;
+        calculateRetourTemperatures = [&](NetworkSegment& segment) {
             // D'abord, calculer récursivement tous les enfants
             std::vector<NetworkSegment*> children;
             for (auto& child : networkParams.segments) {
                 if (child.parentId == segment.id) {
                     children.push_back(&child);
-                    calculateReturnTemperatures(child);
+                    calculateRetourTemperatures(child);
                 }
             }
 
             // Calculer returnInletTemperature du segment actuel
             if (children.empty()) {
-                // Segment feuille : la température d'entrée retour = température sortie aller
+                // Segment FEUILLE : c'est là que le bouclage commence
+                // L'eau passe directement de l'aller au retour
                 segment.result.returnInletTemperature = segment.result.outletTemperature;
             } else {
-                // Segment parent : agrégation des températures de sortie retour des enfants
-                // On prend la moyenne pondérée, ou simplement la moyenne
-                // (tous les enfants ont le même débit retour global)
-                double sumTemp = 0.0;
-                for (const auto* child : children) {
-                    sumTemp += child->result.returnOutletTemperature;
+                // Segment PARENT : l'eau retour vient des enfants
+                // Température sortie retour de l'enfant = température entrée retour du parent
+                if (children.size() == 1) {
+                    segment.result.returnInletTemperature = children[0]->result.returnOutletTemperature;
+                } else {
+                    // Si plusieurs enfants : moyenne (débits égaux)
+                    double sumTemp = 0.0;
+                    for (const auto* child : children) {
+                        sumTemp += child->result.returnOutletTemperature;
+                    }
+                    segment.result.returnInletTemperature = sumTemp / children.size();
                 }
-                segment.result.returnInletTemperature = sumTemp / children.size();
             }
 
-            // Calculer les pertes thermiques dans le retour
-            // On utilise la température moyenne du retour dans ce segment
-            double avgReturnTemp = segment.result.returnInletTemperature;
+            // Calculer les pertes thermiques dans le retour avec débit de bouclage
             double returnHeatLoss = calculateHeatLoss(
                 segment.length, segment.result.returnActualDiameter,
                 networkParams.insulationThickness,
-                avgReturnTemp, networkParams.ambientTemperature);
+                segment.result.returnInletTemperature, networkParams.ambientTemperature);
 
             // Calculer la chute de température dans le retour
-            // Formule : ΔT = Pertes (W) / (1160 × Q_retour (m³/h))
-            double returnFlowRateM3h = globalReturnFlowRate * 60.0 / 1000.0;  // L/min → m³/h
+            // Formule : ΔT = Pertes (W) / (1160 × Q_bouclage (m³/h))
+            double bouclageFlowRateM3h = globalReturnFlowRate * 60.0 / 1000.0;  // L/min → m³/h
             double temperatureDrop = 0.0;
-            if (returnFlowRateM3h > 0.0001) {
-                temperatureDrop = returnHeatLoss / (1160.0 * returnFlowRateM3h);
+            if (bouclageFlowRateM3h > 0.0001) {
+                temperatureDrop = returnHeatLoss / (1160.0 * bouclageFlowRateM3h);
             }
 
             // Température sortie retour = entrée retour - pertes
-            // (la température BAISSE en remontant vers le parent)
+            // (la température continue de BAISSER en remontant)
             segment.result.returnOutletTemperature = segment.result.returnInletTemperature - temperatureDrop;
 
             // Compatibilité avec ancien champ
@@ -410,7 +454,7 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
         // Calculer depuis les segments racines (qui vont propager récursivement)
         for (auto& segment : networkParams.segments) {
             if (segment.parentId.empty()) {
-                calculateReturnTemperatures(segment);
+                calculateRetourTemperatures(segment);
             }
         }
     }
