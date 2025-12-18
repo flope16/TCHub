@@ -303,36 +303,54 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
 
     // PASSE 2: Calcul du retour bouclage (si applicable)
     if (networkParams.networkType == NetworkType::HotWaterWithLoop) {
-        // Calculer le débit de retour GLOBAL pour toute la boucle
-        // Somme de TOUTES les pertes thermiques (calculées avec débits aller)
-        double totalHeatLoss = 0.0;
-        for (const auto& segment : networkParams.segments) {
-            totalHeatLoss += segment.result.heatLoss;
-        }
+        // Dans un système de bouclage avec sous-boucles :
+        // - Chaque sous-boucle calcule son propre débit de retour basé sur ses pertes
+        // - Au parent : débits s'additionnent, températures se mélangent (pondérées par débits)
 
-        // Calcul du débit de bouclage global
-        // Q_bouclage (L/h) = Pertes_totales (W) / (1.16 × ΔT)
-        // ΔT = chute de température acceptable sur la boucle (typiquement 5°C)
+        // ΔT acceptable sur une boucle
         const double deltaT = 5.0;  // °C
-        double globalReturnFlowRateLh = totalHeatLoss / (1.16 * deltaT);
-        double globalReturnFlowRate = globalReturnFlowRateLh / 60.0;  // Conversion L/h → L/min
 
         // Vitesses min/max recommandées pour le retour
         const double minReturnVelocity = 0.2;  // m/s
         const double maxReturnVelocity = 0.5;  // m/s
 
-        // Appliquer le débit de retour global et calculer DN retour pour TOUS les segments
-        for (auto& segment : networkParams.segments) {
-            segment.result.returnFlowRate = globalReturnFlowRate;
-            segment.result.hasReturn = true;
+        // PASSE 3: Calcul récursif bottom-up des débits de retour et températures
+        // Tout se fait en une passe : enfant → parent
 
-            // Calculer le DN retour basé sur le débit global
+        std::function<void(NetworkSegment&)> calculateRetourRecursive;
+        calculateRetourRecursive = [&](NetworkSegment& segment) {
+            // D'abord, calculer récursivement tous les enfants
+            std::vector<NetworkSegment*> children;
+            for (auto& child : networkParams.segments) {
+                if (child.parentId == segment.id) {
+                    children.push_back(&child);
+                    calculateRetourRecursive(child);
+                }
+            }
+
+            // ÉTAPE 1 : Calculer le débit de retour du segment
+            if (children.empty()) {
+                // Segment FEUILLE : calcul du débit basé sur les pertes locales
+                // Q_retour (L/h) = Pertes (W) / (1.16 × ΔT)
+                double returnFlowRateLh = segment.result.heatLoss / (1.16 * deltaT);
+                segment.result.returnFlowRate = returnFlowRateLh / 60.0;  // L/h → L/min
+            } else {
+                // Segment PARENT : somme des débits de retour des enfants
+                double totalReturnFlow = 0.0;
+                for (const auto* child : children) {
+                    totalReturnFlow += child->result.returnFlowRate;
+                }
+                segment.result.returnFlowRate = totalReturnFlow;
+            }
+
+            // ÉTAPE 2 : Calculer le DN retour basé sur le débit local
+            segment.result.hasReturn = true;
             segment.result.returnNominalDiameter = selectOptimalDiameter(
-                globalReturnFlowRate, networkParams.material, maxReturnVelocity);
+                segment.result.returnFlowRate, networkParams.material, maxReturnVelocity);
             segment.result.returnActualDiameter = getInternalDiameter(
                 segment.result.returnNominalDiameter, networkParams.material);
             segment.result.returnVelocity = calculateVelocity(
-                globalReturnFlowRate, segment.result.returnActualDiameter);
+                segment.result.returnFlowRate, segment.result.returnActualDiameter);
 
             // Ajustement si vitesse trop faible (réduire DN)
             while (segment.result.returnVelocity < minReturnVelocity &&
@@ -346,81 +364,31 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
                     segment.result.returnActualDiameter = getInternalDiameter(
                         segment.result.returnNominalDiameter, networkParams.material);
                     segment.result.returnVelocity = calculateVelocity(
-                        globalReturnFlowRate, segment.result.returnActualDiameter);
+                        segment.result.returnFlowRate, segment.result.returnActualDiameter);
                 } else {
                     break;
                 }
             }
-        }
 
-        // PASSE 3: Recalculer TOUTES les températures avec le débit de bouclage
-        // C'est un circuit continu : source → aller → retour → source
-        // La température diminue continuellement tout au long du circuit
-
-        // PARTIE A : Températures ALLER (top-down : parent → enfant)
-        std::function<void(NetworkSegment&)> calculateAllerTemperatures;
-        calculateAllerTemperatures = [&](NetworkSegment& segment) {
-            // La température d'entrée a déjà été définie (source ou parent)
-
-            // Recalculer les pertes thermiques ALLER avec le débit de bouclage
-            segment.result.heatLoss = calculateHeatLoss(
-                segment.length, segment.result.actualDiameter,
-                networkParams.insulationThickness,
-                segment.result.inletTemperature, networkParams.ambientTemperature);
-
-            // Calculer la chute de température avec le débit de bouclage
-            // Formule : ΔT = Pertes (W) / (1160 × Q_bouclage (m³/h))
-            double bouclageFlowRateM3h = globalReturnFlowRate * 60.0 / 1000.0;  // L/min → m³/h
-            double temperatureDrop = 0.0;
-            if (bouclageFlowRateM3h > 0.0001) {
-                temperatureDrop = segment.result.heatLoss / (1160.0 * bouclageFlowRateM3h);
-            }
-
-            segment.result.outletTemperature = segment.result.inletTemperature - temperatureDrop;
-
-            // Propager aux enfants
-            for (auto& child : networkParams.segments) {
-                if (child.parentId == segment.id) {
-                    // Température sortie parent = température entrée enfant
-                    child.result.inletTemperature = segment.result.outletTemperature;
-                    calculateAllerTemperatures(child);
-                }
-            }
-        };
-
-        // Initialiser température source et calculer récursivement
-        for (auto& segment : networkParams.segments) {
-            if (segment.parentId.empty()) {
-                segment.result.inletTemperature = networkParams.waterTemperature;
-                calculateAllerTemperatures(segment);
-            }
-        }
-
-        // PARTIE B : Températures RETOUR (bottom-up : enfant → parent)
-        // Le retour circule dans le sens INVERSE
-        std::function<void(NetworkSegment&)> calculateRetourTemperatures;
-        calculateRetourTemperatures = [&](NetworkSegment& segment) {
-            // D'abord, calculer récursivement tous les enfants
-            std::vector<NetworkSegment*> children;
-            for (auto& child : networkParams.segments) {
-                if (child.parentId == segment.id) {
-                    children.push_back(&child);
-                    calculateRetourTemperatures(child);
-                }
-            }
-
-            // Calculer returnInletTemperature du segment actuel
+            // ÉTAPE 3 : Calculer la température d'entrée retour (returnInletTemperature)
             if (children.empty()) {
-                // Segment FEUILLE : c'est là que le bouclage commence
-                // L'eau passe directement de l'aller au retour
+                // Segment FEUILLE : l'eau passe de l'aller au retour
                 segment.result.returnInletTemperature = segment.result.outletTemperature;
             } else {
-                // Segment PARENT : l'eau retour vient des enfants
-                // Température sortie retour de l'enfant = température entrée retour du parent
-                if (children.size() == 1) {
-                    segment.result.returnInletTemperature = children[0]->result.returnOutletTemperature;
+                // Segment PARENT : MÉLANGE PONDÉRÉ par les débits
+                // Formule : T_mélange = (Q₁×T₁ + Q₂×T₂ + ...) / (Q₁ + Q₂ + ...)
+                double sumWeightedTemp = 0.0;
+                double sumFlow = 0.0;
+
+                for (const auto* child : children) {
+                    sumWeightedTemp += child->result.returnFlowRate * child->result.returnOutletTemperature;
+                    sumFlow += child->result.returnFlowRate;
+                }
+
+                if (sumFlow > 0.0001) {
+                    segment.result.returnInletTemperature = sumWeightedTemp / sumFlow;
                 } else {
-                    // Si plusieurs enfants : moyenne (débits égaux)
+                    // Cas dégénéré : moyenne simple si débits nuls
                     double sumTemp = 0.0;
                     for (const auto* child : children) {
                         sumTemp += child->result.returnOutletTemperature;
@@ -429,32 +397,30 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
                 }
             }
 
-            // Calculer les pertes thermiques dans le retour avec débit de bouclage
+            // ÉTAPE 4 : Calculer les pertes thermiques dans le retour
             double returnHeatLoss = calculateHeatLoss(
                 segment.length, segment.result.returnActualDiameter,
                 networkParams.insulationThickness,
                 segment.result.returnInletTemperature, networkParams.ambientTemperature);
 
-            // Calculer la chute de température dans le retour
-            // Formule : ΔT = Pertes (W) / (1160 × Q_bouclage (m³/h))
-            double bouclageFlowRateM3h = globalReturnFlowRate * 60.0 / 1000.0;  // L/min → m³/h
+            // ÉTAPE 5 : Calculer la température de sortie retour
+            // Formule : ΔT = Pertes (W) / (1160 × Q_retour (m³/h))
+            double returnFlowRateM3h = segment.result.returnFlowRate * 60.0 / 1000.0;  // L/min → m³/h
             double temperatureDrop = 0.0;
-            if (bouclageFlowRateM3h > 0.0001) {
-                temperatureDrop = returnHeatLoss / (1160.0 * bouclageFlowRateM3h);
+            if (returnFlowRateM3h > 0.0001) {
+                temperatureDrop = returnHeatLoss / (1160.0 * returnFlowRateM3h);
             }
 
-            // Température sortie retour = entrée retour - pertes
-            // (la température continue de BAISSER en remontant)
             segment.result.returnOutletTemperature = segment.result.returnInletTemperature - temperatureDrop;
 
             // Compatibilité avec ancien champ
             segment.result.returnTemperature = segment.result.returnOutletTemperature;
         };
 
-        // Calculer depuis les segments racines (qui vont propager récursivement)
+        // Calculer les retours depuis les segments racines
         for (auto& segment : networkParams.segments) {
             if (segment.parentId.empty()) {
-                calculateRetourTemperatures(segment);
+                calculateRetourRecursive(segment);
             }
         }
     }
