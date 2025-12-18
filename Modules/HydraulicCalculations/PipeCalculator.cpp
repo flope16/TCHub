@@ -245,6 +245,18 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
         // ÉTAPE 2: Déterminer le débit du segment
         double segmentFlowRate = 0.0;
 
+        // Collecter TOUS les appareils desservis par ce segment (y compris enfants)
+        std::vector<Fixture> allServedFixtures;
+        collectAllFixtures(segment, allServedFixtures);
+
+        // Calculer le nombre total d'appareils desservis
+        int totalServedFixtures = 0;
+        double totalServedFlowRate = 0.0;
+        for (const auto& fixture : allServedFixtures) {
+            totalServedFixtures += fixture.quantity;
+            totalServedFlowRate += fixture.flowRate * fixture.quantity;
+        }
+
         if (children.empty()) {
             // Segment FEUILLE (sans enfants) : calculer depuis les fixtures avec coeff simultanéité
             segmentFlowRate = calculateFlowRate(segment.fixtures);
@@ -288,6 +300,11 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
         // ÉTAPE 5: Calculer ce segment (le DN sera correct maintenant)
         segment.result = calculate(params);
 
+        // Mettre à jour les détails avec le nombre TOTAL d'appareils desservis (pour le PDF)
+        segment.result.details.totalFixtures = totalServedFixtures;
+        segment.result.details.totalFixtureFlowRate = totalServedFlowRate;
+        segment.result.details.simultaneityCoeff = getSimultaneityCoefficient(totalServedFixtures);
+
         // ÉTAPE 6: Calculer la pression de sortie du parent
         segment.outletPressure = segment.inletPressure - (segment.result.pressureDrop / 10.0);
 
@@ -306,10 +323,11 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
                 double childInletTemp = segment.result.outletTemperature;
                 child->result.inletTemperature = childInletTemp;
 
-                // Recalculer les pertes thermiques avec la bonne température
-                child->result.heatLoss = calculateHeatLoss(child->length, child->result.actualDiameter,
+                // Recalculer les pertes thermiques avec la bonne température (avec détails)
+                child->result.heatLoss = calculateHeatLossWithDetails(child->length, child->result.actualDiameter,
                                                           networkParams.insulationThickness,
-                                                          childInletTemp, networkParams.ambientTemperature);
+                                                          childInletTemp, networkParams.ambientTemperature,
+                                                          child->result.details);
 
                 // Recalculer la température de sortie
                 if (child->result.flowRate > 0) {
@@ -317,8 +335,11 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
                     double specificHeat = 4186.0;
                     double temperatureDrop = child->result.heatLoss / (flowRateKgPerS * specificHeat);
                     child->result.outletTemperature = childInletTemp - temperatureDrop;
+                    // IMPORTANT: Mettre à jour les détails pour le PDF
+                    child->result.details.temperatureDrop = temperatureDrop;
                 } else {
                     child->result.outletTemperature = childInletTemp;
+                    child->result.details.temperatureDrop = 0.0;
                 }
             }
         }
