@@ -322,8 +322,19 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
         const double maxReturnVelocity = 0.5;  // m/s
 
         // Appliquer le débit de retour global à TOUS les segments
+        // ET recalculer les températures avec le débit de retour
         for (auto& segment : networkParams.segments) {
             segment.result.returnFlowRate = globalReturnFlowRate;
+
+            // RECALCUL TEMPÉRATURE avec le débit de RETOUR (pas le débit aller !)
+            // Formule : ΔT = Pertes (W) / (1160 × Q_retour (m³/h))
+            double returnFlowRateM3h = globalReturnFlowRate * 60.0 / 1000.0;  // L/min → m³/h
+            if (returnFlowRateM3h > 0.0001) {  // Éviter division par zéro
+                double temperatureDrop = segment.result.heatLoss / (1160.0 * returnFlowRateM3h);
+                segment.result.outletTemperature = segment.result.inletTemperature - temperatureDrop;
+            } else {
+                segment.result.outletTemperature = segment.result.inletTemperature;
+            }
 
             // Calculer le DN retour basé sur le débit global
             segment.result.returnNominalDiameter = selectOptimalDiameter(
@@ -352,8 +363,46 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
             }
 
             // Température de retour = température de sortie du segment (côté aller)
-            // car le retour ramène l'eau refroidie vers la source
             segment.result.returnTemperature = segment.result.outletTemperature;
+        }
+
+        // PASSE 3: Propager les températures recalculées aux enfants
+        // (nécessaire car les températures ont changé avec le débit de retour)
+        std::function<void(NetworkSegment&)> propagateTemperatures;
+        propagateTemperatures = [&](NetworkSegment& segment) {
+            for (auto& child : networkParams.segments) {
+                if (child.parentId == segment.id) {
+                    // Mettre à jour température entrée enfant
+                    child.result.inletTemperature = segment.result.outletTemperature;
+
+                    // Recalculer pertes thermiques avec nouvelle température
+                    child.result.heatLoss = calculateHeatLoss(
+                        child.length, child.result.actualDiameter,
+                        networkParams.insulationThickness,
+                        child.result.inletTemperature, networkParams.ambientTemperature);
+
+                    // Recalculer température sortie avec débit de retour
+                    double returnFlowRateM3h = globalReturnFlowRate * 60.0 / 1000.0;
+                    if (returnFlowRateM3h > 0.0001) {
+                        double temperatureDrop = child.result.heatLoss / (1160.0 * returnFlowRateM3h);
+                        child.result.outletTemperature = child.result.inletTemperature - temperatureDrop;
+                    } else {
+                        child.result.outletTemperature = child.result.inletTemperature;
+                    }
+
+                    child.result.returnTemperature = child.result.outletTemperature;
+
+                    // Propager récursivement
+                    propagateTemperatures(child);
+                }
+            }
+        };
+
+        // Propager depuis les segments racines
+        for (auto& segment : networkParams.segments) {
+            if (segment.parentId.empty()) {
+                propagateTemperatures(segment);
+            }
         }
     }
 }
@@ -475,16 +524,52 @@ double PipeCalculator::calculateSingularPressureDrop(double linearDrop) {
 
 double PipeCalculator::calculateHeatLoss(double length, double diameter, double insulation,
                                         double waterTemp, double ambientTemp) {
-    // Calcul simplifié des pertes thermiques
-    // Q = k * A * ΔT
-    // où k ≈ 0.3 W/(m·K) pour une isolation de 13mm
-    // A = surface externe du tube = π * D * L
+    // Calcul des pertes thermiques basé sur les résistances thermiques
+    // Formule : q = (T_eau - T_amb) / R_tot  (W/m)
+    //           Q = q × L  (W total)
+    // où R_tot = R_isol + R_ext
+    //    R_isol = ln(r2/r1) / (2πλ)
+    //    R_ext = 1 / (h_ext × 2πr2)
 
-    double surfaceArea = M_PI * (diameter / 1000.0 + 2 * insulation / 1000.0) * length;
-    double thermalTransmittance = 0.3; // W/(m²·K) - valeur typique pour isolation standard
+    // Rayon extérieur du tube (m)
+    double r1 = (diameter / 1000.0) / 2.0;
+
+    // Rayon extérieur avec isolation (m)
+    double r2 = (diameter / 1000.0 + 2.0 * insulation / 1000.0) / 2.0;
+
+    // Conductivité thermique de l'isolation (W/m·K)
+    // Valeur typique pour mousse polyuréthane ou polystyrène expansé
+    const double lambda = 0.04;
+
+    // Coefficient d'échange convectif extérieur (W/m²·K)
+    // Valeur typique pour convection naturelle dans l'air
+    const double h_ext = 10.0;
+
+    // Résistance thermique de l'isolation (K/W par mètre linéaire)
+    // R_isol = ln(r2/r1) / (2πλ)
+    double R_isol = 0.0;
+    if (r2 > r1 && r1 > 0) {
+        R_isol = std::log(r2 / r1) / (2.0 * M_PI * lambda);
+    }
+
+    // Résistance thermique externe par convection (K/W par mètre linéaire)
+    // R_ext = 1 / (h_ext × 2πr2)
+    double R_ext = 0.0;
+    if (r2 > 0) {
+        R_ext = 1.0 / (h_ext * 2.0 * M_PI * r2);
+    }
+
+    // Résistance thermique totale (K/W par mètre linéaire)
+    double R_tot = R_isol + R_ext;
+
+    // Perte thermique linéique (W/m)
     double temperatureDiff = waterTemp - ambientTemp;
+    double q = (R_tot > 0) ? (temperatureDiff / R_tot) : 0.0;
 
-    return thermalTransmittance * surfaceArea * temperatureDiff;
+    // Perte thermique totale (W)
+    double Q = q * length;
+
+    return Q;
 }
 
 std::vector<int> PipeCalculator::getAvailableDiameters(PipeMaterial material) {

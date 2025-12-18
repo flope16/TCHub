@@ -206,17 +206,6 @@ void HydraulicCalculationsWindow::createParametersPanel()
     QFormLayout *loopLayout = new QFormLayout(loopParametersGroup);
     loopLayout->setSpacing(12);
 
-    QLabel *loopLengthLabel = new QLabel("Longueur boucle");
-    loopLengthLabel->setObjectName("formLabel");
-    loopLengthSpin = new QDoubleSpinBox();
-    loopLengthSpin->setObjectName("modernSpin");
-    loopLengthSpin->setRange(1.0, 500.0);
-    loopLengthSpin->setValue(50.0);
-    loopLengthSpin->setSuffix(" m");
-    loopLengthSpin->setDecimals(1);
-    loopLengthSpin->installEventFilter(wheelFilter);  // Désactiver molette
-    loopLayout->addRow(loopLengthLabel, loopLengthSpin);
-
     QLabel *waterTempLabel = new QLabel("Température eau");
     waterTempLabel->setObjectName("formLabel");
     waterTempSpin = new QDoubleSpinBox();
@@ -1084,7 +1073,7 @@ void HydraulicCalculationsWindow::performCalculations()
 
         // Paramètres bouclage si nécessaire
         if (networkTypeCombo->currentIndex() == 2) {
-            networkParams.loopLength = loopLengthSpin->value();
+            // loopLength est auto-calculée dans calculateNetwork() comme somme des longueurs de segments
             networkParams.waterTemperature = waterTempSpin->value();
             networkParams.ambientTemperature = ambientTempSpin->value();
             networkParams.insulationThickness = insulationSpin->value();
@@ -1233,7 +1222,14 @@ QString HydraulicCalculationsWindow::generatePDFHtml()
         html += "<h2>Paramètres bouclage ECS</h2>";
         html += "<table>";
         html += "<tr><th>Paramètre</th><th>Valeur</th></tr>";
-        html += "<tr><td>Longueur boucle</td><td>" + QString::number(loopLengthSpin->value(), 'f', 1) + " m</td></tr>";
+
+        // Calculer longueur totale de boucle (somme des longueurs de segments)
+        double totalLoopLength = 0.0;
+        for (const auto& segment : networkSegments) {
+            totalLoopLength += segment.length;
+        }
+        html += "<tr><td>Longueur boucle (auto-calculée)</td><td>" + QString::number(totalLoopLength, 'f', 1) + " m</td></tr>";
+
         html += "<tr><td>Température eau</td><td>" + QString::number(waterTempSpin->value(), 'f', 1) + " C</td></tr>";
         html += "<tr><td>Température ambiante</td><td>" + QString::number(ambientTempSpin->value(), 'f', 1) + " C</td></tr>";
         html += "<tr><td>Isolation</td><td>" + QString::number(insulationSpin->value(), 'f', 0) + " mm</td></tr>";
