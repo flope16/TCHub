@@ -121,7 +121,6 @@ private:
 
     // Paramètres bouclage ECS
     QGroupBox *loopParametersGroup;
-    QDoubleSpinBox *loopLengthSpin;
     QDoubleSpinBox *waterTempSpin;
     QDoubleSpinBox *ambientTempSpin;
     QDoubleSpinBox *insulationSpin;
