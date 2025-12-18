@@ -262,8 +262,8 @@ void GraphicPipeSegment::updateResultsDisplay(const HydraulicCalc::NetworkSegmen
     // Afficher les températures pour ECS (avec ou sans bouclage)
     if (result.inletTemperature > 0.0 || result.outletTemperature > 0.0) {
         resultsText += QString("\nT in=%1°C / out=%2°C")
-            .arg(result.inletTemperature, 0, 'f', 1)
-            .arg(result.outletTemperature, 0, 'f', 1);
+            .arg(result.inletTemperature, 0, 'f', 2)
+            .arg(result.outletTemperature, 0, 'f', 2);
     }
 
     // Afficher les pertes thermiques si ECS (avec ou sans bouclage)
@@ -285,12 +285,12 @@ void GraphicPipeSegment::updateResultsDisplay(const HydraulicCalc::NetworkSegmen
         // RETOUR : flux inversé (enfant → parent)
         if (result.returnInletTemperature > 0.0 || result.returnOutletTemperature > 0.0) {
             resultsText += QString("T ret in=%1°C / out=%2°C")
-                .arg(result.returnInletTemperature, 0, 'f', 1)
-                .arg(result.returnOutletTemperature, 0, 'f', 1);
+                .arg(result.returnInletTemperature, 0, 'f', 2)
+                .arg(result.returnOutletTemperature, 0, 'f', 2);
         } else {
             // Compatibilité ancien champ
             resultsText += QString("Tr=%1°C")
-                .arg(result.returnTemperature, 0, 'f', 1);
+                .arg(result.returnTemperature, 0, 'f', 2);
         }
 
         hasReturn = true;
