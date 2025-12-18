@@ -1403,14 +1403,51 @@ QString HydraulicCalculationsWindow::generatePDFHtml()
         // Retour si applicable
         if (segment.result.hasReturn) {
             html += "<h3>Retour de bouclage</h3>";
+
+            // Section détaillée du calcul du retour
+            html += "<h4>6. Calcul détaillé du retour de bouclage (DTU 60.11)</h4>";
+            html += "<table>";
+            html += "<tr><th>Paramètre</th><th>Valeur</th></tr>";
+            html += "<tr><td colspan='2' style='background-color: #fff9e6;'><em><strong>Principe:</strong> Le débit de retour compense les pertes thermiques du réseau</em></td></tr>";
+            html += "<tr><td>Pertes thermiques du segment (P)</td><td>" + QString::number(segment.result.heatLoss, 'f', 1) + " W</td></tr>";
+            html += "<tr><td>ΔT accepté sur la boucle</td><td>5.0 °C (norme)</td></tr>";
+            html += "<tr><td colspan='2' style='background-color: #f0f0f0;'><em>Formule: Q_retour (L/h) = P (W) / (1.16 × ΔT)</em></td></tr>";
+            html += "<tr class='result'><td><strong>Débit thermique calculé</strong></td><td><strong>" +
+                    QString::number(segment.result.returnFlowRate * 60.0, 'f', 2) + " L/h = " +
+                    QString::number(segment.result.returnFlowRate, 'f', 2) + " L/min</strong></td></tr>";
+            html += "<tr><td colspan='2' style='background-color: #f0f0f0;'><em>Sélection du DN retour:</em></td></tr>";
+            html += "<tr><td>Contrainte vitesse minimale</td><td>0.2 m/s (évite stagnation)</td></tr>";
+            html += "<tr><td>Contrainte vitesse maximale</td><td>0.5 m/s (évite bruit/érosion)</td></tr>";
+            html += "<tr><td>Objectif</td><td>Plus petit DN respectant 0.2 ≤ v ≤ 0.5 m/s</td></tr>";
+            html += "<tr class='result'><td><strong>DN retour sélectionné</strong></td><td><strong>DN " +
+                    QString::number(segment.result.returnNominalDiameter) +
+                    " (D=" + QString::number(segment.result.returnActualDiameter, 'f', 1) + " mm)</strong></td></tr>";
+            html += "<tr class='result'><td><strong>Vitesse retour obtenue</strong></td><td><strong>" +
+                    QString::number(segment.result.returnVelocity, 'f', 3) + " m/s</strong></td></tr>";
+
+            // Ajouter un avertissement si le débit a été augmenté
+            if (segment.result.returnFlowRate > segment.result.heatLoss / (1.16 * 5.0) / 60.0 * 1.05) {
+                html += "<tr style='background-color: #fff3cd;'><td colspan='2'><strong>ℹ️ Note:</strong> Le débit a été augmenté pour respecter v_min = 0.2 m/s</td></tr>";
+            }
+
+            html += "<tr><td colspan='2' style='background-color: #f0f0f0;'><em>Températures retour:</em></td></tr>";
+            html += "<tr><td>Température entrée retour (T_ret_in)</td><td>" +
+                    QString::number(segment.result.returnInletTemperature, 'f', 2) + " °C</td></tr>";
+            html += "<tr><td>Température sortie retour (T_ret_out)</td><td>" +
+                    QString::number(segment.result.returnOutletTemperature, 'f', 2) + " °C</td></tr>";
+            html += "<tr><td>Chute de température dans le retour</td><td>" +
+                    QString::number(segment.result.returnInletTemperature - segment.result.returnOutletTemperature, 'f', 2) + " °C</td></tr>";
+            html += "</table>";
+
+            // Résumé du retour
+            html += "<h4>Résumé retour</h4>";
             html += "<table>";
             html += "<tr><th>Résultat</th><th>Valeur</th></tr>";
             html += "<tr class='result'><td>Diamètre retour</td><td>DN " + QString::number(segment.result.returnNominalDiameter) +
                     " (D=" + QString::number(segment.result.returnActualDiameter, 'f', 1) + " mm)</td></tr>";
             html += "<tr><td>Débit retour</td><td>" + QString::number(segment.result.returnFlowRate * 0.06, 'f', 2) + " m³/h</td></tr>";
-            html += "<tr><td>Vitesse retour</td><td>" + QString::number(segment.result.returnVelocity, 'f', 2) + " m/s</td></tr>";
-            html += "<tr><td>Pertes thermiques</td><td>" + QString::number(segment.result.heatLoss, 'f', 0) + " W</td></tr>";
-            html += "<tr><td>Température retour</td><td>" + QString::number(segment.result.returnTemperature, 'f', 1) + " C</td></tr>";
+            html += "<tr><td>Vitesse retour</td><td>" + QString::number(segment.result.returnVelocity, 'f', 3) + " m/s</td></tr>";
+            html += "<tr><td>Pertes thermiques compensées</td><td>" + QString::number(segment.result.heatLoss, 'f', 0) + " W</td></tr>";
             html += "</table>";
         }
 
