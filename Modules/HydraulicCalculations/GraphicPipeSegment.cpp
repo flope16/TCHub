@@ -280,8 +280,19 @@ void GraphicPipeSegment::updateResultsDisplay(const HydraulicCalc::NetworkSegmen
             .arg(result.returnFlowRate, 0, 'f', 1);
         resultsText += QString("Vr=%1 m/s\n")
             .arg(result.returnVelocity, 0, 'f', 2);
-        resultsText += QString("Tr=%1°C")
-            .arg(result.returnTemperature, 0, 'f', 1);
+
+        // Afficher températures retour (inlet/outlet)
+        // RETOUR : flux inversé (enfant → parent)
+        if (result.returnInletTemperature > 0.0 || result.returnOutletTemperature > 0.0) {
+            resultsText += QString("T ret in=%1°C / out=%2°C")
+                .arg(result.returnInletTemperature, 0, 'f', 1)
+                .arg(result.returnOutletTemperature, 0, 'f', 1);
+        } else {
+            // Compatibilité ancien champ
+            resultsText += QString("Tr=%1°C")
+                .arg(result.returnTemperature, 0, 'f', 1);
+        }
+
         hasReturn = true;
     } else {
         hasReturn = false;

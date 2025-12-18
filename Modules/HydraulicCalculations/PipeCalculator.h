@@ -66,11 +66,15 @@ struct PipeSegmentResult {
     int returnNominalDiameter;   // Diamètre nominal retour en mm
     double returnActualDiameter; // Diamètre intérieur réel retour en mm
     double heatLoss;         // Pertes thermiques en W
-    double returnTemperature;    // Température de l'eau de retour en °C
+    double returnTemperature;    // Température de l'eau de retour en °C (OBSOLÈTE - utiliser returnOutletTemperature)
 
-    // Températures pour ECS (avec et sans bouclage)
-    double inletTemperature;     // Température entrée segment en °C
-    double outletTemperature;    // Température sortie segment en °C (après pertes)
+    // Températures pour ECS (ALLER : parent → enfant)
+    double inletTemperature;     // Température entrée segment aller en °C
+    double outletTemperature;    // Température sortie segment aller en °C (après pertes)
+
+    // Températures pour retour bouclage (RETOUR : enfant → parent)
+    double returnInletTemperature;   // Température entrée retour en °C (vient des enfants)
+    double returnOutletTemperature;  // Température sortie retour en °C (après pertes dans le retour)
 
     std::string recommendation; // Recommandation
 
@@ -81,6 +85,7 @@ struct PipeSegmentResult {
         , returnNominalDiameter(0), returnActualDiameter(0)
         , heatLoss(0), returnTemperature(0)
         , inletTemperature(0), outletTemperature(0)
+        , returnInletTemperature(0), returnOutletTemperature(0)
     {}
 };
 
