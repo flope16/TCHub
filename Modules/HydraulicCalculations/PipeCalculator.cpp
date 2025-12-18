@@ -310,37 +310,49 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
 
         // ÉTAPE 7: Mettre à jour la pression et température d'entrée de tous les enfants
         // avec les valeurs de sortie correctes du parent
+        // IMPORTANT: Propagation RÉCURSIVE pour tous les descendants
+
+        // Fonction récursive pour propager les températures à tous les descendants
+        std::function<void(NetworkSegment&, double)> propagateTemperatureRecursive;
+        propagateTemperatureRecursive = [&](NetworkSegment& seg, double inletTemp) {
+            // Mettre à jour la température d'entrée
+            seg.result.inletTemperature = inletTemp;
+
+            // Recalculer les pertes thermiques avec la bonne température
+            seg.result.heatLoss = calculateHeatLossWithDetails(seg.length, seg.result.actualDiameter,
+                                                               networkParams.insulationThickness,
+                                                               inletTemp, networkParams.ambientTemperature,
+                                                               seg.result.details);
+
+            // Recalculer la température de sortie
+            if (seg.result.flowRate > 0) {
+                double flowRateKgPerS = seg.result.flowRate / 60.0;
+                double specificHeat = 4186.0;
+                double temperatureDrop = seg.result.heatLoss / (flowRateKgPerS * specificHeat);
+                seg.result.outletTemperature = inletTemp - temperatureDrop;
+                seg.result.details.temperatureDrop = temperatureDrop;
+            } else {
+                seg.result.outletTemperature = inletTemp;
+                seg.result.details.temperatureDrop = 0.0;
+            }
+
+            // Propager RÉCURSIVEMENT aux enfants de ce segment
+            for (auto& potentialChild : networkParams.segments) {
+                if (potentialChild.parentId == seg.id) {
+                    propagateTemperatureRecursive(potentialChild, seg.result.outletTemperature);
+                }
+            }
+        };
+
+        // Appliquer la propagation à tous les enfants directs
         for (auto* child : children) {
             child->inletPressure = segment.outletPressure;
 
             // Pour ECS: propager la température de sortie du parent vers l'entrée des enfants
-            // NOTE: les enfants ont déjà été calculés, on doit recalculer avec la bonne température
             if (networkParams.networkType == NetworkType::HotWater ||
                 networkParams.networkType == NetworkType::HotWaterWithLoop) {
-
-                // Recalculer les pertes thermiques et la température de sortie de l'enfant
-                // avec la température d'entrée correcte (= température sortie parent)
                 double childInletTemp = segment.result.outletTemperature;
-                child->result.inletTemperature = childInletTemp;
-
-                // Recalculer les pertes thermiques avec la bonne température (avec détails)
-                child->result.heatLoss = calculateHeatLossWithDetails(child->length, child->result.actualDiameter,
-                                                          networkParams.insulationThickness,
-                                                          childInletTemp, networkParams.ambientTemperature,
-                                                          child->result.details);
-
-                // Recalculer la température de sortie
-                if (child->result.flowRate > 0) {
-                    double flowRateKgPerS = child->result.flowRate / 60.0;
-                    double specificHeat = 4186.0;
-                    double temperatureDrop = child->result.heatLoss / (flowRateKgPerS * specificHeat);
-                    child->result.outletTemperature = childInletTemp - temperatureDrop;
-                    // IMPORTANT: Mettre à jour les détails pour le PDF
-                    child->result.details.temperatureDrop = temperatureDrop;
-                } else {
-                    child->result.outletTemperature = childInletTemp;
-                    child->result.details.temperatureDrop = 0.0;
-                }
+                propagateTemperatureRecursive(*child, childInletTemp);
             }
         }
     };
