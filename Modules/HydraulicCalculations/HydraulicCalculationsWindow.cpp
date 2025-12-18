@@ -1354,26 +1354,39 @@ QString HydraulicCalculationsWindow::generatePDFHtml()
             html += "<h4>5. Calcul des pertes thermiques (ECS)</h4>";
             html += "<table>";
             html += "<tr><th>Paramètre</th><th>Valeur</th></tr>";
-            html += "<tr><td>Rayon intérieur du tube (r1)</td><td>" +
+            html += "<tr><td>Diamètre intérieur tube (D_int)</td><td>" +
+                    QString::number(segment.result.actualDiameter, 'f', 1) + " mm</td></tr>";
+            html += "<tr><td>Épaisseur isolation</td><td>" +
+                    QString::number(insulationSpin->value(), 'f', 1) + " mm</td></tr>";
+            html += "<tr><td>Température eau (T_in)</td><td>" +
+                    QString::number(segment.result.inletTemperature, 'f', 1) + " °C</td></tr>";
+            html += "<tr><td>Température ambiante (T_amb)</td><td>" +
+                    QString::number(ambientTempSpin->value(), 'f', 1) + " °C</td></tr>";
+            html += "<tr><td colspan='2' style='background-color: #f0f0f0;'><em>Géométrie calculée:</em></td></tr>";
+            html += "<tr><td>Rayon extérieur tube + paroi (r1)</td><td>" +
                     QString::number(segment.result.details.r1 * 1000, 'f', 2) + " mm</td></tr>";
             html += "<tr><td>Rayon extérieur avec isolation (r2)</td><td>" +
                     QString::number(segment.result.details.r2 * 1000, 'f', 2) + " mm</td></tr>";
+            html += "<tr><td>Épaisseur isolation calculée</td><td>" +
+                    QString::number((segment.result.details.r2 - segment.result.details.r1) * 1000, 'f', 2) + " mm</td></tr>";
+            html += "<tr><td colspan='2' style='background-color: #f0f0f0;'><em>Résistances thermiques:</em></td></tr>";
             html += "<tr><td>Résistance thermique isolation (R_isol)</td><td>" +
                     QString::number(segment.result.details.thermalResistanceInsul, 'f', 4) + " K·m/W</td></tr>";
             html += "<tr><td>Résistance thermique externe (R_ext)</td><td>" +
                     QString::number(segment.result.details.thermalResistanceExt, 'f', 4) + " K·m/W</td></tr>";
             html += "<tr><td>Résistance totale (R_tot)</td><td>" +
                     QString::number(segment.result.details.thermalResistanceInsul + segment.result.details.thermalResistanceExt, 'f', 4) + " K·m/W</td></tr>";
+            html += "<tr><td colspan='2' style='background-color: #f0f0f0;'><em>Résultats:</em></td></tr>";
             html += "<tr><td>Perte thermique linéique</td><td>" +
                     QString::number(segment.result.details.heatLossPerMeter, 'f', 2) + " W/m</td></tr>";
             html += "<tr class='result'><td><strong>Perte thermique totale</strong></td><td><strong>" +
                     QString::number(segment.result.heatLoss, 'f', 1) + " W</strong></td></tr>";
-            html += "<tr><td>Chute de température</td><td>" +
-                    QString::number(segment.result.details.temperatureDrop, 'f', 2) + " °C</td></tr>";
-            html += "<tr><td>Température entrée</td><td>" +
-                    QString::number(segment.result.inletTemperature, 'f', 1) + " °C</td></tr>";
-            html += "<tr><td>Température sortie</td><td>" +
-                    QString::number(segment.result.outletTemperature, 'f', 1) + " °C</td></tr>";
+            html += "<tr><td>Débit utilisé pour la chute</td><td>" +
+                    QString::number(segment.result.flowRate * 0.06, 'f', 2) + " m³/h</td></tr>";
+            html += "<tr class='result'><td><strong>Chute de température</strong></td><td><strong>" +
+                    QString::number(segment.result.details.temperatureDrop, 'f', 3) + " °C</strong></td></tr>";
+            html += "<tr class='result'><td><strong>Température sortie (T_out)</strong></td><td><strong>" +
+                    QString::number(segment.result.outletTemperature, 'f', 2) + " °C</strong></td></tr>";
             html += "</table>";
         }
 

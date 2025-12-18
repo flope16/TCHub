@@ -483,23 +483,24 @@ void PipeCalculator::calculateNetwork(NetworkCalculationParameters& networkParam
         recalculateAllerTemperatures = [&](NetworkSegment& segment) {
             // La température d'entrée a déjà été définie (source ou parent)
 
-            // Recalculer les pertes thermiques ALLER avec le débit de bouclage
-            // Le débit de bouclage à l'aller = débit de retour du segment
-            double bouclageFlowRateM3h = segment.result.returnFlowRate * 60.0 / 1000.0;  // L/min → m³/h
-
-            segment.result.heatLoss = calculateHeatLoss(
+            // Recalculer les pertes thermiques ALLER avec détails
+            segment.result.heatLoss = calculateHeatLossWithDetails(
                 segment.length, segment.result.actualDiameter,
                 networkParams.insulationThickness,
-                segment.result.inletTemperature, networkParams.ambientTemperature);
+                segment.result.inletTemperature, networkParams.ambientTemperature,
+                segment.result.details);
 
-            // Calculer la chute de température ALLER avec le débit de bouclage
-            // Formule : ΔT = Pertes (W) / (1160 × Q_bouclage (m³/h))
+            // Calculer la chute de température ALLER avec le DÉBIT ALLER (flowRate)
+            // PAS avec returnFlowRate ! L'aller transporte l'eau chaude consommée + bouclage
             double temperatureDrop = 0.0;
-            if (bouclageFlowRateM3h > 0.0001) {
-                temperatureDrop = segment.result.heatLoss / (1160.0 * bouclageFlowRateM3h);
+            if (segment.result.flowRate > 0.0001) {
+                double flowRateKgPerS = segment.result.flowRate / 60.0;  // L/min → kg/s
+                double specificHeat = 4186.0;  // J/(kg·K)
+                temperatureDrop = segment.result.heatLoss / (flowRateKgPerS * specificHeat);
             }
 
             segment.result.outletTemperature = segment.result.inletTemperature - temperatureDrop;
+            segment.result.details.temperatureDrop = temperatureDrop;
 
             // Propager aux enfants
             for (auto& child : networkParams.segments) {
@@ -970,11 +971,20 @@ double PipeCalculator::calculateHeatLoss(double length, double diameter, double 
     //    R_isol = ln(r2/r1) / (2πλ)
     //    R_ext = 1 / (h_ext × 2πr2)
 
-    // Rayon extérieur du tube (m)
-    double r1 = (diameter / 1000.0) / 2.0;
+    // NOTE: 'diameter' est le diamètre INTÉRIEUR du tube
+    // Pour les pertes thermiques, on doit utiliser le rayon EXTÉRIEUR
+
+    // Rayon intérieur du tube (m)
+    double r_int = (diameter / 1000.0) / 2.0;
+
+    // Estimer l'épaisseur de paroi (approximation pour cuivre/PER)
+    double wallThickness = (diameter <= 22.0) ? 0.001 : 0.0015;  // en mètres
+
+    // Rayon extérieur du tube métallique (avant isolation)
+    double r1 = r_int + wallThickness;
 
     // Rayon extérieur avec isolation (m)
-    double r2 = (diameter / 1000.0 + 2.0 * insulation / 1000.0) / 2.0;
+    double r2 = r1 + (insulation / 1000.0);
 
     // Conductivité thermique de l'isolation (W/m·K)
     // Valeur typique pour mousse polyuréthane ou polystyrène expansé
@@ -1015,11 +1025,21 @@ double PipeCalculator::calculateHeatLoss(double length, double diameter, double 
 double PipeCalculator::calculateHeatLossWithDetails(double length, double diameter, double insulation,
                                                     double waterTemp, double ambientTemp,
                                                     CalculationDetails& details) {
-    // Rayon extérieur du tube (m)
-    details.r1 = (diameter / 1000.0) / 2.0;
+    // NOTE: 'diameter' est le diamètre INTÉRIEUR du tube
+    // Pour les pertes thermiques, on doit utiliser le rayon EXTÉRIEUR
+
+    // Rayon intérieur du tube (m)
+    double r_int = (diameter / 1000.0) / 2.0;
+
+    // Estimer l'épaisseur de paroi (approximation pour cuivre/PER)
+    // Pour DN ≤ 22mm : ~1mm, pour DN > 22mm : ~1.5mm
+    double wallThickness = (diameter <= 22.0) ? 0.001 : 0.0015;  // en mètres
+
+    // Rayon extérieur du tube métallique (avant isolation)
+    details.r1 = r_int + wallThickness;
 
     // Rayon extérieur avec isolation (m)
-    details.r2 = (diameter / 1000.0 + 2.0 * insulation / 1000.0) / 2.0;
+    details.r2 = details.r1 + (insulation / 1000.0);
 
     // Conductivité thermique de l'isolation (W/m·K)
     const double lambda = 0.04;
